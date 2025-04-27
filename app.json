@@ -36,6 +36,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "00d1dc81-4d80-4e94-a16f-6cea22ec1dbd"
+      }
+    },
+    "owner": "emcor"
   }
 }
