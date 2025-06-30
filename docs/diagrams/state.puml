@@ -1,0 +1,49 @@
+@startuml state
+
+skinparam state {
+    BackgroundColor White
+    BorderColor Black
+    FontSize 14
+}
+
+[*] --> LogPage : App starts
+
+state LogPage {
+    
+    CalendarView --> WorkoutDetail : Workout details
+    WorkoutDetail --> NewWorkout : Perform workout again
+    CalendarView --> NewWorkout : Start new workout
+    NewWorkout --> Exercises : Add new exercise
+    Exercises --> NewWorkout : Cancel new exercise
+    Exercises --> NewWorkout : Add exercise
+    Exercises --> CreateExercise : Create exercise
+    CreateExercise --> Exercises : Exercise created
+    CreateExercise --> Exercises : Cancel create exercise
+    NewWorkout --> CalendarView : Finish workout
+    NewWorkout --> CalendarView : Cancel workout
+
+}
+
+state StatsPage {
+    StatsView --> StatsExercises : View stats exercises
+    StatsView --> StatsBodyWeight : View stats bodyweight
+    StatsExercises --> StatsExercise : View specific exercise
+    StatsBodyWeight --> StatsView : Cancel view
+    StatsExercises --> StatsView : Cancel view
+    StatsExercise --> StatsExercises : Cancel View
+
+}
+
+state ProfilePage{
+}
+
+LogPage --> StatsPage : go to stats
+LogPage --> ProfilePage : go to profile
+
+StatsPage --> LogPage : go to log
+StatsPage --> ProfilePage : go to profile
+
+ProfilePage --> LogPage : go to log
+ProfilePage --> StatsPage : go to stats
+
+@enduml

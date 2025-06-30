@@ -1,0 +1,19 @@
+@startuml Fitness
+left to right direction
+skinparam packageStyle rectangle
+
+actor User
+
+
+rectangle "Fitness App" {
+    User --> (Enter Logpage)
+    User --> (Enter Statspage)
+    User --> (Enter Profilepage)
+    User --> (Start Workout)
+    User --> (Exit Workout)
+    User --> (Browse Workouts)
+
+    
+}
+
+@enduml
