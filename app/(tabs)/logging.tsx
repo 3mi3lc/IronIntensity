@@ -1,5 +1,6 @@
-import {View, Text} from 'react-native'
-import React from 'react'
+import { View, Text, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '@/utils/supabase';
 
 const Logging = () => {
     return (
