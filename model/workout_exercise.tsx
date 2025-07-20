@@ -8,4 +8,5 @@ export default class WorkoutExercise extends Model {
     @field('exercise_id') exerciseId!: string | null; // nullable uuid foreign key
     @field('order_index') orderIndex!: number | null;
     @date('created_at') createdAt!: Date;
+    @date('updated_at') updatedAt!: Date;
 }

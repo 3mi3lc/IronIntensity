@@ -9,4 +9,5 @@ export default class WorkoutExerciseSet extends Model {
     @field('reps') reps!: number;
     @field('weight') weight!: number | null;
     @date('created_at') createdAt!: Date;
+    @date('updated_at') updatedAt!: Date;
 }

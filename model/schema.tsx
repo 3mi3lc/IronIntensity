@@ -47,5 +47,13 @@ export const schema = appSchema({
                 { name: 'remote_id', type: 'string', isIndexed: true },
             ]
         }),
+        tableSchema({
+            name: 'user',
+            columns: [
+                { name: 'email', type: 'string' },
+                { name: 'created_at', type: 'number' },
+                { name: 'display_name', type: 'string' },
+            ],
+        })
     ],
 })
