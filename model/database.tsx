@@ -2,10 +2,10 @@ import SQLiteAdapter from "@nozbe/watermelondb/adapters/sqlite";
 import {schema} from "@/model/schema";
 import migrations from "@/model/migrations";
 import {Database} from "@nozbe/watermelondb";
-import Exercise from "@/model/exercise";
-import Workout from "@/model/workout";
-import WorkoutExercise from "@/model/workout_exercise";
-import WorkoutExerciseSet from "@/model/workout_exercise_set";
+import Exercises from "@/model/exercises";
+import Workouts from "@/model/workouts";
+import WorkoutExercises from "@/model/workout_exercises";
+import WorkoutExerciseSets from "@/model/workout_exercise_sets";
 
 const adapter = new SQLiteAdapter({
     schema,
@@ -19,5 +19,5 @@ const adapter = new SQLiteAdapter({
 // Watermelon database
 export const database = new Database({
     adapter,
-    modelClasses: [Exercise, Workout, WorkoutExercise, WorkoutExerciseSet],
+    modelClasses: [Exercises, Workouts, WorkoutExercises, WorkoutExerciseSets],
 })

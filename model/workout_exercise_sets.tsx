@@ -2,7 +2,11 @@ import { Model } from '@nozbe/watermelondb';
 import { field, date } from '@nozbe/watermelondb/decorators';
 
 export default class WorkoutExerciseSet extends Model {
-    static table = 'workout_exercise_set' as const;
+    static table = 'workout_exercise_sets' as const;
+    static associations = {
+        workout_exercise: { type: 'belongs_to', key: 'workout_exercise_id' } as const,
+    };
+
 
     @field('workout_exercise_id') workoutExerciseId!: string | null;
     @field('set_number') setNumber!: number;

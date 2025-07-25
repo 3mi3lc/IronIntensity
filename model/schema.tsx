@@ -12,6 +12,7 @@ export const schema = appSchema({
                 { name: 'user_id', type: 'string' },
                 { name: 'updated_at', type: 'number' }, // epoch timestamp (for sync)
                 { name: 'remote_id', type: 'string', isIndexed: true }, // Supabase UUID
+                { name: 'created_at', type: 'number' },
             ]
         }),
         tableSchema({
@@ -48,7 +49,7 @@ export const schema = appSchema({
             ]
         }),
         tableSchema({
-            name: 'user',
+            name: 'users',
             columns: [
                 { name: 'email', type: 'string' },
                 { name: 'created_at', type: 'number' },

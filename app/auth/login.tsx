@@ -11,7 +11,7 @@ export default function Login() {
 
     async function signInWithEmail() {
         setLoading(true);
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
             Alert.alert(error.message);
@@ -24,7 +24,7 @@ export default function Login() {
         if (userError) {
             console.error("Error fetching user after sign-in:", userError.message);
         } else {
-            console.log("User logged in:", userData.user);
+            console.log("Users logged in:", userData.user);
         }
 
         setLoading(false);
