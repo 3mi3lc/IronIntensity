@@ -3,8 +3,8 @@ module.exports = function (api) {
     return {
         presets: [
             ["babel-preset-expo", { jsxImportSource: "nativewind" }],
-            "nativewind/babel", "module:metro-react-native-babel-preset",
+            "nativewind/babel",
         ],
-        plugins: [["@babel/plugin-proposal-decorators", { "legacy": true }], ]
+        plugins: []
     };
 };
