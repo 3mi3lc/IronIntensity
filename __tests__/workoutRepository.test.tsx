@@ -1,9 +1,17 @@
-import { createWorkout } from '@/repositories/workouts';
+import {
+    createWorkout,
+    getAllWorkouts,
+    updateWorkoutNameById,
+    softDeleteWorkoutById,
+    getWorkoutById,
+} from '@/repositories/workouts';
 import { workouts } from '@/db/schema';
 
-// Mock db and its insert chain
+// Shared mock functions
 const mockValues = jest.fn();
 const mockReturning = jest.fn();
+const mockWhere = jest.fn();
+const mockFrom = jest.fn();
 
 jest.mock('@/db/client', () => ({
     db: {
@@ -14,21 +22,15 @@ jest.mock('@/db/client', () => ({
                 returning: mockReturning,
             };
         }),
+        update: jest.fn(() => ({
+            set: jest.fn().mockReturnThis(),
+            where: mockWhere,
+        })),
         select: jest.fn(() => {
             console.log('db.select called');
             return {
-                from: jest.fn().mockReturnThis(),
-                where: jest.fn().mockResolvedValue([
-                    {
-                        id: 'test-id-123',
-                        user_id: 'user-1',
-                        name: 'My Workout',
-                        created_at: '2025-07-27T10:00:00Z',
-                        updated_at: '2025-07-27T10:00:00Z',
-                        deleted_at: null,
-                        is_synced: 0,
-                    },
-                ]),
+                from: mockFrom,
+                where: mockWhere,
             };
         }),
     },
@@ -72,5 +74,101 @@ describe('createWorkout', () => {
         }));
         expect(mockReturning).toHaveBeenCalled();
         expect(result).toMatchObject(insertedRow);
+    });
+});
+
+describe('getAllWorkouts', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('returns all workouts from db', async () => {
+        const mockSelectResult = [{ id: 'w1' }, { id: 'w2' }];
+        mockFrom.mockResolvedValue(mockSelectResult);
+
+        const result = await getAllWorkouts();
+        console.log('getAllWorkouts result:', result);
+
+        expect(db.select).toHaveBeenCalled();
+        expect(mockFrom).toHaveBeenCalledWith(workouts);
+        expect(result).toEqual(mockSelectResult);
+    });
+});
+
+describe('updateWorkoutName', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('updates the workout name', async () => {
+        const mockSet = jest.fn().mockReturnThis();
+        const mockUpdate = jest.fn(() => ({
+            set: mockSet,
+            where: mockWhere,
+        }));
+        (db.update as jest.Mock) = mockUpdate;
+
+        await updateWorkoutNameById('w123', 'New Name');
+
+        expect(mockUpdate).toHaveBeenCalledWith(workouts);
+        expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+            name: 'New Name',
+            is_synced: 0,
+        }));
+        expect(mockWhere).toHaveBeenCalled();
+    });
+});
+
+describe('softDeleteWorkout', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('soft deletes the workout by setting deleted_at', async () => {
+        const mockSet = jest.fn().mockReturnThis();
+        const mockUpdate = jest.fn(() => ({
+            set: mockSet,
+            where: mockWhere,
+        }));
+        (db.update as jest.Mock) = mockUpdate;
+
+        await softDeleteWorkoutById('w999');
+
+        expect(mockUpdate).toHaveBeenCalledWith(workouts);
+        expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+            deleted_at: expect.any(String),
+            updated_at: expect.any(String),
+            is_synced: 0,
+        }));
+        expect(mockWhere).toHaveBeenCalled();
+    });
+});
+
+describe('getWorkoutById', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('returns workout by id if not deleted', async () => {
+        const mockWorkout = {
+            id: 'w123',
+            name: 'Test',
+            deleted_at: null,
+        };
+        mockWhere.mockResolvedValue([mockWorkout]);
+
+        const result = await getWorkoutById('w123');
+
+        expect(db.select).toHaveBeenCalled();
+        expect(mockWhere).toHaveBeenCalled();
+        expect(result).toEqual(mockWorkout);
+    });
+
+    it('returns null if workout is not found', async () => {
+        mockWhere.mockResolvedValue([]);
+
+        const result = await getWorkoutById('unknown');
+
+        expect(result).toBeNull();
     });
 });

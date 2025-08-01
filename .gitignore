@@ -37,5 +37,6 @@ yarn-error.*
 
 # local utils
 list_files.py
+coverage
 
 app-example

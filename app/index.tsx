@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
+import 'react-native-get-random-values';
 import * as schema from '@/db/schema';
 
 export default function Index() {
