@@ -1,29 +1,30 @@
-// src/repositories/users.ts
 import { db } from '@/db/client';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { newId } from '@/utils/id';
-import type { NewUser, User } from './types';
+import type { User, NewUser } from './types';
 
-export async function createUser(data: Omit<NewUser, 'id'>): Promise<User> {
-    const id = newId();
-    await db.insert(users).values({ ...data, id });
-    const [created] = await db.select().from(users).where(eq(users.id, id));
+export async function createUser(data: Omit<NewUser, 'id'> & { id: string }): Promise<User> {
+    await db.insert(users).values(data);
+    const [created] = await db.select().from(users).where(eq(users.id, data.id));
     return created;
 }
 
-export async function getUserById(id: string) {
-    const [u] = await db.select().from(users).where(eq(users.id, id));
-    return u ?? null;
+export async function updateUsername(id: string, username: string, options?: {returnData : boolean}): Promise<User | boolean> {
+    const query = db
+        .update(users)
+        .set({ username })
+        .where(eq(users.id, id));
+
+    if(options?.returnData){
+        const [updatedUser] = await query.returning();
+        return updatedUser;
+    }
+
+    const result = await query;
+    return result.changes > 0;
 }
 
-export async function getUserByEmail(email: string) {
-    const [u] = await db.select().from(users).where(eq(users.email, email));
-    return u ?? null;
+export async function getCurrentUser(): Promise<User | null> {
+    const [user] = await db.select().from(users).limit(1);
+    return user ?? null;
 }
-
-export async function listUsers() {
-    return db.select().from(users);
-}
-
-// soft delete helper if you add deleted_at/is_synced to users later

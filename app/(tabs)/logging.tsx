@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, Button, ScrollView } from 'react-native';
-import { createWorkout, updateWorkoutNameById } from '@/repositories/workouts';
+import {
+    createWorkout,
+    updateWorkoutNameById,
+    getAllWorkouts,
+    getWorkoutById,
+    softDeleteWorkoutById
+} from '@/repositories/workouts';
 
 const Logging = () => {
     const [loading, setLoading] = useState(false);
@@ -16,7 +22,7 @@ const Logging = () => {
                 user_id: 'test-user',
                 name: 'Manual Test Workout',
                 deleted_at: null,
-            });
+            }, {returnCreated: true});
             setResult(newWorkout);
             console.log('Workout created:', newWorkout);
         } catch (err: any) {
@@ -42,6 +48,54 @@ const Logging = () => {
         setLoading(false);
     }
 
+    async function handleGetAllWorkouts() {
+        setLoading(true);
+        setError(null);
+        setResult(null);
+        try{
+            const workouts = await getAllWorkouts();
+            setResult(workouts);
+            console.log('Workouts obtained from DB:', workouts);
+        }
+        catch(err: any) {
+            setError(err.message || 'Unknown error');
+            console.error(err);
+        }
+        setLoading(false);
+    }
+
+    async function handleGetWorkoutById() {
+        setLoading(true);
+        setError(null);
+        setResult(null);
+        try{
+            const workout = await getWorkoutById('1335664e-b46c-47cd-a837-960d93361d6b');
+            setResult(workout);
+            console.log('Workouts obtained from DB:', workout);
+        }
+        catch(err: any) {
+            setError(err.message || 'Unknown error');
+            console.error(err);
+        }
+        setLoading(false);
+    }
+
+    async function handleSoftDeleteWorkout() {
+        setLoading(true);
+        setError(null);
+        setResult(null);
+        try{
+            const workout = await softDeleteWorkoutById('1ab4fec6-2e71-4750-9fee-188ccca65453');
+            setResult(workout);
+            console.log('Workouts obtained from DB:', workout);
+        }
+        catch(err: any) {
+            setError(err.message || 'Unknown error');
+            console.error(err);
+        }
+        setLoading(false);
+    }
+
 
 
     return (
@@ -53,9 +107,31 @@ const Logging = () => {
                     disabled={loading}
                 />
             </View>
+
             <View className="w-full">
                 <Button title={loading ? 'Updating Workout...' : 'Update Workout'}
                         onPress={handleUpdateWorkout}
+                        disabled={loading}>
+                </Button>
+            </View>
+
+            <View className="w-full">
+                <Button title={loading ? 'Getting Workouts...' : 'Get all workouts'}
+                        onPress={handleGetAllWorkouts}
+                        disabled={loading}>
+                </Button>
+            </View>
+
+            <View className="w-full">
+                <Button title={loading ? 'Getting Workouts...' : 'Get workout by Id'}
+                        onPress={handleGetWorkoutById}
+                        disabled={loading}>
+                </Button>
+            </View>
+
+            <View className="w-full">
+                <Button title={loading ? 'Getting Workouts...' : 'Delete workout by Id'}
+                        onPress={handleSoftDeleteWorkout}
                         disabled={loading}>
                 </Button>
             </View>

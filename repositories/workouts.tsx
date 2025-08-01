@@ -10,41 +10,61 @@ export async function getAllWorkouts(): Promise<Workout[]> {
 }
 
 export async function createWorkout(
-    data: Omit<NewWorkout, 'id' | 'created_at' | 'updated_at' | 'is_synced'>
-): Promise<Workout> {
+    data: Omit<NewWorkout, 'id' | 'created_at' | 'updated_at' | 'is_synced'>,
+    options?: { returnData?: boolean }
+): Promise<Workout | boolean> {
     const id = newId();
     const ts = now();
 
-    // Insert and get the inserted row back directly
-    const [insertedWorkout] = await db.insert(workouts).values({
+    const query = db.insert(workouts).values({
         ...data,
         id,
         created_at: ts,
         updated_at: ts,
         is_synced: 0,
-    }).returning();
+    });
 
-    return insertedWorkout;
+    if (options?.returnData) {
+        const [insertedWorkout] = await query.returning();
+        return insertedWorkout;
+    }
+
+    const result = await query;
+    return result.changes > 0;
 }
 
-export async function updateWorkoutNameById(id: string, name: string):Promise<Workout | null> {
-    const [updatedWorkout] = await db
+export async function updateWorkoutNameById(
+    id: string,
+    name: string,
+    options?: {returnData: boolean}):Promise<Workout | boolean> {
+
+    const query = db
         .update(workouts)
         .set({name, updated_at: now(), is_synced: 0})
-        .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)))
-        .returning();
+        .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
-    return updatedWorkout;
+    if(options?.returnData) {
+        const [updatedWorkout] = await query.returning();
+        return updatedWorkout;
+    }
+
+    const result = await query ;
+    return result.changes > 0;
 }
 
-export async function softDeleteWorkoutById(id: string):Promise<Workout | null> {
-    const [deletedWorkout] = await db
+export async function softDeleteWorkoutById(id: string, options?: {returnData : boolean}):Promise<Workout | boolean> {
+    const query = db
         .update(workouts)
         .set({ deleted_at: now(), updated_at: now(), is_synced: 0 })
-        .where(eq(workouts.id, id))
-        .returning();
+        .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
-    return deletedWorkout;
+    if(options?.returnData) {
+        const [deletedWorkout] = await query.returning();
+        return deletedWorkout;
+    }
+
+    const result = await query;
+    return result.changes > 0;
 }
 
 export async function getWorkoutById(id: string):Promise<Workout | null> {
@@ -53,5 +73,5 @@ export async function getWorkoutById(id: string):Promise<Workout | null> {
         .from(workouts)
         .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
-    return workout;
+    return workout ?? null;
 }
