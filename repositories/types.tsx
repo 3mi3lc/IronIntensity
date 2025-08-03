@@ -21,3 +21,20 @@ export type NewWorkoutExercise = typeof workout_exercises.$inferInsert;
 
 export type WorkoutExerciseSet = typeof workout_exercise_sets.$inferSelect;
 export type NewWorkoutExerciseSet = typeof workout_exercise_sets.$inferInsert;
+
+export type ExerciseWithSets = {
+    workoutExerciseId: string;
+    orderIndex: number | null;
+    exercise: {
+        id: string;
+        name: string;
+        description?: string | null;
+    };
+    sets: {
+        id: string;
+        setNumber: number;
+        reps: number;
+        weight: number | null;
+    }[];
+};
+

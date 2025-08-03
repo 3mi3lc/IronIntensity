@@ -1,9 +1,9 @@
 // src/repositories/workouts.ts
 import {db} from '@/db/client';
-import { workouts} from '@/db/schema';
+import {exercises, workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
 import {and, eq, isNull} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
-import type {NewWorkout, Workout} from './types';
+import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 
 export async function getAllWorkouts(): Promise<Workout[]> {
     return db.select().from(workouts);
@@ -74,4 +74,59 @@ export async function getWorkoutById(id: string):Promise<Workout | null> {
         .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
     return workout ?? null;
+}
+
+export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise<ExerciseWithSets[]> {
+    // 1. Get all workout_exercises for the workout (non-deleted), include exercise info
+    const workoutExercises = await db
+        .select({
+            workoutExerciseId: workout_exercises.id,
+            orderIndex: workout_exercises.order_index,
+            exerciseId: exercises.id,
+            exerciseName: exercises.name,
+            exerciseDescription: exercises.description,
+        })
+        .from(workout_exercises)
+        .leftJoin(exercises, eq(workout_exercises.exercise_id, exercises.id))
+        .where(
+            and(
+                eq(workout_exercises.workout_id, workoutId),
+                isNull(workout_exercises.deleted_at)
+            )
+        )
+        .orderBy(workout_exercises.order_index);
+
+    // 2. For each workout_exercise, get its sets (non-deleted)
+    const results: ExerciseWithSets[] = [];
+
+    for (const we of workoutExercises) {
+        const sets = await db
+            .select({
+                id: workout_exercise_sets.id,
+                setNumber: workout_exercise_sets.set_number,
+                reps: workout_exercise_sets.reps,
+                weight: workout_exercise_sets.weight,
+            })
+            .from(workout_exercise_sets)
+            .where(
+                and(
+                    eq(workout_exercise_sets.workout_exercise_id, we.workoutExerciseId),
+                    isNull(workout_exercise_sets.deleted_at)
+                )
+            )
+            .orderBy(workout_exercise_sets.set_number);
+
+        results.push({
+            workoutExerciseId: we.workoutExerciseId,
+            orderIndex: we.orderIndex,
+            exercise: {
+                id: we.exerciseId!,
+                name: we.exerciseName!,
+                description: we.exerciseDescription,
+            },
+            sets,
+        });
+    }
+
+    return results;
 }
