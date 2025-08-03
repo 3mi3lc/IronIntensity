@@ -13,7 +13,7 @@ function Profile() {
     };
 
     return (
-        <View className="flex-1 items-center justify-center bg-surface_a10">
+        <View className="flex-1 items-center justify-center bg-surface_a0">
             <Text className="text-white font-bold text-xl mb-6">Profile</Text>
 
             <Pressable

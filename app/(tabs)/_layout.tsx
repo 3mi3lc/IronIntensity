@@ -2,7 +2,7 @@
 import React from 'react'
 import {Tabs} from "expo-router";
 import {icons} from "@/constants/icons";
-import {Image, ImageBackground, View, Text} from "react-native";
+import {Image, View } from "react-native";
 
 const TabIcon = ({focused, icon} : any) => {
     return (
@@ -17,15 +17,16 @@ const _Layout = () => {
     return (
         <Tabs screenOptions={{
             tabBarStyle: {
-                backgroundColor: '#282828',  // fully transparent background
+                backgroundColor: '#121212',  // fully transparent background
                 borderTopWidth: 0,                // no border
                 elevation: 0,                    // no shadow Android
-                shadowOpacity: 0,                // no shadow iOS
+                shadowOpacity: 10,                // no shadow iOS
                 position: 'absolute',            // make it float on top
                 left: 0,
                 right: 0,
                 bottom: 0,
-                paddingBottom: 10,
+                paddingBottom: 0,
+                paddingTop: 5,
                 height: 70,
             },
             tabBarActiveTintColor: '#eb0202', // active icon/text color

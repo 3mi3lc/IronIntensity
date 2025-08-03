@@ -20,6 +20,7 @@ export async function addSet(
 
     const id = newId();
     const ts = now();
+
     await db.insert(workout_exercise_sets).values({
         id,
         workout_exercise_id: workoutExerciseId,
