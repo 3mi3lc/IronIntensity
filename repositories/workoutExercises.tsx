@@ -1,7 +1,7 @@
 // src/repositories/workoutExercises.ts
 import {db} from '@/db/client';
 import { workout_exercises} from '@/db/schema';
-import {and, asc, eq, isNull, sql} from 'drizzle-orm';
+import {and, asc, eq, isNull, sql, gt, gte, lt, lte} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {WorkoutExercise } from './types';
 
@@ -70,6 +70,85 @@ export async function reorderWorkoutExercises(
                 );
         }
     });
+}
+
+export async function moveWorkoutExerciseToIndex(
+    workoutExerciseId: string,
+    newIndex: number,
+    options?: { returnData?: boolean }
+): Promise<boolean | typeof workout_exercises.$inferSelect | null> {
+    const [current] = await db
+        .select()
+        .from(workout_exercises)
+        .where(eq(workout_exercises.id, workoutExerciseId));
+
+    if (!current || current.deleted_at == null) return false;
+
+    const workoutId = current.workout_id;
+    const oldIndex = current.order_index ?? 0;
+
+    if (newIndex === oldIndex) {
+        if (options?.returnData) return current;
+        return true;
+    }
+
+    await db.transaction(async (tx) => {
+        if (newIndex < oldIndex) {
+            // Shift items between newIndex and oldIndex down
+            await tx
+                .update(workout_exercises)
+                .set({
+                    order_index: sql`${workout_exercises.order_index} + 1`,
+                    updated_at: now(),
+                    is_synced: 0,
+                })
+                .where(
+                    and(
+                        eq(workout_exercises.workout_id, workoutId!),
+                        gte(workout_exercises.order_index, newIndex),
+                        lt(workout_exercises.order_index, oldIndex),
+                        isNull(workout_exercises.deleted_at)
+                    )
+                );
+        } else {
+            // Shift items between oldIndex and newIndex up
+            await tx
+                .update(workout_exercises)
+                .set({
+                    order_index: sql`${workout_exercises.order_index} - 1`,
+                    updated_at: now(),
+                    is_synced: 0,
+                })
+                .where(
+                    and(
+                        eq(workout_exercises.workout_id, workoutId!),
+                        gt(workout_exercises.order_index, oldIndex),
+                        lte(workout_exercises.order_index, newIndex),
+                        isNull(workout_exercises.deleted_at)
+                    )
+                );
+        }
+
+        // Move the current item to the new index
+        await tx
+            .update(workout_exercises)
+            .set({
+                order_index: newIndex,
+                updated_at: now(),
+                is_synced: 0,
+            })
+            .where(eq(workout_exercises.id, workoutExerciseId));
+    });
+
+    if (options?.returnData) {
+        const [updated] = await db
+            .select()
+            .from(workout_exercises)
+            .where(eq(workout_exercises.id, workoutExerciseId));
+        return updated ?? null;
+    }
+
+    return true;
 }
 
 
