@@ -37,7 +37,7 @@ export default function SetListItem({
 
     return (
         <>
-            <View className="flex-row my-1 p-4 bg-surface_a20 rounded-lg items-center">
+            <View className="flex-row my-1 p-3 bg-surface_a20 rounded-lg items-center">
                 <View className="flex-1">
                     <View className="flex-row items-center justify-between">
                         <Text className="text-white font-bold">Set {setNumber}</Text>

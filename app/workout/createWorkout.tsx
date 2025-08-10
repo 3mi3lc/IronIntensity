@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import {View, Text, TouchableOpacity, SafeAreaView} from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
@@ -161,7 +161,8 @@ function CreateWorkout() {
     }
 
     return (
-        <View className="flex-1 bg-surface_a0 pt-16 px-4">
+        <SafeAreaView className="flex-1 bg-surface_a0 pt-16 px-4">
+        <View className="flex-1 pb-16 bg-surface_a0">
             <Text className="text-primary_a0 font-bold text-3xl mb-4">
                 {isNewWorkout ? 'New Workout' : name ?? 'Workout'}
             </Text>
@@ -191,6 +192,21 @@ function CreateWorkout() {
                                 // optionally revert UI changes or show error message here
                             }
                         }}
+                        ListFooterComponent={
+                            <View className="mt-6 mb-20 px-4">
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        console.log('Finish Workout pressed');
+                                        // Add your finish workout logic or navigation here
+                                    }}
+                                    className="bg-primary_a10 py-4 rounded-xl shadow-md items-center"
+                                    activeOpacity={0.8}
+                                >
+                                    <Text className="text-white font-bold text-lg">Finish Workout</Text>
+                                </TouchableOpacity>
+                            </View>
+                        }
+                        contentContainerStyle={{ paddingBottom: 200 }}
 
                     />
                 </>
@@ -201,7 +217,22 @@ function CreateWorkout() {
             )}
 
             {error && <Text className="text-red-400 mt-4">{error}</Text>}
+
+            {/* Floating buttons container */}
+            <View className="absolute bottom-6 right-4 flex-row justify-end">
+                <TouchableOpacity
+                    onPress={() => {
+                        console.log('Add Exercise pressed');
+                    }}
+                    className="bg-primary_a0 py-3 px-6 rounded-xl shadow-md"
+                    activeOpacity={0.8}
+                >
+                    <Text className="text-white font-bold text-lg">+ Exercise</Text>
+                </TouchableOpacity>
+            </View>
+
         </View>
+            </SafeAreaView>
     );
 }
 
