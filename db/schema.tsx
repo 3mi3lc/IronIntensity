@@ -61,3 +61,19 @@ export const workout_exercise_sets = sqliteTable('workout_exercise_sets', {
     deleted_at: text('deleted_at'),
     is_synced: integer('is_synced').default(0),
 });
+
+// Body Parts Table
+export const body_parts = sqliteTable('body_parts', {
+    id: text('id').primaryKey().notNull(),
+    name: text('name').notNull(),
+});
+
+// Exercise_BodyParts Junction Table (many-to-many)
+export const exercise_body_parts = sqliteTable('exercise_body_parts', {
+    exercise_id: text('exercise_id')
+        .notNull()
+        .references(() => exercises.id),
+    body_part_id: text('body_part_id')
+        .notNull()
+        .references(() => body_parts.id),
+});
