@@ -29,6 +29,7 @@ export type ExerciseWithSets = {
         id: string;
         name: string;
         description?: string | null;
+        order_index: number;
     };
     sets: {
         id: string;

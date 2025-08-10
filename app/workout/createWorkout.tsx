@@ -1,10 +1,12 @@
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import {ExerciseWithSets, Workout} from '@/repositories/types';
-import {getWorkoutById, getWorkoutWithExercisesAndSets} from '@/repositories/workouts';
-import WorkoutExerciseListItem from "@/components/workoutExerciseListItem";
-import {addSet} from "@/repositories/workoutExerciseSets";
+import { useEffect, useState, useCallback } from 'react';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
+import { ExerciseWithSets, Workout } from '@/repositories/types';
+import { getWorkoutById,  getWorkoutWithExercisesAndSets, } from '@/repositories/workouts';
+import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
+import { addSet,  softDeleteSet, updateSet, } from '@/repositories/workoutExerciseSets';
+import {reorderWorkoutExercises} from "@/repositories/workoutExercises";
 
 function CreateWorkout() {
     const { id, name } = useLocalSearchParams<{ id?: string; name?: string }>();
@@ -20,15 +22,10 @@ function CreateWorkout() {
         if (!id) return;
 
         setLoading(true);
-        Promise.all([
-            getWorkoutById(id),
-            getWorkoutWithExercisesAndSets(id)
-        ])
+        Promise.all([getWorkoutById(id), getWorkoutWithExercisesAndSets(id)])
             .then(([workoutResult, exerciseResult]) => {
                 setWorkout(workoutResult);
                 setExerciseData(exerciseResult);
-                //console.log(workoutResult);
-                console.log(exerciseResult);
             })
             .catch((err) => {
                 setError(err.message || 'Failed to load workout');
@@ -51,7 +48,7 @@ function CreateWorkout() {
 
             const formattedSet = {
                 id: newSet.id,
-                setNumber: newSet.set_number, // ✅ fix naming
+                setNumber: newSet.set_number,
                 reps: newSet.reps,
                 weight: newSet.weight,
             };
@@ -68,11 +65,92 @@ function CreateWorkout() {
             );
         } catch (err) {
             console.error('Failed to add set:', err);
-            // Optionally show toast or error state
         }
     };
 
+    const handleDeleteSet = async (workoutExerciseId: string, setId: string) => {
+        try {
+            const deleted = await softDeleteSet(setId);
+            if (!deleted) return;
 
+            setExerciseData((prev) =>
+                prev.map((exerciseItem) =>
+                    exerciseItem.workoutExerciseId === workoutExerciseId
+                        ? {
+                            ...exerciseItem,
+                            sets: exerciseItem.sets
+                                .filter((set) => set.id !== setId)
+                                .map((set, index) => ({
+                                ...set,
+                                setNumber: index + 1,
+                            })),
+
+                        }
+                        : exerciseItem
+                )
+            );
+        } catch (err) {
+            console.error('Failed to delete set:', err);
+        }
+    };
+
+    const handleUpdateSet = async (
+        workoutExerciseId: string,
+        setId: string,
+        updates: { reps?: number; weight?: number; setNumber?: number }
+    ) => {
+        try {
+            const updatedSet = await updateSet(setId, updates, { returnData: true });
+            if (!updatedSet || typeof updatedSet === 'boolean') return;
+
+            const formattedSet = {
+                id: updatedSet.id,
+                setNumber: updatedSet.set_number,
+                reps: updatedSet.reps,
+                weight: updatedSet.weight,
+            };
+
+            setExerciseData((prev) =>
+                prev.map((exerciseItem) =>
+                    exerciseItem.workoutExerciseId === workoutExerciseId
+                        ? {
+                            ...exerciseItem,
+                            sets: exerciseItem.sets.map((set) =>
+                                set.id === setId ? formattedSet : set
+                            ),
+                        }
+                        : exerciseItem
+                )
+            );
+        } catch (err) {
+            console.error('Failed to update set:', err);
+        }
+    };
+
+    const renderItem = useCallback(
+        ({ item, drag, isActive }: RenderItemParams<ExerciseWithSets>) => {
+            return (
+                <TouchableOpacity
+                    onLongPress={drag}
+                    disabled={isActive}
+                    activeOpacity={0.8}
+                    style={{ opacity: isActive ? 0.8 : 1 }}
+                >
+                    <WorkoutExerciseListItem
+                        exerciseItem={item}
+                        onEditSet={(setId, updates) =>
+                            handleUpdateSet(item.workoutExerciseId, setId, updates)
+                        }
+                        onDeleteSet={(setId) =>
+                            handleDeleteSet(item.workoutExerciseId, setId)
+                        }
+                        onAddSet={handleAddSet}
+                    />
+                </TouchableOpacity>
+            );
+        },
+        []
+    );
 
     if (loading) {
         return (
@@ -83,36 +161,47 @@ function CreateWorkout() {
     }
 
     return (
-        <ScrollView className="flex-1 bg-surface_a0 pt-16 px-4">
+        <View className="flex-1 bg-surface_a0 pt-16 px-4">
             <Text className="text-primary_a0 font-bold text-3xl mb-4">
                 {isNewWorkout ? 'New Workout' : name ?? 'Workout'}
             </Text>
 
             {!isNewWorkout && workout && (
                 <>
-                    <Text className="text-white mb-2">Workout ID: {id}</Text>
+                    <DraggableFlatList
+                        data={exerciseData}
+                        keyExtractor={(item) => item.workoutExerciseId}
+                        renderItem={renderItem}
+                        onDragEnd={async ({ data }) => {
+                            // update local state with new order (and update orderIndex to match)
+                            const updatedData = data.map((item, idx) => ({
+                                ...item,
+                                orderIndex: idx + 1,  // match your DB starting at 1
+                            }));
 
-                    {exerciseData.map((exerciseItem) => (
-                        <WorkoutExerciseListItem
-                            key={exerciseItem.workoutExerciseId}
-                            exerciseItem={exerciseItem}
-                            onEditSet={(setId) => console.log('Edit set', setId)}
-                            onDeleteSet={(setId) => console.log('Delete set', setId)}
-                            onAddSet={handleAddSet}
-                        />
-                    ))}
+                            setExerciseData(updatedData); // update UI immediately
+
+                            if (!workout?.id) return; // safeguard
+
+                            try {
+                                // persist new order in DB
+                                await reorderWorkoutExercises(workout.id, updatedData.map((ex) => ex.workoutExerciseId));
+                            } catch (error) {
+                                console.error('Failed to reorder exercises:', error);
+                                // optionally revert UI changes or show error message here
+                            }
+                        }}
+
+                    />
                 </>
             )}
 
             {isNewWorkout && (
-                <>
-                    <Text className="text-white">Start building your new workout here.</Text>
-                    {/* Add button: Add Exercise → then Add Set → render SetListItem for each */}
-                </>
+                <Text className="text-white">Start building your new workout here.</Text>
             )}
 
             {error && <Text className="text-red-400 mt-4">{error}</Text>}
-        </ScrollView>
+        </View>
     );
 }
 

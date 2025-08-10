@@ -7,9 +7,7 @@ interface SetListItemProps {
     setNumber: number;
     reps: number;
     weight?: number | null;
-    onRepsChange?: (newReps: number) => void;
-    onWeightChange?: (newWeight: number | null) => void;
-    onEdit?: () => void;
+    onEdit?: (updates: { reps?: number; weight?: number ; setNumber?: number }) => void;
     onDelete?: () => void;
 }
 
@@ -17,51 +15,32 @@ export default function SetListItem({
                                         setNumber,
                                         reps: initialReps,
                                         weight: initialWeight,
-                                        onRepsChange,
-                                        onWeightChange,
                                         onEdit,
                                         onDelete,
                                     }: SetListItemProps) {
     const [reps, setReps] = useState(String(initialReps));
-    const [weight, setWeight] = useState(initialWeight !== null && initialWeight !== undefined ? String(initialWeight) : '');
-    const [menuVisible, setMenuVisible] = React.useState(false);
-    const [editModalVisible, setEditModalVisible] = React.useState(false);
+    const [weight, setWeight] = useState(
+        initialWeight !== null && initialWeight !== undefined ? String(initialWeight) : ""
+    );
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [editModalVisible, setEditModalVisible] = useState(false);
 
-    // Keep internal state in sync if props change from parent
     useEffect(() => {
         setReps(String(initialReps));
     }, [initialReps]);
 
     useEffect(() => {
-        setWeight(initialWeight !== null && initialWeight !== undefined ? String(initialWeight) : '');
+        setWeight(
+            initialWeight !== null && initialWeight !== undefined ? String(initialWeight) : ""
+        );
     }, [initialWeight]);
-
-    const handleRepsChange = (text: string) => {
-        setReps(text);
-        const val = parseInt(text, 10);
-        if (!isNaN(val) && onRepsChange) {
-            onRepsChange(val);
-        }
-    };
-
-    const handleWeightChange = (text: string) => {
-        setWeight(text);
-        if (text === '') {
-            onWeightChange?.(null);
-            return;
-        }
-        const val = parseFloat(text);
-        if (!isNaN(val) && onWeightChange) {
-            onWeightChange(val);
-        }
-    };
 
     return (
         <>
-            <View className="flex-row my-1 p-4 mx-4 bg-surface_a20 rounded-lg items-center">
+            <View className="flex-row my-1 p-4 bg-surface_a20 rounded-lg items-center">
                 <View className="flex-1">
                     <View className="flex-row items-center justify-between">
-                        <Text className="text-white font-bold">Set 1</Text>
+                        <Text className="text-white font-bold">Set {setNumber}</Text>
 
                         {/* Reps Display */}
                         <Pressable
@@ -92,7 +71,7 @@ export default function SetListItem({
                                 onClose={() => setMenuVisible(false)}
                                 onDelete={() => {
                                     setMenuVisible(false);
-                                    // handle delete
+                                    onDelete?.();
                                 }}
                             />
                         </View>
@@ -100,16 +79,26 @@ export default function SetListItem({
                 </View>
             </View>
 
+            {/* Edit modal */}
             <SetEditModal
                 visible={editModalVisible}
                 onClose={() => setEditModalVisible(false)}
                 initialReps={reps}
                 initialWeight={weight}
                 onSave={(newReps, newWeight) => {
-                    setReps(newReps);
-                    setWeight(newWeight);
+                    const parsedReps = parseInt(newReps, 10);
+                    const parsedWeight = parseFloat(newWeight);
+
+                    setReps(String(parsedReps));
+                    setWeight(String(parsedWeight));
+
+                    onEdit?.({
+                        reps: parsedReps,
+                        weight: parsedWeight,
+                    });
                 }}
             />
         </>
     );
 }
+

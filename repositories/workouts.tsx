@@ -77,7 +77,6 @@ export async function getWorkoutById(id: string):Promise<Workout | null> {
 }
 
 export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise<ExerciseWithSets[]> {
-    // 1. Get all workout_exercises for the workout (non-deleted), include exercise info
     const workoutExercises = await db
         .select({
             workoutExerciseId: workout_exercises.id,
@@ -96,7 +95,6 @@ export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise
         )
         .orderBy(workout_exercises.order_index);
 
-    // 2. For each workout_exercise, get its sets (non-deleted)
     const results: ExerciseWithSets[] = [];
 
     for (const we of workoutExercises) {
@@ -123,6 +121,7 @@ export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise
                 id: we.exerciseId!,
                 name: we.exerciseName!,
                 description: we.exerciseDescription,
+                order_index: we.orderIndex!,
             },
             sets,
         });
