@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 export default function RootLayout() {
     const {success, error} = useMigrations(db, migrations);
     console.log(error);
+    console.log(success);
     useDrizzleStudio(expoDb);
 
     if (error) {
