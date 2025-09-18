@@ -83,8 +83,8 @@ export default function SetListItem({
             <SetEditModal
                 visible={editModalVisible}
                 onClose={() => setEditModalVisible(false)}
-                initialReps={reps}
-                initialWeight={weight}
+                initialReps={String(initialReps)}     // use the prop
+                initialWeight={initialWeight != null ? String(initialWeight) : ""} // use the prop
                 onSave={(newReps, newWeight) => {
                     const parsedReps = parseInt(newReps, 10);
                     const parsedWeight = parseFloat(newWeight);

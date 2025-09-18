@@ -44,3 +44,7 @@ export type ExerciseWithSets = {
     }[];
 };
 
+export type BodypartWithExercises = BodyPart & {
+    exercises: Exercise[];
+};
+

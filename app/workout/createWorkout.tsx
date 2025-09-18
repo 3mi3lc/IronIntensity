@@ -272,7 +272,11 @@ function CreateWorkout() {
                 <View className="absolute bottom-6 right-4 flex-row justify-end">
                     <TouchableOpacity
                         onPress={() => {
-                            console.log('Add Exercise pressed');
+                            // Navigate to the SelectExerciseScreen and pass the workout ID
+                            router.push({
+                                pathname: '/exercise/addExercise', // path to your exercises screen
+                                params: { workoutId: workout?.id },
+                            });
                         }}
                         className="bg-primary_a0 py-3 px-6 rounded-xl shadow-md"
                         activeOpacity={0.8}

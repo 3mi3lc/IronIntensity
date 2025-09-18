@@ -1,9 +1,10 @@
 // src/repositories/exercises.ts
-import { db } from '@/db/client';
-import { exercises } from '@/db/schema';
-import { eq, and, isNull } from 'drizzle-orm';
-import { newId, now } from '@/utils/id';
-import type { Exercise, NewExercise } from './types';
+import {db} from '@/db/client';
+import {exercise_body_parts, exercises} from '@/db/schema';
+import {and, eq, isNull} from 'drizzle-orm';
+import {newId, now} from '@/utils/id';
+import type {BodypartWithExercises, Exercise, NewExercise} from './types';
+import {getAllBodyParts} from "@/repositories/bodyParts";
 
 export async function createExercise(
     data: Omit<NewExercise, 'id' | 'created_at' | 'updated_at' | 'is_synced'>,
@@ -74,3 +75,44 @@ export async function getExerciseById(id: string): Promise<Exercise | null> {
 
     return exercise ?? null;
 }
+
+export async function getAllExercises(): Promise<Exercise[]> {
+    return db.select().from(exercises).where(isNull(exercises.deleted_at));
+}
+
+export async function getAllExercisesWithBodyPart(): Promise<BodypartWithExercises[]> {
+    //  Fetch all body parts
+    const allBodyParts = await getAllBodyParts();
+
+    //  Fetch all active exercises
+    const allExercises = await getAllExercises();
+
+    //  Fetch junction table linking exercises to body parts
+    const allExerciseBodyParts = await db
+        .select({
+            exercise_id: exercise_body_parts.exercise_id,
+            body_part_id: exercise_body_parts.body_part_id,
+        })
+        .from(exercise_body_parts);
+
+    //  Map body part IDs to exercises
+    const bodyPartMap: Record<string, Exercise[]> = {};
+    allBodyParts.forEach((bp) => {
+        bodyPartMap[bp.id] = [];
+    });
+
+    allExerciseBodyParts.forEach((ebp) => {
+        const exercise = allExercises.find((ex) => ex.id === ebp.exercise_id);
+        if (exercise) {
+            bodyPartMap[ebp.body_part_id].push(exercise);
+        }
+    });
+
+    //  Build final array of BodypartWithExercises
+    return allBodyParts.map((bp) => ({
+        ...bp,
+        exercises: bodyPartMap[bp.id] || [],
+    }));
+}
+
+

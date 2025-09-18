@@ -22,10 +22,10 @@ const WorkoutExerciseItem = ({ exerciseItem, onEditSet, onDeleteSet, onAddSet }:
                     <Text className="text-primary_a20 font-bold text-center">Sets</Text>
                 </View>
                 <View className="w-32 mx-2">
-                    <Text className="text-primary_a20 font-bold text-center">Weights</Text>
+                    <Text className="text-primary_a20 font-bold text-center">Reps</Text>
                 </View>
                 <View className="w-20 mx-2">
-                    <Text className="text-primary_a20 font-bold text-center">Reps</Text>
+                    <Text className="text-primary_a20 font-bold text-center">Weight</Text>
                 </View>
                 <View className="flex-1" />
             </View>
