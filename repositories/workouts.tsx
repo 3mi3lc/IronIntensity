@@ -10,17 +10,19 @@ export async function getAllWorkouts(): Promise<Workout[]> {
 }
 
 export async function createWorkout(
-    data: Omit<NewWorkout, 'id' | 'created_at' | 'updated_at' | 'is_synced'>,
+    data: Omit<NewWorkout, 'id' | 'updated_at' | 'is_synced'> & { created_at?: string },
     options?: { returnData?: boolean }
 ): Promise<Workout | boolean> {
     const id = newId();
     const ts = now();
 
+    const createdAt = data.created_at ?? ts; // use passed created_at or fallback to now()
+
     const query = db.insert(workouts).values({
         ...data,
         id,
-        created_at: ts,
-        updated_at: ts,
+        created_at: createdAt,
+        updated_at: ts,  // updated_at can remain now()
         is_synced: 0,
     });
 

@@ -22,8 +22,8 @@ export default function Index() {
     }, []);
 
     return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" />
+        <View className="flex-1 justify-center items-center bg-black">
+            <ActivityIndicator size="large" color="#f95e3d" />
         </View>
     );
 }

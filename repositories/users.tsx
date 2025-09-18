@@ -4,8 +4,7 @@ import { eq } from 'drizzle-orm';
 import type { User, NewUser } from './types';
 
 export async function createUser(data: Omit<NewUser, 'id'> & { id: string }): Promise<User> {
-    await db.insert(users).values(data);
-    const [created] = await db.select().from(users).where(eq(users.id, data.id));
+    const [created] = await db.insert(users).values(data).returning();
     return created;
 }
 
@@ -27,4 +26,17 @@ export async function updateUsername(id: string, username: string, options?: {re
 export async function getCurrentUser(): Promise<User | null> {
     const [user] = await db.select().from(users).limit(1);
     return user ?? null;
+}
+
+export async function createOrUpdateUser(data: User): Promise<User> {
+    // Check if user exists locally
+    const [existing] = await db.select().from(users).where(eq(users.id, data.id));
+
+    if (existing) {
+        await db.update(users).set({ email: data.email }).where(eq(users.id, data.id));
+        return { ...existing, email: data.email };
+    } else {
+        await db.insert(users).values(data);
+        return data;
+    }
 }
