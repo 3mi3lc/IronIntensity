@@ -1,7 +1,9 @@
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Alert } from 'react-native';
 import React, { useEffect, useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { getAllExercisesWithBodyPart } from '@/repositories/exercises';
+import { addExerciseToWorkoutById } from '@/repositories/workoutExercises';
 import type { BodypartWithExercises } from '@/repositories/types';
 
 type BodyPartSection = BodypartWithExercises & {
@@ -9,36 +11,42 @@ type BodyPartSection = BodypartWithExercises & {
 };
 
 function AddExercise() {
+    const router = useRouter();
+    const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
     const [bodyPartSections, setBodyPartSections] = useState<BodyPartSection[]>([]);
     const [loading, setLoading] = useState(true);
+    const [addingExercise, setAddingExercise] = useState(false);
 
-    useEffect(() => {
-        async function loadData() {
-            setLoading(true);
-            try {
-                const sections = await getAllExercisesWithBodyPart();
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const sections = await getAllExercisesWithBodyPart();
 
-                // Sort body parts alphabetically
-                const sortedSections = sections.sort((a, b) =>
-                    a.name.localeCompare(b.name)
-                );
+            // Sort body parts alphabetically
+            const sortedSections = sections.sort((a, b) =>
+                a.name.localeCompare(b.name)
+            );
 
-                // Initialize all sections as expanded
-                const sectionsWithExpanded = sortedSections.map((s) => ({
-                    ...s,
-                    expanded: false,
-                }));
+            // Initialize all sections as collapsed
+            const sectionsWithExpanded = sortedSections.map((s) => ({
+                ...s,
+                expanded: false,
+            }));
 
-                setBodyPartSections(sectionsWithExpanded);
-            } catch (err) {
-                console.error('Failed to load exercises with body parts', err);
-            } finally {
-                setLoading(false);
-            }
+            setBodyPartSections(sectionsWithExpanded);
+        } catch (err) {
+            console.error('Failed to load exercises with body parts', err);
+        } finally {
+            setLoading(false);
         }
+    };
 
-        loadData();
-    }, []);
+    // Reload data when screen comes into focus (after creating new exercise)
+    useFocusEffect(
+        React.useCallback(() => {
+            loadData();
+        }, [])
+    );
 
     const toggleSection = (id: string) => {
         setBodyPartSections((prev) =>
@@ -48,24 +56,51 @@ function AddExercise() {
         );
     };
 
-    const handleSelectExercise = (exerciseId: string) => {
-        console.log('Selected exercise:', exerciseId);
-        // TODO: add exercise to workout or navigate back
+    const handleSelectExercise = async (exerciseId: string) => {
+        if (!workoutId) {
+            Alert.alert('Error', 'No workout selected');
+            return;
+        }
+
+        setAddingExercise(true);
+        try {
+            // Add exercise to the workout
+            await addExerciseToWorkoutById(workoutId, exerciseId);
+
+            // Navigate back to the workout screen
+            router.back();
+        } catch (err) {
+            console.error('Failed to add exercise to workout:', err);
+            Alert.alert('Error', 'Failed to add exercise to workout');
+        } finally {
+            setAddingExercise(false);
+        }
     };
 
-    if (loading) {
+    if (loading || addingExercise) {
         return (
             <View className="flex-1 justify-center items-center bg-surface_a0 pt-16">
-                <Text className="text-white text-3xl font-bold">Loading exercises...</Text>
+                <Text className="text-white text-3xl font-bold">
+                    {loading ? 'Loading exercises...' : 'Adding exercise...'}
+                </Text>
             </View>
         );
     }
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0 pt-16 px-4">
-            <Text className="text-primary_a0 font-bold text-3xl mb-4">
-                Select Exercise
-            </Text>
+            <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-primary_a0 font-bold text-3xl">
+                    Select Exercise
+                </Text>
+                <TouchableOpacity
+                    onPress={() => router.push('/exercise/createExercise')}
+                    className="bg-primary_a10 px-4 py-2 rounded-lg"
+                    activeOpacity={0.8}
+                >
+                    <Text className="text-white font-bold">+ New</Text>
+                </TouchableOpacity>
+            </View>
 
             <ScrollView>
                 {bodyPartSections.map((section) => (

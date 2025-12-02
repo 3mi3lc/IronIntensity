@@ -5,8 +5,17 @@ import {and, eq, isNull} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 
+interface UpdateWorkoutInput {
+    name?: string;
+    created_at?: string;
+}
+
 export async function getAllWorkouts(): Promise<Workout[]> {
-    return db.select().from(workouts);
+    return db
+        .select()
+        .from(workouts)
+        .where(isNull(workouts.deleted_at))
+        .orderBy(workouts.created_at); // Order by date, most recent first
 }
 
 export async function createWorkout(
@@ -131,3 +140,102 @@ export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise
 
     return results;
 }
+
+export async function updateWorkoutById(
+    id: string,
+    patch: UpdateWorkoutInput,
+    options?: { returnData?: boolean }
+): Promise<Workout | boolean> {
+    const query = db
+        .update(workouts)
+        .set({
+            ...patch,
+            updated_at: now(),
+            is_synced: 0
+        })
+        .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
+
+    if (options?.returnData) {
+        const [updatedWorkout] = await query.returning();
+        return updatedWorkout ?? null;
+    }
+
+    const result = await query;
+    return result.changes > 0;
+}
+
+export async function duplicateWorkout(
+    workoutId: string,
+    userId: string,
+    options?: { returnData?: boolean }
+): Promise<Workout | boolean> {
+    try {
+        // Get original workout
+        const [originalWorkout] = await db
+            .select()
+            .from(workouts)
+            .where(and(eq(workouts.id, workoutId), isNull(workouts.deleted_at)));
+
+        if (!originalWorkout) {
+            throw new Error('Workout not found');
+        }
+
+        // Create new workout with same name
+        const newWorkoutId = newId();
+        const ts = now();
+
+        const query = db.insert(workouts).values({
+            id: newWorkoutId,
+            user_id: userId,
+            name: `${originalWorkout.name} (Copy)`,
+            created_at: ts,
+            updated_at: ts,
+            deleted_at: null,
+            is_synced: 0,
+        });
+
+        let newWorkout: Workout;
+        if (options?.returnData) {
+            [newWorkout] = await query.returning();
+        } else {
+            await query;
+        }
+
+        // Get all workout exercises from original
+        const originalExercises = await db
+            .select()
+            .from(workout_exercises)
+            .where(
+                and(
+                    eq(workout_exercises.workout_id, workoutId),
+                    isNull(workout_exercises.deleted_at)
+                )
+            )
+            .orderBy(workout_exercises.order_index);
+
+        // Copy exercises to new workout (but not the sets - user will enter fresh data)
+        for (const exercise of originalExercises) {
+            await db.insert(workout_exercises).values({
+                id: newId(),
+                workout_id: newWorkoutId,
+                exercise_id: exercise.exercise_id,
+                order_index: exercise.order_index,
+                created_at: ts,
+                updated_at: ts,
+                deleted_at: null,
+                is_synced: 0,
+            });
+        }
+
+        if (options?.returnData) {
+            return newWorkout!;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Failed to duplicate workout:', error);
+        throw error;
+    }
+}
+
+

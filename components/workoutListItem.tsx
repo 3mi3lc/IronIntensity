@@ -1,29 +1,30 @@
-import {Workout} from "@/repositories/types";
-import {TouchableOpacity, Text} from "react-native";
-import { useRouter} from "expo-router";
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Workout } from '@/repositories/types';
+import { formatReadableDate } from '@/utils/formatDate';
 
+interface WorkoutListItemProps {
+    workout: Workout;
+    onPress: (workout: Workout) => void;
+}
 
-const WorkoutListItem = ({ workout }: { workout: Workout }) => {
-    const router = useRouter();
-
-    return(
+const WorkoutListItem = ({ workout, onPress }: WorkoutListItemProps) => {
+    return (
         <TouchableOpacity
-            onPress={() =>
-                router.push({
-                    pathname: '/workout/createWorkout',
-                    params: {
-                        id: workout.id,
-                        name: workout.name,
-                    },
-                })
-            }
-            className="bg-surface_a10 p-4 mb-2 rounded-xl"
+            onPress={() => onPress(workout)}
+            className="bg-surface_a10 p-4 rounded-xl mb-3"
+            activeOpacity={0.7}
         >
-            <Text className="text-white font-semibold text-base">
+            <Text className="text-white font-bold text-lg mb-1">
                 {workout.name}
             </Text>
+            {workout.created_at && (
+                <Text className="text-gray-400 text-sm">
+                    {formatReadableDate(workout.created_at)}
+                </Text>
+            )}
         </TouchableOpacity>
     );
-}
+};
 
 export default WorkoutListItem;
