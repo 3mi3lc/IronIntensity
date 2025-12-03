@@ -76,7 +76,7 @@ export default function SetListItem({
                         onPress={() => setMenuVisible(true)}
                         className="ml-2 p-2 bg-surface_a20 rounded-lg active:opacity-70"
                     >
-                        <AntDesign name="ellipsis1" size={20} color="#8b8b8b" />
+                        <AntDesign name="ellipsis" size={20} color="#8b8b8b" />
                     </Pressable>
                 )}
             </View>

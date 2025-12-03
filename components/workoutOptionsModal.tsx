@@ -48,10 +48,10 @@ const WorkoutOptionsModal = ({
                     <View className="gap-y-3">
                         <TouchableOpacity
                             onPress={onPerformAgain}
-                            className="bg-primary_a10 py-4 px-6 rounded-xl flex-row items-center"
+                            className="bg-primary_a0 py-4 px-6 rounded-xl flex-row items-center"
                             activeOpacity={0.8}
                         >
-                            <AntDesign name="reload1" size={20} color="white" />
+                            <AntDesign name="reload" size={20} color="white" />
                             <Text className="text-white font-bold text-lg ml-3">
                                 Perform Again
                             </Text>

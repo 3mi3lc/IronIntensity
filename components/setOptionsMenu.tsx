@@ -67,7 +67,7 @@ const SetOptionsMenu: React.FC<SetActionMenuProps> = ({ visible, onClose, onDele
                             onPress={onClose}
                             className="bg-surface_a20 rounded-xl py-4 flex-row items-center justify-center gap-3 active:bg-surface_a30"
                         >
-                            <AntDesign name="closecircleo" size={18} color="#8b8b8b" />
+                            <AntDesign name="close-circle" size={18} color="#8b8b8b" />
                             <Text className="text-surface_a50 text-base font-bold">Cancel</Text>
                         </Pressable>
                     </View>

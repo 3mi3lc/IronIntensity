@@ -70,7 +70,7 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                     <View className="bg-primary_a10 px-6 py-4 flex-row items-center justify-between">
                         <View className="flex-row items-center gap-3">
                             <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
-                                <AntDesign name="checkcircle" size={20} color="white" />
+                                <AntDesign name="check-circle" size={20} color="white" />
                             </View>
                             <Text className="text-white text-xl font-bold">Finish Workout</Text>
                         </View>
@@ -142,7 +142,7 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                                 onPress={onClose}
                                 className="bg-surface_a20 rounded-xl py-4 flex-row items-center justify-center gap-2 active:bg-surface_a30"
                             >
-                                <AntDesign name="closecircleo" size={18} color="#8b8b8b" />
+                                <AntDesign name="close-circle" size={18} color="#8b8b8b" />
                                 <Text className="text-surface_a50 text-base font-bold">Cancel</Text>
                             </Pressable>
                         </View>

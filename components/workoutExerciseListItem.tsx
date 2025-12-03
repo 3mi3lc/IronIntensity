@@ -38,7 +38,7 @@ const WorkoutExerciseItem = ({
                     {/* Drag Handle Icon (optional - you can remove if not needed) */}
                     {!viewOnly && (
                         <View className="ml-2">
-                            <AntDesign name="menufold" size={20} color="#8b8b8b" />
+                            <AntDesign name="menu-fold" size={20} color="#8b8b8b" />
                         </View>
                     )}
 
@@ -93,7 +93,7 @@ const WorkoutExerciseItem = ({
                     ))
                 ) : (
                     <View className="py-8 items-center">
-                        <AntDesign name="infocirlceo" size={32} color="#3f3f3f" />
+                        <AntDesign name="info-circle" size={32} color="#3f3f3f" />
                         <Text className="text-surface_a50 text-sm mt-2">No sets yet</Text>
                     </View>
                 )}

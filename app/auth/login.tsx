@@ -29,7 +29,7 @@ export default function Login() {
 
         setLoading(false);
 
-        // ✅ Redirect to the app
+        // Redirect to the app
         router.replace('/(tabs)/logging');
     }
 

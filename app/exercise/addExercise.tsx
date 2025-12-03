@@ -1,5 +1,6 @@
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import React, {  useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { getAllExercisesWithBodyPart } from '@/repositories/exercises';
@@ -93,14 +94,14 @@ function AddExercise() {
     return (
         <SafeAreaView className="flex-1 bg-surface_a0">
             {/* Header */}
-            <View className="px-6 pt-16 pb-4">
+            <View className="px-6 pt-4 pb-4">
                 <View className="flex-row justify-between items-center mb-2">
                     <TouchableOpacity
                         onPress={() => router.back()}
                         className="p-2 bg-surface_a10 rounded-xl items-center justify-center"
                         activeOpacity={0.8}
                     >
-                        <AntDesign name="arrowleft" size={24} color="#eb0202" />
+                        <AntDesign name="arrow-left" size={24} color="#eb0202" />
                     </TouchableOpacity>
 
                     <View className="flex-1 ml-4">
@@ -212,7 +213,7 @@ function AddExercise() {
                                                 }}
                                             >
                                                 <View className="w-8 h-8 bg-surface_a30 rounded-full items-center justify-center mr-3">
-                                                    <AntDesign name="pluscircleo" size={16} color="#f95e3d" />
+                                                    <AntDesign name="plus-circle" size={16} color="#f95e3d" />
                                                 </View>
 
                                                 <View className="flex-1">

@@ -4,10 +4,11 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    SafeAreaView,
     ScrollView,
     Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useRouter } from 'expo-router';
 import { createExercise } from '@/repositories/exercises';
 import { getAllBodyParts } from '@/repositories/bodyParts';
@@ -124,7 +125,7 @@ function CreateExercise() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-surface_a0 pt-16">
+        <SafeAreaView className="flex-1 bg-surface_a0 pt-4">
             <ScrollView className="flex-1 px-4">
                 <Text className="text-primary_a0 font-bold text-3xl mb-6">
                     Create Exercise

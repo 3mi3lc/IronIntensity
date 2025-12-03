@@ -9,6 +9,7 @@ import { db, expoDb, DATABASE_NAME } from '@/db/client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { UserProvider } from '@/contexts/UserContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 
 export default function RootLayout() {
@@ -19,15 +20,17 @@ export default function RootLayout() {
 
     if (error) {
         return (
-            <View>
-                <Text>Migration error: {error.message}</Text>
+            <View className="flex-1 bg-surface_a0 justify-center items-center">
+                <StatusBar style="light" backgroundColor="#121212" />
+                <Text className="text-white text-lg">Migration error: {error.message}</Text>
             </View>
         );
     }
     if (!success) {
         return (
-            <View>
-                <Text>Migration is in progress...</Text>
+            <View className="flex-1 bg-surface_a0 justify-center items-center">
+                <StatusBar style="light" backgroundColor="#121212" />
+                <Text className="text-white text-lg">Migration is in progress...</Text>
             </View>
         );
     }
@@ -35,7 +38,12 @@ export default function RootLayout() {
     return (
         <SafeAreaProvider>
             <GestureHandlerRootView className="flex-1">
-                <Suspense fallback={<ActivityIndicator size="large" />}>
+                <StatusBar style="light" backgroundColor="#121212" />
+                <Suspense fallback={
+                    <View className="flex-1 bg-surface_a0 justify-center items-center">
+                        <ActivityIndicator size="large" color="#eb0202" />
+                    </View>
+                }>
                     <SQLiteProvider
                         databaseName={DATABASE_NAME}
                         options={{ enableChangeListener: true }}

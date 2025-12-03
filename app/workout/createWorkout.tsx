@@ -1,4 +1,5 @@
-import {View, Text, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import {View, Text, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {useLocalSearchParams, useRouter, useFocusEffect} from 'expo-router';
 import React, {useEffect, useState, useCallback, useContext} from 'react';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
@@ -274,7 +275,7 @@ function CreateWorkout() {
         return (
             <View className="flex-1 justify-center items-center bg-surface_a0 pt-16">
                 <View className="bg-surface_a10 p-6 rounded-2xl">
-                    <AntDesign name="loading1" size={48} color="#f34023" />
+                    <AntDesign name="loading" size={48} color="#f34023" />
                     <Text className="text-light text-xl font-bold mt-4">Loading workout...</Text>
                 </View>
             </View>
@@ -285,7 +286,7 @@ function CreateWorkout() {
         <>
             <SafeAreaView className="flex-1 bg-surface_a0">
                 {/* Header */}
-                <View className="px-4 pt-16 pb-4">
+                <View className="px-4 pt-4 pb-4">
                     <View className="flex-row justify-between items-center">
                         <TouchableOpacity
                             onPress={handleCancelWorkout}
@@ -293,7 +294,7 @@ function CreateWorkout() {
                             activeOpacity={0.7}
                         >
                             <AntDesign
-                                name={isViewOnly ? "arrowleft" : "close"}
+                                name={isViewOnly ? "arrow-left" : "close"}
                                 size={24}
                                 color="#eb0202"
                             />
@@ -348,7 +349,7 @@ function CreateWorkout() {
                             ListEmptyComponent={
                                 <View className="flex-1 justify-center items-center py-20">
                                     <View className="bg-surface_a10 p-6 rounded-2xl items-center">
-                                        <AntDesign name="pushpino" size={48} color="#f34023" />
+                                        <AntDesign name="pushpin" size={48} color="#f34023" />
                                         <Text className="text-light text-lg font-bold mt-4 mb-2">
                                             No exercises yet
                                         </Text>
@@ -388,7 +389,7 @@ function CreateWorkout() {
                     {isNewWorkout && (
                         <View className="flex-1 justify-center items-center">
                             <View className="bg-surface_a10 p-8 rounded-2xl items-center mx-4">
-                                <AntDesign name="playcircleo" size={64} color="#f34023" />
+                                <AntDesign name="play-circle" size={64} color="#f34023" />
                                 <Text className="text-light text-xl font-bold mt-6 mb-3 text-center">
                                     Ready to Start?
                                 </Text>
