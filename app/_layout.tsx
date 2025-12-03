@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { Suspense } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
+import { Suspense, useContext, useEffect } from 'react';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
@@ -7,15 +7,52 @@ import migrations from '@/drizzle/migrations';
 import { useDrizzleStudio } from 'expo-drizzle-studio-plugin';
 import { db, expoDb, DATABASE_NAME } from '@/db/client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { UserProvider } from '@/contexts/UserContext';
+import { UserProvider, UserContext } from '@/contexts/UserContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import './globals.css';
 
+function RootLayoutContent() {
+    const { user, isLoading } = useContext(UserContext) ?? { user: null, isLoading: true };
+    const segments = useSegments();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isLoading) return;
+
+        const inAuthGroup = segments[0] === 'auth';
+
+        console.log('Layout: Auth state changed', {
+            user: user?.email,
+            inAuthGroup,
+            currentPath: segments.join('/')
+        });
+
+        if (!user && !inAuthGroup) {
+            // User is not logged in and not on auth screen
+            console.log('Layout: Redirecting to login...');
+            router.replace('/auth/login');
+        } else if (user && inAuthGroup) {
+            // User is logged in but still on auth screen
+            console.log('Layout: Redirecting to app...');
+            router.replace('/(tabs)/logging');
+        }
+    }, [user, isLoading, segments]);
+
+    if (isLoading) {
+        return (
+            <View className="flex-1 bg-surface_a0 justify-center items-center">
+                <ActivityIndicator size="large" color="#eb0202" />
+                <Text className="text-white text-lg mt-4">Loading...</Text>
+            </View>
+        );
+    }
+
+    return <Stack screenOptions={{ headerShown: false }} />;
+}
 
 export default function RootLayout() {
     const { success, error } = useMigrations(db, migrations);
-    //console.log(error);
-    //console.log(success);
     useDrizzleStudio(expoDb);
 
     if (error) {
@@ -49,7 +86,7 @@ export default function RootLayout() {
                         options={{ enableChangeListener: true }}
                         useSuspense>
                         <UserProvider>
-                            <Stack screenOptions={{ headerShown: false }} />
+                            <RootLayoutContent />
                         </UserProvider>
                     </SQLiteProvider>
                 </Suspense>

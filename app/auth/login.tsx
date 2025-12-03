@@ -1,107 +1,190 @@
-import React, { useState } from 'react';
-import { Alert, View, TextInput, Text, Pressable } from 'react-native';
-import { supabase } from '@/utils/supabase';
-import { router } from 'expo-router';
-import '../globals.css'
+// app/auth/login.tsx
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import {useContext, useEffect, useState} from 'react';
+import { UserContext } from '@/contexts/UserContext';
+import { AntDesign } from '@expo/vector-icons';
+import '../globals.css';
 
 export default function Login() {
+    const router = useRouter();
+    const { signIn, signUp, user } = useContext(UserContext) ?? {};
+
+    const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [username, setUsername] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    async function signInWithEmail() {
-        setLoading(true);
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+    useEffect(() => {
+        if (user) {
+            console.log('Login: User detected, navigating to app...');
+            router.replace('/(tabs)/logging');
+        }
+    }, [user]);
 
-        if (error) {
-            Alert.alert(error.message);
-            setLoading(false);
+
+    const handleAuth = async () => {
+        if (!email.trim() || !password.trim()) {
+            Alert.alert('Error', 'Please enter email and password');
             return;
         }
 
-        // Optional: log user info
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError) {
-            console.error("Error fetching user after sign-in:", userError.message);
-        } else {
-            console.log("Users logged in:", userData.user);
+        if (isSignUp && !username.trim()) {
+            Alert.alert('Error', 'Please enter a username');
+            return;
         }
 
-        setLoading(false);
+        setIsLoading(true);
+        try {
+            console.log('Starting auth...', isSignUp ? 'Sign Up' : 'Sign In');
 
-        // Redirect to the app
-        router.replace('/(tabs)/logging');
-    }
+            if (isSignUp && signUp) {
+                console.log('Calling signUp...');
+                const { error } = await signUp(email.trim(), password, username.trim());
+                console.log('SignUp result:', { error });
 
+                if (error) {
+                    Alert.alert('Sign Up Failed', error);
+                } else {
+                    Alert.alert(
+                        'Success!',
+                        'Account created! Please check your email to verify your account.',
+                        [{ text: 'OK', onPress: () => setIsSignUp(false) }]
+                    );
+                }
+            } else if (signIn) {
+                console.log('Calling signIn...');
+                const { error } = await signIn(email.trim(), password);
+                console.log('SignIn result:', { error });
 
-    async function signUpWithEmail() {
-        setLoading(true);
-        const { data: { session }, error } = await supabase.auth.signUp({ email, password });
-
-        if (error) {
-            Alert.alert('Signup failed', error.message);
-        } else {
-            if (!session) {
-                Alert.alert('Check your inbox to verify your email');
-            } else {
-                Alert.alert('Signup successful!');
+                if (error) {
+                    Alert.alert('Login Failed', error);
+                } else {
+                    console.log('Login successful, waiting for navigation...');
+                    // Navigation happens automatically via UserContext
+                }
             }
+        } catch (error: any) {
+            console.error('Auth error:', error);
+            Alert.alert('Error', error.message || 'An error occurred');
+        } finally {
+            setIsLoading(false);
         }
-        setLoading(false);
-    }
-
+    };
 
     return (
-        <View className="flex-1 justify-center items-center bg-surface_a10 px-6">
-            <View className="w-full max-w-md">
-                <Text className="text-white text-3xl font-bold mb-8 text-center">Welcome</Text>
-
-                <View className="mb-4">
-                    <Text className="text-white mb-1">Email</Text>
-                    <TextInput
-                        className="bg-surface_a20 text-white px-3 py-2 rounded-md border border-surface_a30"
-                        placeholder="email@address.com"
-                        placeholderTextColor="#8b8b8b"
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        value={email}
-                        onChangeText={setEmail}
-                    />
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1 bg-surface_a0"
+        >
+            <View className="flex-1 justify-center px-6">
+                {/* Header */}
+                <View className="items-center mb-12">
+                    <View className="bg-primary_a0 w-20 h-20 rounded-full items-center justify-center mb-4">
+                        <AntDesign name="trophy" size={40} color="white" />
+                    </View>
+                    <Text className="text-white text-4xl font-bold">Iron Intensity</Text>
+                    <Text className="text-surface_a50 text-lg mt-2">Track Your Strength Journey</Text>
                 </View>
 
-                <View className="mb-6">
-                    <Text className="text-white mb-1">Password</Text>
-                    <TextInput
-                        className="bg-surface_a20 text-white px-3 py-2 rounded-md border border-surface_a30"
-                        placeholder="Password"
-                        placeholderTextColor="#8b8b8b"
-                        secureTextEntry
-                        autoCapitalize="none"
-                        value={password}
-                        onChangeText={setPassword}
-                    />
+                {/* Form Card */}
+                <View className="bg-surface_a10 rounded-3xl p-6 shadow-lg">
+                    {/* Toggle Tabs */}
+                    <View className="flex-row bg-surface_a20 rounded-xl p-1 mb-6">
+                        <TouchableOpacity
+                            onPress={() => setIsSignUp(false)}
+                            className={`flex-1 py-3 rounded-lg ${!isSignUp ? 'bg-primary_a0' : ''}`}
+                            activeOpacity={0.8}
+                        >
+                            <Text className={`text-center font-bold ${!isSignUp ? 'text-white' : 'text-surface_a50'}`}>
+                                Login
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={() => setIsSignUp(true)}
+                            className={`flex-1 py-3 rounded-lg ${isSignUp ? 'bg-primary_a0' : ''}`}
+                            activeOpacity={0.8}
+                        >
+                            <Text className={`text-center font-bold ${isSignUp ? 'text-white' : 'text-surface_a50'}`}>
+                                Sign Up
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Email Input */}
+                    <View className="mb-4">
+                        <Text className="text-surface_a50 mb-2 ml-1">Email</Text>
+                        <View className="bg-surface_a20 rounded-xl px-4 py-3 flex-row items-center">
+                            <AntDesign name="mail" size={20} color="#8b8b8b" />
+                            <TextInput
+                                value={email}
+                                onChangeText={setEmail}
+                                placeholder="your@email.com"
+                                placeholderTextColor="#8b8b8b"
+                                className="flex-1 text-white ml-3"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                autoComplete="email"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Username Input (Sign Up only) */}
+                    {isSignUp && (
+                        <View className="mb-4">
+                            <Text className="text-surface_a50 mb-2 ml-1">Username</Text>
+                            <View className="bg-surface_a20 rounded-xl px-4 py-3 flex-row items-center">
+                                <AntDesign name="user" size={20} color="#8b8b8b" />
+                                <TextInput
+                                    value={username}
+                                    onChangeText={setUsername}
+                                    placeholder="Choose a username"
+                                    placeholderTextColor="#8b8b8b"
+                                    className="flex-1 text-white ml-3"
+                                    autoCapitalize="none"
+                                />
+                            </View>
+                        </View>
+                    )}
+
+                    {/* Password Input */}
+                    <View className="mb-6">
+                        <Text className="text-surface_a50 mb-2 ml-1">Password</Text>
+                        <View className="bg-surface_a20 rounded-xl px-4 py-3 flex-row items-center">
+                            <AntDesign name="lock" size={20} color="#8b8b8b" />
+                            <TextInput
+                                value={password}
+                                onChangeText={setPassword}
+                                placeholder="Enter your password"
+                                placeholderTextColor="#8b8b8b"
+                                className="flex-1 text-white ml-3"
+                                secureTextEntry
+                                autoCapitalize="none"
+                            />
+                        </View>
+                    </View>
+
+                    {/* Submit Button */}
+                    <TouchableOpacity
+                        onPress={handleAuth}
+                        disabled={isLoading}
+                        className={`py-4 rounded-xl ${isLoading ? 'bg-surface_a30' : 'bg-primary_a0'}`}
+                        activeOpacity={0.8}
+                    >
+                        <Text className="text-white text-center font-bold text-lg">
+                            {isLoading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Login'}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                <Pressable
-                    onPress={signInWithEmail}
-                    disabled={loading}
-                    className={`mb-4 rounded-md py-3 ${
-                        loading ? 'bg-primary_a20' : 'bg-primary_a0'
-                    }`}
-                >
-                    <Text className="text-white text-center font-semibold text-lg">Login</Text>
-                </Pressable>
-
-                <Pressable
-                    onPress={signUpWithEmail}
-                    disabled={loading}
-                    className={`rounded-md py-3 ${
-                        loading ? 'bg-primary_a20' : 'bg-primary_a0'
-                    }`}
-                >
-                    <Text className="text-white text-center font-semibold text-lg">Sign Up</Text>
-                </Pressable>
+                {/* Footer */}
+                <Text className="text-surface_a50 text-center mt-8">
+                    {isSignUp
+                        ? 'By signing up, you agree to our Terms & Privacy Policy'
+                        : 'Forgot password? Contact support'}
+                </Text>
             </View>
-        </View>
+        </KeyboardAvoidingView>
     );
 }

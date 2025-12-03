@@ -1,29 +1,31 @@
-import { useEffect } from 'react';
-import { supabase } from '@/utils/supabase';
-import { router } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
-import { useSQLiteContext } from 'expo-sqlite';
-import { drizzle } from 'drizzle-orm/expo-sqlite';
-import 'react-native-get-random-values';
-import * as schema from '@/db/schema';
+// app/index.tsx
+import { Redirect } from 'expo-router';
+import { useContext, useEffect } from 'react';
+import { UserContext } from '@/contexts/UserContext';
+import { View, ActivityIndicator, Text } from 'react-native';
 
 export default function Index() {
-    const db = useSQLiteContext();
-    const drizzleDb = drizzle(db, { schema });
+    const { user, isLoading } = useContext(UserContext) ?? { user: null, isLoading: true };
 
     useEffect(() => {
-        async function init() {
-            // Optional: do some database setup or queries here with drizzleDb
+        console.log('Index: User state changed:', { user: user?.email, isLoading });
+    }, [user, isLoading]);
 
-            const { data } = await supabase.auth.getSession();
-            router.replace(data.session ? '/(tabs)/logging' : '/auth/login');
-        }
-        init();
-    }, []);
+    if (isLoading) {
+        return (
+            <View className="flex-1 bg-surface_a0 justify-center items-center">
+                <ActivityIndicator size="large" color="#eb0202" />
+                <Text className="text-white mt-4">Loading...</Text>
+            </View>
+        );
+    }
 
-    return (
-        <View className="flex-1 justify-center items-center bg-black">
-            <ActivityIndicator size="large" color="#f95e3d" />
-        </View>
-    );
+    console.log('Index: Redirecting...', user ? 'to app' : 'to login');
+
+    // Redirect based on auth state
+    if (!user) {
+        return <Redirect href="/auth/login" />;
+    }
+
+    return <Redirect href="/(tabs)/logging" />;
 }

@@ -7,25 +7,21 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "androidStatusBar": {
-      "barStyle": "light-content",
-      "backgroundColor": "#121212",
-      "translucent": false
-    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.emcor.ironintensity",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.emcor.ironintensity"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#121212"
       },
       "package": "com.emcor.ironintensity"
+    },
+    "androidStatusBar": {
+      "barStyle": "light-content",
+      "backgroundColor": "#121212",
+      "translucent": false
     },
     "web": {
       "bundler": "metro",
@@ -37,26 +33,13 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#121212",
+          "imageWidth": 200
         }
-      ],
-      "expo-web-browser",
-      "expo-sqlite"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "00d1dc81-4d80-4e94-a16f-6cea22ec1dbd"
-      }
-    },
-    "owner": "emcor"
+    }
   }
 }
