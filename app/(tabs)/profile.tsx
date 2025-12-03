@@ -33,7 +33,7 @@ export default function Profile() {
 
     return (
         <View className="flex-1 bg-surface_a0 pt-16 px-6">
-            <Text className="text-white text-3xl font-bold mb-8">Profile</Text>
+            <Text className="text-primary_a0 text-3xl font-bold mb-8">Profile</Text>
 
             <View className="bg-surface_a10 p-6 rounded-2xl mb-4">
                 <Text className="text-surface_a50 text-sm mb-2">Email</Text>

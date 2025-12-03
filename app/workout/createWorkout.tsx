@@ -1,25 +1,41 @@
+// app/workout/createWorkout.tsx - Refactored with mode parameter
+
 import {View, Text, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {useLocalSearchParams, useRouter, useFocusEffect} from 'expo-router';
 import React, {useEffect, useState, useCallback, useContext} from 'react';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
-import { getWorkoutById, getWorkoutWithExercisesAndSets, softDeleteWorkoutById, updateWorkoutById} from '@/repositories/workouts';
-import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
-import { addSet,  softDeleteSet, updateSet, } from '@/repositories/workoutExerciseSets';
 import {
-    reorderWorkoutExercises,
-    softDeleteWorkoutExerciseById
-} from "@/repositories/workoutExercises";
+    getWorkoutById,
+    getWorkoutWithExercisesAndSets,
+    softDeleteWorkoutById,
+    updateWorkoutById,
+    duplicateWorkout
+} from '@/repositories/workouts';
+import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
+import { addSet, softDeleteSet, updateSet } from '@/repositories/workoutExerciseSets';
+import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from "@/repositories/workoutExercises";
 import {UserContext} from "@/contexts/UserContext";
 import FinishWorkoutModal from "@/components/finishWorkoutModal";
 import CancelWorkoutModal from "@/components/cancelWorkoutModal";
 import { AntDesign } from '@expo/vector-icons';
 import ExerciseDeleteModal from "@/components/exerciseDeleteModal";
 
+// Define workout modes
+type WorkoutMode = 'create' | 'edit' | 'view' | 'perform-again';
 
 function CreateWorkout() {
-    const { id, name, viewOnly } = useLocalSearchParams<{ id?: string; name?: string; viewOnly?: string }>();
+    const {
+        id,
+        name,
+        mode = 'create'
+    } = useLocalSearchParams<{
+        id?: string;
+        name?: string;
+        mode?: WorkoutMode
+    }>();
+
     const [workout, setWorkout] = useState<Workout | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
@@ -29,26 +45,62 @@ function CreateWorkout() {
     const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseWithSets | null>(null);
     const [workoutNameInput, setWorkoutNameInput] = useState(workout?.name || '');
     const [workoutDate, setWorkoutDate] = useState(new Date());
-    const { user  } = useContext(UserContext) ?? {};
-    const isNewWorkout = !id;
-    const isViewOnly = viewOnly === 'true';
+    const { user } = useContext(UserContext) ?? {};
     const router = useRouter();
 
+    // Mode helpers
+    const isViewMode = mode === 'view';
+    const isEditMode = mode === 'edit';
+    const isCreateMode = mode === 'create';
+    const isPerformAgainMode = mode === 'perform-again';
+    const isReadOnly = isViewMode;
+    const canModify = !isReadOnly;
+
+    // Handle "Perform Again" mode - duplicate workout on load
+    useEffect(() => {
+        const handlePerformAgain = async () => {
+            if (isPerformAgainMode && id && user) {
+                try {
+                    setLoading(true);
+                    const newWorkout = await duplicateWorkout(id, user.id);
+
+                    if (typeof newWorkout !== 'boolean' && newWorkout) {
+                        // Switch to edit mode with the new workout
+                        router.replace({
+                            pathname: '/workout/createWorkout',
+                            params: {
+                                id: newWorkout.id,
+                                name: newWorkout.name,
+                                mode: 'edit'
+                            }
+                        });
+                    }
+                } catch (err) {
+                    console.error('Failed to duplicate workout:', err);
+                    Alert.alert('Error', 'Failed to start workout. Please try again.');
+                    router.back();
+                } finally {
+                    setLoading(false);
+                }
+            }
+        };
+
+        handlePerformAgain();
+    }, [isPerformAgainMode, id, user]);
+
     const handleCancelWorkout = () => {
-        // In view-only mode, just go back
-        if (isViewOnly) {
+        if (isViewMode) {
             router.back();
             return;
         }
 
-        // In edit mode, show confirmation modal
         setCancelModalVisible(true);
     };
 
     const confirmCancelWorkout = async () => {
         setCancelModalVisible(false);
 
-        if (id) {
+        if (id && canModify) {
             try {
                 await softDeleteWorkoutById(id);
             } catch (err) {
@@ -61,32 +113,21 @@ function CreateWorkout() {
     async function handleConfirmDelete() {
         if (!exerciseToDelete) return;
 
-        // Delete target exercise
         await softDeleteWorkoutExerciseById(exerciseToDelete.workoutExerciseId);
-
-        // Reload to get the remaining exercises
         await loadWorkoutData();
 
         if (workout?.id) {
-            // Extract all exercise IDs in their current (old) order
             const orderedIds = exerciseData
                 .filter(ex => ex.workoutExerciseId !== exerciseToDelete.workoutExerciseId)
                 .map(ex => ex.workoutExerciseId);
 
-            // Reorder them sequentially (1..n)
             await reorderWorkoutExercises(workout.id, orderedIds);
-
-            // Reload again so UI shows updated order_index
             await loadWorkoutData();
         }
 
-        // Close modal
         setExerciseToDelete(null);
     }
 
-
-
-    // Load workout if editing an existing one
     const loadWorkoutData = useCallback(async () => {
         if (!id) return;
 
@@ -109,13 +150,12 @@ function CreateWorkout() {
         loadWorkoutData();
     }, [loadWorkoutData]);
 
-    // Refresh workout data when returning from AddExercise screen
     useFocusEffect(
         useCallback(() => {
-            if (id && !isViewOnly) {
+            if (id && canModify) {
                 loadWorkoutData();
             }
-        }, [id, isViewOnly, loadWorkoutData])
+        }, [id, canModify, loadWorkoutData])
     );
 
     useEffect(() => {
@@ -125,13 +165,12 @@ function CreateWorkout() {
     }, [workout]);
 
     const handleAddSet = async (workoutExerciseId: string) => {
+        if (isReadOnly) return;
+
         try {
             const newSet = await addSet(
                 workoutExerciseId,
-                {
-                    reps: 10,
-                    weight: 0,
-                },
+                { reps: 10, weight: 0 },
                 { returnData: true }
             );
 
@@ -147,10 +186,7 @@ function CreateWorkout() {
             setExerciseData((prev) =>
                 prev.map((exerciseItem) =>
                     exerciseItem.workoutExerciseId === workoutExerciseId
-                        ? {
-                            ...exerciseItem,
-                            sets: [...exerciseItem.sets, formattedSet],
-                        }
+                        ? { ...exerciseItem, sets: [...exerciseItem.sets, formattedSet] }
                         : exerciseItem
                 )
             );
@@ -160,6 +196,8 @@ function CreateWorkout() {
     };
 
     const handleDeleteSet = async (workoutExerciseId: string, setId: string) => {
+        if (isReadOnly) return;
+
         try {
             const deleted = await softDeleteSet(setId);
             if (!deleted) return;
@@ -171,11 +209,7 @@ function CreateWorkout() {
                             ...exerciseItem,
                             sets: exerciseItem.sets
                                 .filter((set) => set.id !== setId)
-                                .map((set, index) => ({
-                                    ...set,
-                                    setNumber: index + 1,
-                                })),
-
+                                .map((set, index) => ({ ...set, setNumber: index + 1 })),
                         }
                         : exerciseItem
                 )
@@ -190,6 +224,8 @@ function CreateWorkout() {
         setId: string,
         updates: { reps?: number; weight?: number; setNumber?: number }
     ) => {
+        if (isReadOnly) return;
+
         try {
             const updatedSet = await updateSet(setId, updates, { returnData: true });
             if (!updatedSet || typeof updatedSet === 'boolean') return;
@@ -219,23 +255,14 @@ function CreateWorkout() {
     };
 
     const finishWorkoutWithData = async () => {
-        if (!workout) return;
-        if (!user) {
-            console.warn('No user logged in, cannot finish workout');
-            return;
-        }
+        if (!workout || !user) return;
 
         try {
-            // Update the existing workout with the final name and date
-            await updateWorkoutById(
-                workout.id,
-                {
-                    name: workoutNameInput || 'Completed Workout',
-                    created_at: workoutDate.toISOString(),
-                }
-            );
+            await updateWorkoutById(workout.id, {
+                name: workoutNameInput || 'Completed Workout',
+                created_at: workoutDate.toISOString(),
+            });
 
-            // Navigate back to home
             router.push({ pathname: '/' });
         } catch (error) {
             console.error('Failed to finish workout:', error);
@@ -247,29 +274,48 @@ function CreateWorkout() {
         ({ item, drag, isActive }: RenderItemParams<ExerciseWithSets>) => {
             return (
                 <TouchableOpacity
-                    onLongPress={isViewOnly ? undefined : drag}
-                    disabled={isActive || isViewOnly}
+                    onLongPress={isReadOnly ? undefined : drag}
+                    disabled={isActive || isReadOnly}
                     activeOpacity={0.8}
                     style={{ opacity: isActive ? 0.8 : 1 }}
                 >
                     <WorkoutExerciseListItem
                         exerciseItem={item}
-                        onDeleteExercise={() => {
-                            setExerciseToDelete(item);
-                        }}
-                        onEditSet={isViewOnly ? undefined : (setId, updates) =>
+                        onDeleteExercise={isReadOnly ? undefined : () => setExerciseToDelete(item)}
+                        onEditSet={isReadOnly ? undefined : (setId, updates) =>
                             handleUpdateSet(item.workoutExerciseId, setId, updates)
                         }
-                        onDeleteSet={isViewOnly ? undefined : (setId) =>
+                        onDeleteSet={isReadOnly ? undefined : (setId) =>
                             handleDeleteSet(item.workoutExerciseId, setId)
                         }
-                        onAddSet={isViewOnly ? undefined : handleAddSet}
+                        onAddSet={isReadOnly ? undefined : handleAddSet}
                     />
                 </TouchableOpacity>
             );
         },
-        [isViewOnly]
+        [isReadOnly]
     );
+
+    // Get header title based on mode
+    const getHeaderTitle = () => {
+        switch (mode) {
+            case 'view':
+                return name || 'Workout Details';
+            case 'edit':
+                return name || 'Edit Workout';
+            case 'perform-again':
+                return 'Starting Workout...';
+            case 'create':
+            default:
+                return 'New Workout';
+        }
+    };
+
+    const getHeaderSubtitle = () => {
+        if (isEditMode) return 'In Progress';
+        if (isViewMode) return 'Completed';
+        return null;
+    };
 
     if (loading) {
         return (
@@ -294,7 +340,7 @@ function CreateWorkout() {
                             activeOpacity={0.7}
                         >
                             <AntDesign
-                                name={isViewOnly ? "arrow-left" : "close"}
+                                name={isViewMode ? "arrow-left" : "close"}
                                 size={24}
                                 color="#eb0202"
                             />
@@ -302,14 +348,11 @@ function CreateWorkout() {
 
                         <View className="flex-1 mx-4">
                             <Text className="text-primary_a0 font-bold text-2xl text-center">
-                                {isViewOnly
-                                    ? (name ?? 'Workout Details')
-                                    : (isNewWorkout ? 'New Workout' : name ?? 'Workout')
-                                }
+                                {getHeaderTitle()}
                             </Text>
-                            {!isViewOnly && !isNewWorkout && (
+                            {getHeaderSubtitle() && (
                                 <Text className="text-surface_a50 text-sm text-center mt-1">
-                                    In Progress
+                                    {getHeaderSubtitle()}
                                 </Text>
                             )}
                         </View>
@@ -320,13 +363,13 @@ function CreateWorkout() {
 
                 {/* Content */}
                 <View className="flex-1 px-4">
-                    {!isNewWorkout && workout && (
+                    {id && workout && (
                         <DraggableFlatList
                             data={exerciseData}
                             keyExtractor={(item) => item.workoutExerciseId}
                             renderItem={renderItem}
                             onDragEnd={async ({ data }) => {
-                                if (isViewOnly) return;
+                                if (isReadOnly) return;
 
                                 const updatedData = data.map((item, idx) => ({
                                     ...item,
@@ -354,7 +397,7 @@ function CreateWorkout() {
                                             No exercises yet
                                         </Text>
                                         <Text className="text-surface_a50 text-center">
-                                            {isViewOnly
+                                            {isReadOnly
                                                 ? 'This workout has no exercises'
                                                 : 'Tap the + button to add exercises'
                                             }
@@ -363,7 +406,7 @@ function CreateWorkout() {
                                 </View>
                             }
                             ListFooterComponent={
-                                !isViewOnly && exerciseData.length > 0 ? (
+                                canModify && exerciseData.length > 0 ? (
                                     <View className="mt-6 mb-24">
                                         <TouchableOpacity
                                             onPress={() => setFinishModalVisible(true)}
@@ -386,7 +429,7 @@ function CreateWorkout() {
                         />
                     )}
 
-                    {isNewWorkout && (
+                    {isCreateMode && (
                         <View className="flex-1 justify-center items-center">
                             <View className="bg-surface_a10 p-8 rounded-2xl items-center mx-4">
                                 <AntDesign name="play-circle" size={64} color="#f34023" />
@@ -415,7 +458,7 @@ function CreateWorkout() {
                 </View>
 
                 {/* Floating Add Exercise Button */}
-                {!isViewOnly && !isNewWorkout && (
+                {canModify && id && (
                     <View className="absolute bottom-6 right-6">
                         <TouchableOpacity
                             onPress={() => {
@@ -441,7 +484,7 @@ function CreateWorkout() {
             </SafeAreaView>
 
             {/* Modals */}
-            {!isViewOnly && (
+            {canModify && (
                 <>
                     <FinishWorkoutModal
                         visible={finishModalVisible}

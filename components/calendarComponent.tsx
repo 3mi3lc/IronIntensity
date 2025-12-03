@@ -8,7 +8,7 @@ import ScrollView = Animated.ScrollView;
 import {formatReadableDate} from "@/utils/formatDate";
 import {useRouter} from "expo-router";
 import { UserContext } from '@/contexts/UserContext';
-import { createWorkout, duplicateWorkout } from '@/repositories/workouts';
+import { createWorkout } from '@/repositories/workouts';
 import { Workout } from '@/repositories/types';
 
 const CalendarComponent = () => {
@@ -55,7 +55,8 @@ const CalendarComponent = () => {
                 pathname: '/workout/createWorkout',
                 params: {
                     id: newWorkout.id,
-                    name: newWorkout.name
+                    name: newWorkout.name,
+                    mode: 'edit' // New workout starts in edit mode
                 },
             });
         } catch (error) {
@@ -71,41 +72,23 @@ const CalendarComponent = () => {
         setModalVisible(true);
     };
 
-    const handlePerformAgain = async () => {
-        if (!selectedWorkout || !user) {
-            Alert.alert('Error', 'Unable to duplicate workout');
+    const handlePerformAgain = () => {
+        if (!selectedWorkout) {
+            Alert.alert('Error', 'Unable to start workout');
             return;
         }
 
         setModalVisible(false);
-        setIsCreating(true);
 
-        try {
-            // Duplicate the workout with all exercises
-            const duplicatedWorkout = await duplicateWorkout(
-                selectedWorkout.id,
-                user.id,
-                { returnData: true }
-            );
-
-            if (!duplicatedWorkout || typeof duplicatedWorkout === 'boolean') {
-                throw new Error('Failed to duplicate workout');
-            }
-
-            // Navigate to the new workout
-            router.push({
-                pathname: '/workout/createWorkout',
-                params: {
-                    id: duplicatedWorkout.id,
-                    name: duplicatedWorkout.name,
-                },
-            });
-        } catch (error) {
-            console.error('Failed to duplicate workout:', error);
-            Alert.alert('Error', 'Failed to duplicate workout. Please try again.');
-        } finally {
-            setIsCreating(false);
-        }
+        // Navigate with perform-again mode - duplication happens in createWorkout screen
+        router.push({
+            pathname: '/workout/createWorkout',
+            params: {
+                id: selectedWorkout.id,
+                name: selectedWorkout.name,
+                mode: 'perform-again'
+            },
+        });
     };
 
     const handleViewWorkout = () => {
@@ -117,7 +100,21 @@ const CalendarComponent = () => {
             params: {
                 id: selectedWorkout.id,
                 name: selectedWorkout.name,
-                viewOnly: 'true', // Pass view-only mode
+                mode: 'view'
+            },
+        });
+    };
+
+    const handleEditWorkout = () => {
+        if (!selectedWorkout) return;
+
+        setModalVisible(false);
+        router.push({
+            pathname: '/workout/createWorkout',
+            params: {
+                id: selectedWorkout.id,
+                name: selectedWorkout.name,
+                mode: 'edit'
             },
         });
     };
@@ -174,10 +171,12 @@ const CalendarComponent = () => {
 
             <WorkoutOptionsModal
                 visible={modalVisible}
+                workoutId={selectedWorkout?.id || ''}
                 workoutName={selectedWorkout?.name || ''}
                 onClose={() => setModalVisible(false)}
                 onPerformAgain={handlePerformAgain}
                 onViewWorkout={handleViewWorkout}
+                onEditWorkout={handleEditWorkout}
             />
         </View>
     );

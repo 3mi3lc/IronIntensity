@@ -1,21 +1,26 @@
+// components/workoutOptionsModal.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 
 interface WorkoutOptionsModalProps {
     visible: boolean;
+    workoutId: string;
     workoutName: string;
     onClose: () => void;
     onPerformAgain: () => void;
     onViewWorkout: () => void;
+    onEditWorkout: () => void;
 }
 
 const WorkoutOptionsModal = ({
                                  visible,
+                                 workoutId,
                                  workoutName,
                                  onClose,
                                  onPerformAgain,
                                  onViewWorkout,
+                                 onEditWorkout,
                              }: WorkoutOptionsModalProps) => {
     return (
         <Modal
@@ -46,6 +51,7 @@ const WorkoutOptionsModal = ({
 
                     {/* Options */}
                     <View className="gap-y-3">
+                        {/* Perform Again */}
                         <TouchableOpacity
                             onPress={onPerformAgain}
                             className="bg-primary_a0 py-4 px-6 rounded-xl flex-row items-center"
@@ -57,6 +63,19 @@ const WorkoutOptionsModal = ({
                             </Text>
                         </TouchableOpacity>
 
+                        {/* Edit Workout */}
+                        <TouchableOpacity
+                            onPress={onEditWorkout}
+                            className="bg-surface_a20 py-4 px-6 rounded-xl flex-row items-center"
+                            activeOpacity={0.8}
+                        >
+                            <AntDesign name="edit" size={20} color="white" />
+                            <Text className="text-white font-bold text-lg ml-3">
+                                Edit Workout
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* View Workout */}
                         <TouchableOpacity
                             onPress={onViewWorkout}
                             className="bg-surface_a20 py-4 px-6 rounded-xl flex-row items-center"
@@ -69,9 +88,14 @@ const WorkoutOptionsModal = ({
                         </TouchableOpacity>
                     </View>
 
-                    <Text className="text-gray-400 text-sm text-center mt-4">
-                        Perform Again creates a new workout with the same exercises and sets
-                    </Text>
+                    {/* Info text */}
+                    <View className="mt-4 bg-surface_a20 p-3 rounded-xl">
+                        <Text className="text-surface_a50 text-xs text-center">
+                            <Text className="font-bold">Perform Again:</Text> Creates a new workout with the same exercises{'\n'}
+                            <Text className="font-bold">Edit:</Text> Modify this workout's details{'\n'}
+                            <Text className="font-bold">View:</Text> See workout in read-only mode
+                        </Text>
+                    </View>
                 </TouchableOpacity>
             </TouchableOpacity>
         </Modal>
