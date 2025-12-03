@@ -45,7 +45,7 @@ const WorkoutOptionsModal = ({
                     </View>
 
                     {/* Options */}
-                    <View className="space-y-3">
+                    <View className="gap-y-3">
                         <TouchableOpacity
                             onPress={onPerformAgain}
                             className="bg-primary_a10 py-4 px-6 rounded-xl flex-row items-center"

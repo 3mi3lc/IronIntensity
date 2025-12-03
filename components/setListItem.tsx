@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {View, Text, Pressable, } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
+import { AntDesign } from '@expo/vector-icons';
 import SetOptionsMenu from "@/components/setOptionsMenu";
 import SetEditModal from "@/components/setEditMenu";
 
@@ -7,8 +8,9 @@ interface SetListItemProps {
     setNumber: number;
     reps: number;
     weight?: number | null;
-    onEdit?: (updates: { reps?: number; weight?: number ; setNumber?: number }) => void;
+    onEdit?: (updates: { reps?: number; weight?: number; setNumber?: number }) => void;
     onDelete?: () => void;
+    viewOnly?: boolean;
 }
 
 export default function SetListItem({
@@ -17,6 +19,7 @@ export default function SetListItem({
                                         weight: initialWeight,
                                         onEdit,
                                         onDelete,
+                                        viewOnly = false,
                                     }: SetListItemProps) {
     const [reps, setReps] = useState(String(initialReps));
     const [weight, setWeight] = useState(
@@ -37,68 +40,80 @@ export default function SetListItem({
 
     return (
         <>
-            <View className="flex-row my-1 p-3 bg-surface_a20 rounded-lg items-center">
-                <View className="flex-1">
-                    <View className="flex-row items-center justify-between">
-                        <Text className="text-white font-bold">Set {setNumber}</Text>
-
-                        {/* Reps Display */}
-                        <Pressable
-                            onPress={() => setEditModalVisible(true)}
-                            className="bg-surface_a30 rounded w-14 h-10 justify-center items-center mx-2"
-                        >
-                            <Text className="text-white text-center">{reps}</Text>
-                        </Pressable>
-
-                        {/* Weight Display */}
-                        <Pressable
-                            onPress={() => setEditModalVisible(true)}
-                            className="bg-surface_a30 rounded w-14 h-10 justify-center items-center mx-2"
-                        >
-                            <Text className="text-white text-center">{weight}</Text>
-                        </Pressable>
-
-                        {/* Three dot menu */}
-                        <View className="flex-row items-center space-x-2">
-                            <Pressable
-                                onPress={() => setMenuVisible(true)}
-                                className="px-2 py-1 rounded"
-                            >
-                                <Text className="text-white text-2xl">⋮</Text>
-                            </Pressable>
-                            <SetOptionsMenu
-                                visible={menuVisible}
-                                onClose={() => setMenuVisible(false)}
-                                onDelete={() => {
-                                    setMenuVisible(false);
-                                    onDelete?.();
-                                }}
-                            />
-                        </View>
-                    </View>
+            <View className="flex-row my-1.5 px-4 py-3 bg-surface_a10 rounded-xl items-center shadow-sm">
+                {/* Set Number Badge */}
+                <View className="bg-primary_a10/20 px-3 py-1.5 rounded-lg mr-3">
+                    <Text className="text-primary_a10 font-bold text-sm">#{setNumber}</Text>
                 </View>
+
+                {/* Reps */}
+                <Pressable
+                    onPress={viewOnly ? undefined : () => setEditModalVisible(true)}
+                    disabled={viewOnly}
+                    className={`flex-1 mx-1 ${viewOnly ? '' : 'active:opacity-70'}`}
+                >
+                    <View className="bg-surface_a20 rounded-lg px-3 py-1.5">
+                        <Text className="text-surface_a50 text-xs mb-0.5">REPS</Text>
+                        <Text className="text-light font-bold text-lg">{reps}</Text>
+                    </View>
+                </Pressable>
+
+                {/* Weight */}
+                <Pressable
+                    onPress={viewOnly ? undefined : () => setEditModalVisible(true)}
+                    disabled={viewOnly}
+                    className={`flex-1 mx-1 ${viewOnly ? '' : 'active:opacity-70'}`}
+                >
+                    <View className="bg-surface_a20 rounded-lg px-3 py-1.5">
+                        <Text className="text-surface_a50 text-xs mb-0.5">KG</Text>
+                        <Text className="text-light font-bold text-lg">{weight || '0'}</Text>
+                    </View>
+                </Pressable>
+
+                {/* Menu Button */}
+                {!viewOnly && (
+                    <Pressable
+                        onPress={() => setMenuVisible(true)}
+                        className="ml-2 p-2 bg-surface_a20 rounded-lg active:opacity-70"
+                    >
+                        <AntDesign name="ellipsis1" size={20} color="#8b8b8b" />
+                    </Pressable>
+                )}
             </View>
 
-            {/* Edit modal */}
-            <SetEditModal
-                visible={editModalVisible}
-                onClose={() => setEditModalVisible(false)}
-                initialReps={String(initialReps)}     // use the prop
-                initialWeight={initialWeight != null ? String(initialWeight) : ""} // use the prop
-                onSave={(newReps, newWeight) => {
-                    const parsedReps = parseInt(newReps, 10);
-                    const parsedWeight = parseFloat(newWeight);
+            {/* Options Menu */}
+            {!viewOnly && (
+                <SetOptionsMenu
+                    visible={menuVisible}
+                    onClose={() => setMenuVisible(false)}
+                    onDelete={() => {
+                        setMenuVisible(false);
+                        onDelete?.();
+                    }}
+                />
+            )}
 
-                    setReps(String(parsedReps));
-                    setWeight(String(parsedWeight));
+            {/* Edit Modal */}
+            {!viewOnly && (
+                <SetEditModal
+                    visible={editModalVisible}
+                    onClose={() => setEditModalVisible(false)}
+                    initialReps={String(initialReps)}
+                    initialWeight={initialWeight != null ? String(initialWeight) : ""}
+                    onSave={(newReps, newWeight) => {
+                        const parsedReps = parseInt(newReps, 10);
+                        const parsedWeight = parseFloat(newWeight);
 
-                    onEdit?.({
-                        reps: parsedReps,
-                        weight: parsedWeight,
-                    });
-                }}
-            />
+                        setReps(String(parsedReps));
+                        setWeight(String(parsedWeight));
+
+                        onEdit?.({
+                            reps: parsedReps,
+                            weight: parsedWeight,
+                        });
+                    }}
+                />
+            )}
         </>
     );
 }
-

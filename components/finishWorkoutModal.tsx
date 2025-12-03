@@ -1,12 +1,7 @@
 import React from 'react';
-import {
-    Modal,
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-} from 'react-native';
+import { Modal, View, Text, TextInput, Pressable } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { AntDesign } from '@expo/vector-icons';
 
 interface FinishWorkoutModalProps {
     visible: boolean;
@@ -44,6 +39,11 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
         },
     };
 
+    const handleFinish = () => {
+        onClose();
+        finishWorkoutWithData();
+    };
+
     return (
         <Modal
             visible={visible}
@@ -51,59 +51,104 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
             transparent={true}
             onRequestClose={onClose}
         >
-            <View className="flex-1 justify-center items-center bg-black/50 px-8">
-                <View className="bg-surface_a20 rounded-xl p-6 w-full max-w-md">
-                    <Text className="text-primary_a0 font-bold text-xl mb-4">Name your workout</Text>
-
-                    <TextInput
-                        value={workoutNameInput}
-                        onChangeText={setWorkoutNameInput}
-                        placeholder="Workout name"
-                        placeholderTextColor="#aaa"
-                        className="bg-white rounded p-3 mb-6 text-black"
-                    />
-
-                    <Text className="text-primary_a10 font-bold mb-2">Date of workout</Text>
-
-                    <Calendar
-                        firstDay={1}
-                        onDayPress={onDayPress}
-                        hideExtraDays={false}
-                        markedDates={markedDates}
-                        markingType="multi-dot"
-                        theme={{
-                            calendarBackground: '#282828',
-                            dayTextColor: '#ffffff',
-                            monthTextColor: '#ffffff',
-                            arrowColor: '#ffffff',
-                            selectedDayBackgroundColor: '#f95e3d',
-                            todayTextColor: '#f95e3d',
-                            textMonthFontSize: 20,
-                            textMonthFontWeight: 'bold',
-                        }}
-                        style={{ marginBottom: 16, borderRadius: 12, overflow: 'hidden' }}
-                    />
-
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', gap: 16, marginTop: 16 }}>
-                        <TouchableOpacity
+            <Pressable
+                onPress={onClose}
+                className="flex-1 justify-center items-center bg-black/70 px-4"
+            >
+                <Pressable
+                    onPress={(event) => event.stopPropagation()}
+                    className="bg-surface_a10 rounded-2xl w-full max-w-md overflow-hidden"
+                    style={{
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 8 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 16,
+                        elevation: 8,
+                    }}
+                >
+                    {/* Header */}
+                    <View className="bg-primary_a10 px-6 py-4 flex-row items-center justify-between">
+                        <View className="flex-row items-center gap-3">
+                            <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
+                                <AntDesign name="checkcircle" size={20} color="white" />
+                            </View>
+                            <Text className="text-white text-xl font-bold">Finish Workout</Text>
+                        </View>
+                        <Pressable
                             onPress={onClose}
-                            className="bg-primary_a0 px-8 py-2 rounded"
+                            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
                         >
-                            <Text className="text-white font-bold">Cancel</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            onPress={() => {
-                                onClose();
-                                finishWorkoutWithData();
-                            }}
-                            className="bg-primary_a0 px-8 py-2 rounded"
-                        >
-                            <Text className="text-white font-bold">Finish</Text>
-                        </TouchableOpacity>
+                            <AntDesign name="close" size={20} color="white" />
+                        </Pressable>
                     </View>
-                </View>
-            </View>
+
+                    <View className="p-6">
+                        {/* Workout Name Input */}
+                        <View className="mb-6">
+                            <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-3">
+                                WORKOUT NAME
+                            </Text>
+                            <View className="flex-row items-center bg-surface_a20 rounded-xl px-4 py-3">
+                                <AntDesign name="edit" size={18} color="#ff7857" style={{ marginRight: 12 }} />
+                                <TextInput
+                                    value={workoutNameInput}
+                                    onChangeText={setWorkoutNameInput}
+                                    placeholder="Enter workout name"
+                                    placeholderTextColor="#8b8b8b"
+                                    className="flex-1 text-white text-base"
+                                />
+                            </View>
+                        </View>
+
+                        {/* Date Selection */}
+                        <View className="mb-6">
+                            <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-3">
+                                WORKOUT DATE
+                            </Text>
+                            <View className="bg-surface_a20 rounded-xl overflow-hidden">
+                                <Calendar
+                                    firstDay={1}
+                                    onDayPress={onDayPress}
+                                    hideExtraDays={false}
+                                    markedDates={markedDates}
+                                    markingType="multi-dot"
+                                    theme={{
+                                        calendarBackground: '#3f3f3f',
+                                        dayTextColor: '#ffffff',
+                                        monthTextColor: '#ffffff',
+                                        arrowColor: '#ffffff',
+                                        selectedDayBackgroundColor: '#eb0202',
+                                        todayTextColor: '#ff7857',
+                                        textMonthFontSize: 18,
+                                        textMonthFontWeight: 'bold',
+                                    }}
+                                />
+                            </View>
+                        </View>
+
+                        {/* Action Buttons */}
+                        <View className="gap-3">
+                            {/* Finish Button */}
+                            <Pressable
+                                onPress={handleFinish}
+                                className="bg-primary_a10 rounded-xl py-4 flex-row items-center justify-center gap-2 active:bg-primary_a0"
+                            >
+                                <AntDesign name="check" size={20} color="white" />
+                                <Text className="text-white text-base font-bold">Complete Workout</Text>
+                            </Pressable>
+
+                            {/* Cancel Button */}
+                            <Pressable
+                                onPress={onClose}
+                                className="bg-surface_a20 rounded-xl py-4 flex-row items-center justify-center gap-2 active:bg-surface_a30"
+                            >
+                                <AntDesign name="closecircleo" size={18} color="#8b8b8b" />
+                                <Text className="text-surface_a50 text-base font-bold">Cancel</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </Pressable>
+            </Pressable>
         </Modal>
     );
 };

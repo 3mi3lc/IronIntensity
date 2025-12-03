@@ -180,14 +180,14 @@ export async function duplicateWorkout(
             throw new Error('Workout not found');
         }
 
-        // Create new workout with same name
+        // Create new workout with copy suffix
         const newWorkoutId = newId();
         const ts = now();
 
         const query = db.insert(workouts).values({
             id: newWorkoutId,
             user_id: userId,
-            name: `${originalWorkout.name} (Copy)`,
+            name: originalWorkout.name,
             created_at: ts,
             updated_at: ts,
             deleted_at: null,
@@ -213,10 +213,13 @@ export async function duplicateWorkout(
             )
             .orderBy(workout_exercises.order_index);
 
-        // Copy exercises to new workout (but not the sets - user will enter fresh data)
+        // Copy exercises and their sets to new workout
         for (const exercise of originalExercises) {
+            const newWorkoutExerciseId = newId();
+
+            // Copy the workout exercise
             await db.insert(workout_exercises).values({
-                id: newId(),
+                id: newWorkoutExerciseId,
                 workout_id: newWorkoutId,
                 exercise_id: exercise.exercise_id,
                 order_index: exercise.order_index,
@@ -225,6 +228,33 @@ export async function duplicateWorkout(
                 deleted_at: null,
                 is_synced: 0,
             });
+
+            // Get all sets for this exercise
+            const originalSets = await db
+                .select()
+                .from(workout_exercise_sets)
+                .where(
+                    and(
+                        eq(workout_exercise_sets.workout_exercise_id, exercise.id),
+                        isNull(workout_exercise_sets.deleted_at)
+                    )
+                )
+                .orderBy(workout_exercise_sets.set_number);
+
+            // Copy all sets
+            for (const set of originalSets) {
+                await db.insert(workout_exercise_sets).values({
+                    id: newId(),
+                    workout_exercise_id: newWorkoutExerciseId,
+                    set_number: set.set_number,
+                    reps: set.reps,
+                    weight: set.weight,
+                    created_at: ts,
+                    updated_at: ts,
+                    deleted_at: null,
+                    is_synced: 0,
+                });
+            }
         }
 
         if (options?.returnData) {
