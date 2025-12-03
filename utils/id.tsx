@@ -1,5 +1,10 @@
-// src/lib/id.ts
-import { v4 as uuid } from 'uuid';
+// utils/id.tsx
+import * as Crypto from 'expo-crypto';
 
-export const newId = () => uuid();
-export const now = () => new Date().toISOString();
+export function newId(): string {
+    return Crypto.randomUUID();
+}
+
+export function now(): string {
+    return new Date().toISOString();
+}

@@ -24,6 +24,7 @@
     "expo-blur": "~15.0.7",
     "expo-build-properties": "~1.0.9",
     "expo-constants": "~18.0.10",
+    "expo-crypto": "~15.0.7",
     "expo-drizzle-studio-plugin": "^0.2.0",
     "expo-font": "~14.0.9",
     "expo-haptics": "~15.0.7",
