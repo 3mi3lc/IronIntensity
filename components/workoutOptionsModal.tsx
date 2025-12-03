@@ -70,7 +70,7 @@ const WorkoutOptionsModal = ({
                     </View>
 
                     <Text className="text-gray-400 text-sm text-center mt-4">
-                        Perform Again creates a new workout with the same exercises
+                        Perform Again creates a new workout with the same exercises and sets
                     </Text>
                 </TouchableOpacity>
             </TouchableOpacity>

@@ -105,8 +105,8 @@ const EditSetModal: React.FC<EditSetModalProps> = ({
                                 <View className="flex-1 mx-3">
                                     <TextInput
                                         keyboardType="numeric"
-                                        value={modalWeight}
-                                        onChangeText={setModalWeight}
+                                        value={modalReps}
+                                        onChangeText={setModalReps}
                                         className="bg-surface_a30 text-white text-center rounded-xl px-2 py-2 text-2xl font-bold"
                                         placeholderTextColor="#8b8b8b"
                                     />

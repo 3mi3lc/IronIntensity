@@ -3,14 +3,18 @@ import {useLocalSearchParams, useRouter, useFocusEffect} from 'expo-router';
 import React, {useEffect, useState, useCallback, useContext} from 'react';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
-import {createWorkout, getWorkoutById, getWorkoutWithExercisesAndSets, softDeleteWorkoutById, updateWorkoutById} from '@/repositories/workouts';
+import { getWorkoutById, getWorkoutWithExercisesAndSets, softDeleteWorkoutById, updateWorkoutById} from '@/repositories/workouts';
 import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
 import { addSet,  softDeleteSet, updateSet, } from '@/repositories/workoutExerciseSets';
-import {addExerciseToWorkoutById, reorderWorkoutExercises} from "@/repositories/workoutExercises";
+import {
+    reorderWorkoutExercises,
+    softDeleteWorkoutExerciseById
+} from "@/repositories/workoutExercises";
 import {UserContext} from "@/contexts/UserContext";
 import FinishWorkoutModal from "@/components/finishWorkoutModal";
 import CancelWorkoutModal from "@/components/cancelWorkoutModal";
 import { AntDesign } from '@expo/vector-icons';
+import ExerciseDeleteModal from "@/components/exerciseDeleteModal";
 
 
 function CreateWorkout() {
@@ -21,6 +25,7 @@ function CreateWorkout() {
     const [exerciseData, setExerciseData] = useState<ExerciseWithSets[]>([]);
     const [finishModalVisible, setFinishModalVisible] = useState(false);
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
+    const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseWithSets | null>(null);
     const [workoutNameInput, setWorkoutNameInput] = useState(workout?.name || '');
     const [workoutDate, setWorkoutDate] = useState(new Date());
     const { user  } = useContext(UserContext) ?? {};
@@ -51,6 +56,34 @@ function CreateWorkout() {
         }
         router.back();
     };
+
+    async function handleConfirmDelete() {
+        if (!exerciseToDelete) return;
+
+        // Delete target exercise
+        await softDeleteWorkoutExerciseById(exerciseToDelete.workoutExerciseId);
+
+        // Reload to get the remaining exercises
+        await loadWorkoutData();
+
+        if (workout?.id) {
+            // Extract all exercise IDs in their current (old) order
+            const orderedIds = exerciseData
+                .filter(ex => ex.workoutExerciseId !== exerciseToDelete.workoutExerciseId)
+                .map(ex => ex.workoutExerciseId);
+
+            // Reorder them sequentially (1..n)
+            await reorderWorkoutExercises(workout.id, orderedIds);
+
+            // Reload again so UI shows updated order_index
+            await loadWorkoutData();
+        }
+
+        // Close modal
+        setExerciseToDelete(null);
+    }
+
+
 
     // Load workout if editing an existing one
     const loadWorkoutData = useCallback(async () => {
@@ -220,6 +253,9 @@ function CreateWorkout() {
                 >
                     <WorkoutExerciseListItem
                         exerciseItem={item}
+                        onDeleteExercise={() => {
+                            setExerciseToDelete(item);
+                        }}
                         onEditSet={isViewOnly ? undefined : (setId, updates) =>
                             handleUpdateSet(item.workoutExerciseId, setId, updates)
                         }
@@ -259,12 +295,12 @@ function CreateWorkout() {
                             <AntDesign
                                 name={isViewOnly ? "arrowleft" : "close"}
                                 size={24}
-                                color="#f34023"
+                                color="#eb0202"
                             />
                         </TouchableOpacity>
 
                         <View className="flex-1 mx-4">
-                            <Text className="text-primary_a10 font-bold text-2xl text-center">
+                            <Text className="text-primary_a0 font-bold text-2xl text-center">
                                 {isViewOnly
                                     ? (name ?? 'Workout Details')
                                     : (isNewWorkout ? 'New Workout' : name ?? 'Workout')
@@ -420,6 +456,13 @@ function CreateWorkout() {
                         visible={cancelModalVisible}
                         onClose={() => setCancelModalVisible(false)}
                         onConfirm={confirmCancelWorkout}
+                    />
+
+                    <ExerciseDeleteModal
+                        visible={!!exerciseToDelete}
+                        exerciseName={exerciseToDelete?.exercise.name ?? ""}
+                        onCancel={() => setExerciseToDelete(null)}
+                        onConfirm={handleConfirmDelete}
                     />
                 </>
             )}

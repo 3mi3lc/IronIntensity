@@ -1,5 +1,5 @@
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Alert } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import React, {  useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { getAllExercisesWithBodyPart } from '@/repositories/exercises';
@@ -79,63 +79,165 @@ function AddExercise() {
 
     if (loading || addingExercise) {
         return (
-            <View className="flex-1 justify-center items-center bg-surface_a0 pt-16">
-                <Text className="text-white text-3xl font-bold">
-                    {loading ? 'Loading exercises...' : 'Adding exercise...'}
-                </Text>
+            <View className="flex-1 justify-center items-center bg-surface_a0">
+                <View className="bg-surface_a10 p-8 rounded-2xl items-center">
+                    <ActivityIndicator size="large" color="#eb0202" />
+                    <Text className="text-white text-xl font-bold mt-4">
+                        {loading ? 'Loading exercises...' : 'Adding exercise...'}
+                    </Text>
+                </View>
             </View>
         );
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-surface_a0 pt-16 px-4">
-            <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-primary_a0 font-bold text-3xl">
-                    Select Exercise
-                </Text>
+        <SafeAreaView className="flex-1 bg-surface_a0">
+            {/* Header */}
+            <View className="px-6 pt-16 pb-4">
+                <View className="flex-row justify-between items-center mb-2">
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        className="p-2 bg-surface_a10 rounded-xl items-center justify-center"
+                        activeOpacity={0.8}
+                    >
+                        <AntDesign name="arrowleft" size={24} color="#eb0202" />
+                    </TouchableOpacity>
+
+                    <View className="flex-1 ml-4">
+                        <Text className="text-primary_a0 font-bold text-2xl">
+                            Select Exercise
+                        </Text>
+                        <Text className="text-surface_a50 text-sm mt-1">
+                            Choose an exercise to add to your workout
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Create New Exercise Button */}
                 <TouchableOpacity
                     onPress={() => router.push('/exercise/createExercise')}
-                    className="bg-primary_a10 px-4 py-2 rounded-lg"
+                    className="bg-primary_a10 px-6 py-4 rounded-xl flex-row items-center justify-center mt-4"
                     activeOpacity={0.8}
+                    style={{
+                        shadowColor: '#eb0202',
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                        elevation: 8,
+                    }}
                 >
-                    <Text className="text-white font-bold">+ New</Text>
+                    <AntDesign name="plus" size={20} color="#fff" />
+                    <Text className="text-white font-bold text-base ml-2">
+                        Create New Exercise
+                    </Text>
                 </TouchableOpacity>
             </View>
 
-            <ScrollView>
-                {bodyPartSections.map((section) => (
-                    <View key={section.id} className="mb-4">
-                        <TouchableOpacity
-                            onPress={() => toggleSection(section.id)}
-                            className="flex-row justify-between items-center bg-surface_a10 px-4 py-3 rounded-lg"
-                        >
-                            <Text className="text-primary_a10 font-semibold text-lg">
-                                {section.name} ({section.exercises.length})
-                            </Text>
-                            <AntDesign
-                                name={section.expanded ? 'up' : 'down'}
-                                size={20}
-                                color="#f34023"
-                            />
-                        </TouchableOpacity>
-
-                        {section.expanded &&
-                            section.exercises.map((ex) => (
-                                <TouchableOpacity
-                                    key={ex.id}
-                                    onPress={() => handleSelectExercise(ex.id)}
-                                    className="bg-surface_a20 px-4 py-3 rounded-lg mt-2"
-                                >
-                                    <Text className="text-white">{ex.name}</Text>
-                                    {ex.description && (
-                                        <Text className="text-gray-200 text-xs">
-                                            {ex.description}
-                                        </Text>
-                                    )}
-                                </TouchableOpacity>
-                            ))}
+            {/* Body Part Sections */}
+            <ScrollView
+                className="flex-1 px-6"
+                showsVerticalScrollIndicator={false}
+            >
+                {bodyPartSections.length === 0 ? (
+                    <View className="flex-1 justify-center items-center py-20">
+                        <View className="w-20 h-20 bg-surface_a10 rounded-full items-center justify-center mb-4">
+                            <AntDesign name="inbox" size={40} color="#8b8b8b" />
+                        </View>
+                        <Text className="text-surface_a50 text-lg font-semibold">
+                            No exercises yet
+                        </Text>
+                        <Text className="text-surface_a40 text-sm mt-2 text-center">
+                            Create your first exercise to get started
+                        </Text>
                     </View>
-                ))}
+                ) : (
+                    bodyPartSections.map((section) => (
+                        <View key={section.id} className="mb-4">
+                            {/* Body Part Header */}
+                            <TouchableOpacity
+                                onPress={() => toggleSection(section.id)}
+                                className="flex-row justify-between items-center bg-surface_a10 px-5 py-4 rounded-xl"
+                                activeOpacity={0.8}
+                                style={{
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 4,
+                                    elevation: 3,
+                                }}
+                            >
+                                <View className="flex-row items-center flex-1">
+                                    <View className="w-10 h-10 bg-primary_a10 rounded-full items-center justify-center mr-3">
+                                        <AntDesign name="tags" size={18} color="#fff" />
+                                    </View>
+                                    <View className="flex-1">
+                                        <Text className="text-white font-bold text-lg">
+                                            {section.name}
+                                        </Text>
+                                        <Text className="text-surface_a50 text-xs mt-1">
+                                            {section.exercises.length} {section.exercises.length === 1 ? 'exercise' : 'exercises'}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                <View className={`w-8 h-8 rounded-full items-center justify-center ${
+                                    section.expanded ? 'bg-primary_a20' : 'bg-surface_a20'
+                                }`}>
+                                    <AntDesign
+                                        name={section.expanded ? 'up' : 'down'}
+                                        size={16}
+                                        color="#fff"
+                                    />
+                                </View>
+                            </TouchableOpacity>
+
+                            {/* Exercises List */}
+                            {section.expanded && (
+                                <View className="mt-2 space-y-2">
+                                    {section.exercises.length === 0 ? (
+                                        <View className="bg-surface_a10 px-5 py-6 rounded-xl items-center">
+                                            <Text className="text-surface_a50 text-sm">
+                                                No exercises in this category
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        section.exercises.map((ex, index) => (
+                                            <TouchableOpacity
+                                                key={ex.id}
+                                                onPress={() => handleSelectExercise(ex.id)}
+                                                className="bg-surface_a20 px-5 py-4 rounded-xl flex-row items-center"
+                                                activeOpacity={0.7}
+                                                style={{
+                                                    marginTop: index === 0 ? 0 : 8,
+                                                }}
+                                            >
+                                                <View className="w-8 h-8 bg-surface_a30 rounded-full items-center justify-center mr-3">
+                                                    <AntDesign name="pluscircleo" size={16} color="#f95e3d" />
+                                                </View>
+
+                                                <View className="flex-1">
+                                                    <Text className="text-white font-semibold text-base">
+                                                        {ex.name}
+                                                    </Text>
+                                                    {ex.description && (
+                                                        <Text className="text-surface_a50 text-xs mt-1" numberOfLines={1}>
+                                                            {ex.description}
+                                                        </Text>
+                                                    )}
+                                                </View>
+
+                                                <AntDesign name="right" size={16} color="#8b8b8b" />
+                                            </TouchableOpacity>
+                                        ))
+                                    )}
+                                </View>
+                            )}
+                        </View>
+                    ))
+                )}
+
+                {/* Bottom Padding */}
+                <View className="h-8" />
             </ScrollView>
         </SafeAreaView>
     );

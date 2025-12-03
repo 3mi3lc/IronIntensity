@@ -48,7 +48,7 @@ const CancelWorkoutModal = ({
                     </Text>
 
                     {/* Buttons */}
-                    <View className="space-y-3">
+                    <View className="gap-y-3">
                         <TouchableOpacity
                             onPress={onConfirm}
                             className="bg-primary_a10 py-4 px-6 rounded-xl"

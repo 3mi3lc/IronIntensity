@@ -13,7 +13,12 @@ export async function addExerciseToWorkoutById(
     const [{ max }] = await db
         .select({ max: sql<number>`COALESCE(MAX(${workout_exercises.order_index}), 0)` })
         .from(workout_exercises)
-        .where(eq(workout_exercises.workout_id, workoutId));
+        .where(
+            and(
+                eq(workout_exercises.workout_id, workoutId),
+                isNull(workout_exercises.deleted_at)
+            )
+        );
 
     const id = newId();
     const ts = now();
@@ -150,5 +155,28 @@ export async function moveWorkoutExerciseToIndex(
 
     return true;
 }
+
+export async function softDeleteWorkoutExerciseById(
+    id: string,
+    options?: { returnData?: boolean }
+): Promise<WorkoutExercise | boolean> {
+    const query = db
+        .update(workout_exercises)
+        .set({
+            deleted_at: now(),
+            updated_at: now(),
+            is_synced: 0
+        })
+        .where(eq(workout_exercises.id, id));
+
+    if (options?.returnData) {
+        const [deletedExercise] = await query.returning();
+        return deletedExercise ?? null;
+    }
+
+    const result = await query;
+    return result.changes > 0;
+}
+
 
 

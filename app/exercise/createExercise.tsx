@@ -9,12 +9,12 @@ import {
     Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AntDesign } from '@expo/vector-icons';
 import { createExercise } from '@/repositories/exercises';
 import { getAllBodyParts } from '@/repositories/bodyParts';
 import { addBodyPartToExercise } from '@/repositories/exerciseBodyParts';
 import { UserContext } from '@/contexts/UserContext';
 import type { BodyPart } from '@/repositories/types';
+import ExerciseCreatedModal from "@/components/exerciseCreatedModal";
 
 function CreateExercise() {
     const router = useRouter();
@@ -26,6 +26,7 @@ function CreateExercise() {
     const [selectedBodyParts, setSelectedBodyParts] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     useEffect(() => {
         async function loadBodyParts() {
@@ -99,18 +100,19 @@ function CreateExercise() {
 
             await Promise.all(linkPromises);
 
-            Alert.alert('Success', 'Exercise created successfully', [
-                {
-                    text: 'OK',
-                    onPress: () => router.back(),
-                },
-            ]);
+            setShowSuccess(true);
+
         } catch (err) {
             console.error('Failed to create exercise:', err);
             Alert.alert('Error', 'Failed to create exercise. Please try again.');
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleSuccessClose = () => {
+        setShowSuccess(false);
+        router.back();
     };
 
     if (loading) {
@@ -217,6 +219,12 @@ function CreateExercise() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+
+            <ExerciseCreatedModal
+                visible={showSuccess}
+                exerciseName={exerciseName}
+                onClose={handleSuccessClose}
+            />
         </SafeAreaView>
     );
 }

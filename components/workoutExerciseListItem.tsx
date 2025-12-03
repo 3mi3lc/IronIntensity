@@ -8,6 +8,7 @@ type Props = {
     onEditSet?: (setId: string, updates: { reps?: number; weight?: number; setNumber?: number }) => void;
     onDeleteSet?: (setId: string) => void;
     onAddSet?: (workoutExerciseId: string) => void;
+    onDeleteExercise?: (workoutExerciseId: string) => void;   // <-- NEW
     viewOnly?: boolean;
 };
 
@@ -16,6 +17,7 @@ const WorkoutExerciseItem = ({
                                  onEditSet,
                                  onDeleteSet,
                                  onAddSet,
+                                 onDeleteExercise,   // <-- NEW
                                  viewOnly = false
                              }: Props) => {
     return (
@@ -38,6 +40,17 @@ const WorkoutExerciseItem = ({
                         <View className="ml-2">
                             <AntDesign name="menufold" size={20} color="#8b8b8b" />
                         </View>
+                    )}
+
+                    {/* Delete Icon */}
+                    {!viewOnly && (
+                        <TouchableOpacity
+                            onPress={() => onDeleteExercise?.(exerciseItem.workoutExerciseId)}
+                            className="ml-3"
+                            activeOpacity={0.7}
+                        >
+                            <AntDesign name="delete" size={20} color="#f34023" />
+                        </TouchableOpacity>
                     )}
                 </View>
 
