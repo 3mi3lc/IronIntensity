@@ -8,7 +8,6 @@ import ScrollView = Animated.ScrollView;
 import {formatReadableDate} from "@/utils/formatDate";
 import {useRouter} from "expo-router";
 import { UserContext } from '@/contexts/UserContext';
-import { createWorkout } from '@/repositories/workouts';
 import { Workout } from '@/repositories/types';
 
 const CalendarComponent = () => {
@@ -37,27 +36,9 @@ const CalendarComponent = () => {
 
         setIsCreating(true);
         try {
-            // Create a new workout in the database
-            const newWorkout = await createWorkout(
-                {
-                    name: 'Workout in Progress',
-                    user_id: user.id,
-                },
-                { returnData: true }
-            );
-
-            if (!newWorkout || typeof newWorkout === 'boolean') {
-                throw new Error('Failed to create workout');
-            }
-
-            // Navigate to the workout screen with the new workout ID
+            // Navigate to the create workout screen
             router.push({
-                pathname: '/workout/createWorkout',
-                params: {
-                    id: newWorkout.id,
-                    name: newWorkout.name,
-                    mode: 'edit' // New workout starts in edit mode
-                },
+                pathname: '/workout/create',
             });
         } catch (error) {
             console.error('Failed to create workout:', error);
@@ -82,11 +63,10 @@ const CalendarComponent = () => {
 
         // Navigate with perform-again mode - duplication happens in createWorkout screen
         router.push({
-            pathname: '/workout/createWorkout',
+            pathname: '/workout/performAgain',
             params: {
                 id: selectedWorkout.id,
                 name: selectedWorkout.name,
-                mode: 'perform-again'
             },
         });
     };
@@ -96,25 +76,25 @@ const CalendarComponent = () => {
 
         setModalVisible(false);
         router.push({
-            pathname: '/workout/createWorkout',
+            pathname: '/workout/view',
             params: {
                 id: selectedWorkout.id,
                 name: selectedWorkout.name,
-                mode: 'view'
             },
         });
+
     };
+
 
     const handleEditWorkout = () => {
         if (!selectedWorkout) return;
 
         setModalVisible(false);
         router.push({
-            pathname: '/workout/createWorkout',
+            pathname: '/workout/edit',
             params: {
                 id: selectedWorkout.id,
                 name: selectedWorkout.name,
-                mode: 'edit'
             },
         });
     };

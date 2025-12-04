@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core';
 
 // Users Table
 export const users = sqliteTable('users', {
@@ -69,11 +69,18 @@ export const body_parts = sqliteTable('body_parts', {
 });
 
 // Exercise_BodyParts Junction Table (many-to-many)
-export const exercise_body_parts = sqliteTable('exercise_body_parts', {
-    exercise_id: text('exercise_id')
-        .notNull()
-        .references(() => exercises.id),
-    body_part_id: text('body_part_id')
-        .notNull()
-        .references(() => body_parts.id),
-});
+export const exercise_body_parts = sqliteTable(
+    'exercise_body_parts',
+    {
+        exercise_id: text('exercise_id').notNull().references(() => exercises.id),
+        body_part_id: text('body_part_id').notNull().references(() => body_parts.id),
+        created_at: text('created_at').default("datetime('now')"),
+        updated_at: text('updated_at').default("datetime('now')"),
+        deleted_at: text('deleted_at'),
+        is_synced: integer('is_synced').default(0),
+    },
+    (table) => ({
+        // SQLite composite primary key syntax
+        pk: primaryKey({ columns: [table.exercise_id, table.body_part_id] }),
+    })
+);

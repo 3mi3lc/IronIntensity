@@ -258,6 +258,7 @@ export async function duplicateWorkout(
         }
 
         if (options?.returnData) {
+            console.log("duplicated workout with id: ", newWorkoutId, " old id: ", workoutId);
             return newWorkout!;
         }
 

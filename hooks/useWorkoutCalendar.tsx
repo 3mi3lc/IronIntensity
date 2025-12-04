@@ -1,15 +1,24 @@
 // hooks/useWorkoutCalendar.ts
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useCallback } from 'react';
 import { Workout } from '@/repositories/types';
 import { getAllWorkouts } from '@/repositories/workouts';
+import { UserContext } from '@/contexts/UserContext';
 
 export const useWorkoutCalendar = () => {
+    const { refreshTrigger } = useContext(UserContext) ?? {};
     const [selectedDate, setSelectedDate] = useState('');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
 
-    useEffect(() => {
-        getAllWorkouts().then(setWorkouts);
+    // Function to manually refresh workouts
+    const refreshWorkouts = useCallback(async () => {
+        const fetchedWorkouts = await getAllWorkouts();
+        setWorkouts(fetchedWorkouts);
     }, []);
+
+    // Refetch workouts when refreshTrigger changes
+    useEffect(() => {
+        refreshWorkouts();
+    }, [refreshTrigger, refreshWorkouts]);
 
     const workoutDates: Record<string, boolean> = {};
     workouts.forEach((w) => {
@@ -44,5 +53,6 @@ export const useWorkoutCalendar = () => {
         setSelectedDate,
         markedDates,
         displayedWorkouts,
+        refreshWorkouts, // Export the refresh function
     };
 };

@@ -9,7 +9,13 @@ export async function addBodyPartToExercise(
     body_part_id: string,
     options?: { returnData?: boolean }
 ): Promise<ExerciseBodyPart | boolean> {
-    const query = db.insert(exercise_body_parts).values({ exercise_id, body_part_id });
+    const query = db.insert(exercise_body_parts).values({
+        exercise_id,
+        body_part_id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        is_synced: 0
+    });
 
     if (options?.returnData) {
         const [insertedRecord] = await query.returning();
@@ -19,7 +25,6 @@ export async function addBodyPartToExercise(
     const result = await query;
     return result.changes > 0;
 }
-
 // Remove a body part from an exercise (hard delete)
 export async function removeBodyPartFromExercise(exercise_id: string, body_part_id: string) {
     return db
