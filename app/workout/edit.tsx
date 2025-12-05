@@ -6,12 +6,10 @@ import FinishWorkoutModal from '@/components/finishWorkoutModal';
 import ExerciseDeleteModal from '@/components/exerciseDeleteModal';
 import DeleteWorkoutModal from '@/components/deleteWorkoutModal';
 import { useWorkoutLogic } from '@/hooks/useWorkoutLogic';
-import { UserContext } from '@/contexts/UserContext';
 
 function EditWorkout() {
     const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
     const router = useRouter();
-    const { triggerRefresh } = useContext(UserContext) ?? {};
 
     // Use the shared hook
     const {
@@ -65,8 +63,7 @@ function EditWorkout() {
     const finishWorkoutWithData = async () => {
         const success = await handleFinishWorkout(workoutNameInput, workoutDate);
         if (success) {
-            triggerRefresh?.();
-            router.push({ pathname: '/' });
+            router.push({ pathname: '/logging' });
         }
     };
 
@@ -74,8 +71,7 @@ function EditWorkout() {
         setDeleteModalVisible(false);
         const success = await handleDeleteWorkout();
         if (success) {
-            triggerRefresh?.();
-            router.replace('/');
+            router.replace('/logging');
         }
     };
 

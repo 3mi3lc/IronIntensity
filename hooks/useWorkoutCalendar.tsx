@@ -1,25 +1,30 @@
 // hooks/useWorkoutCalendar.ts
-import { useContext, useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Workout } from '@/repositories/types';
 import { getAllWorkouts } from '@/repositories/workouts';
-import { UserContext } from '@/contexts/UserContext';
+import { useFocusEffect } from 'expo-router';
 
 export const useWorkoutCalendar = () => {
-    const { refreshTrigger } = useContext(UserContext) ?? {};
     const [selectedDate, setSelectedDate] = useState('');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
 
-    // Function to manually refresh workouts
-    const refreshWorkouts = useCallback(async () => {
-        const fetchedWorkouts = await getAllWorkouts();
-        setWorkouts(fetchedWorkouts);
+    const reloadCalendarData = useCallback(async () => {
+        try {
+            const allWorkouts = await getAllWorkouts();
+            setWorkouts(allWorkouts.reverse());
+        } catch (err) {
+            console.error('Failed to load workouts', err);
+        }
     }, []);
 
-    // Refetch workouts when refreshTrigger changes
-    useEffect(() => {
-        refreshWorkouts();
-    }, [refreshTrigger, refreshWorkouts]);
+    // Refresh when navigating back to this screen
+    useFocusEffect(
+        useCallback(() => {
+            reloadCalendarData();
+        }, [reloadCalendarData])
+    );
 
+    /** --- Build marked dates --- **/
     const workoutDates: Record<string, boolean> = {};
     workouts.forEach((w) => {
         const date = w.created_at?.slice(0, 10);
@@ -44,6 +49,7 @@ export const useWorkoutCalendar = () => {
         };
     }
 
+    /** ----- Filter workouts for selected day ----- **/
     const displayedWorkouts = selectedDate
         ? workouts.filter((w) => w.created_at?.startsWith(selectedDate))
         : workouts;
@@ -53,6 +59,6 @@ export const useWorkoutCalendar = () => {
         setSelectedDate,
         markedDates,
         displayedWorkouts,
-        refreshWorkouts, // Export the refresh function
+        reloadCalendarData,
     };
 };

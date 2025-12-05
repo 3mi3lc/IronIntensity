@@ -13,7 +13,7 @@ import { useWorkoutLogic } from '@/hooks/useWorkoutLogic';
 function PerformAgainWorkout() {
     const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
     const router = useRouter();
-    const { user, triggerRefresh } = useContext(UserContext) ?? {};
+    const { user  } = useContext(UserContext) ?? {};
     const [workoutId, setWorkoutId] = useState<string | undefined>();
     const [isDuplicating, setIsDuplicating] = useState(false);
 
@@ -103,8 +103,7 @@ function PerformAgainWorkout() {
     const finishWorkoutWithData = async () => {
         const success = await handleFinishWorkout(workoutNameInput, workoutDate);
         if (success) {
-            triggerRefresh?.();
-            router.push({ pathname: '/' });
+            router.push({ pathname: '/logging' });
         }
     };
 

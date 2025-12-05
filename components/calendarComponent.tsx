@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, {useCallback, useContext, useState} from 'react';
 import {View, Text, TouchableOpacity, Animated, Alert } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useWorkoutCalendar } from '@/hooks/useWorkoutCalendar';
@@ -6,7 +6,7 @@ import WorkoutListItem from '@/components/workoutListItem';
 import WorkoutOptionsModal from '@/components/workoutOptionsModal';
 import ScrollView = Animated.ScrollView;
 import {formatReadableDate} from "@/utils/formatDate";
-import {useRouter} from "expo-router";
+import {useFocusEffect, useRouter} from "expo-router";
 import { UserContext } from '@/contexts/UserContext';
 import { Workout } from '@/repositories/types';
 
