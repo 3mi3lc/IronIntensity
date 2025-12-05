@@ -8,7 +8,7 @@ import {
     Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createExercise } from '@/repositories/exercises';
 import { getAllBodyParts } from '@/repositories/bodyParts';
@@ -125,12 +125,31 @@ function CreateExercise() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-surface_a0 pt-4">
-            <ScrollView className="flex-1 px-4">
-                <Text className="text-primary_a0 font-bold text-3xl mb-6">
-                    Create Exercise
-                </Text>
+        <SafeAreaView className="flex-1 bg-surface_a0">
+            {/* Header - Fixed, not in ScrollView */}
+            <View className="px-6 pt-4 pb-4">
+                <View className="flex-row justify-between items-center">
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        className="p-2 bg-surface_a10 rounded-xl items-center justify-center"
+                        activeOpacity={0.8}
+                    >
+                        <AntDesign name="arrow-left" size={24} color="#eb0202" />
+                    </TouchableOpacity>
 
+                    <View className="flex-1 ml-4">
+                        <Text className="text-primary_a0 font-bold text-2xl">
+                            Create Exercise
+                        </Text>
+                        <Text className="text-surface_a50 text-sm mt-1">
+                            Add a new exercise to your library
+                        </Text>
+                    </View>
+                </View>
+            </View>
+
+            {/* Content - Scrollable */}
+            <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
                 {/* Exercise Name Input */}
                 <View className="mb-6">
                     <Text className="text-white font-semibold text-lg mb-2">
@@ -219,6 +238,9 @@ function CreateExercise() {
                         </Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Bottom Padding */}
+                <View className="h-8" />
             </ScrollView>
 
             <ExerciseCreatedModal

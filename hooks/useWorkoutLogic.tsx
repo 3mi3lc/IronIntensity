@@ -11,6 +11,7 @@ import {
 import { addSet, softDeleteSet, updateSet } from '@/repositories/workoutExerciseSets';
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
 import { UserContext } from '@/contexts/UserContext';
+import {router} from "expo-router";
 
 export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false) {
     const { user } = useContext(UserContext) ?? {};
@@ -196,6 +197,13 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         }
     };
 
+    const handleAddExercise = () => {
+        router.push({
+            pathname: '/exercise/addExercise',
+            params: { workoutId: workout?.id },
+        });
+    };
+
     return {
         user,
         workout,
@@ -212,5 +220,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         handleReorderExercises,
         handleFinishWorkout,
         handleDeleteWorkout,
+        handleAddExercise,
     };
 }

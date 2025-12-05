@@ -34,6 +34,7 @@ function ViewWorkout() {
             loading={loading}
             error={error}
             exerciseData={exerciseData}
+            showArrow={true}
             workoutId={id}
             showFinishButton={false}
             showAddButton={false}

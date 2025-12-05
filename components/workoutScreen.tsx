@@ -17,7 +17,11 @@ interface WorkoutScreenProps {
     workoutId?: string;
     showFinishButton: boolean;
     showAddButton: boolean;
+    showDeleteButton?: boolean;
+    showArrow?: boolean;
+    finishButtonText?: string; // New prop for custom button text
     onBack: () => void;
+    onDelete?: () => void;
     onAddExercise?: () => void;
     onFinishWorkout?: () => void;
     onDeleteExercise?: (exercise: ExerciseWithSets) => void;
@@ -37,7 +41,11 @@ export function WorkoutScreen({
                                   workoutId,
                                   showFinishButton,
                                   showAddButton,
+                                  showDeleteButton = false,
+                                  showArrow,
+                                  finishButtonText = 'Finish Workout', // Default value
                                   onBack,
+                                  onDelete,
                                   onAddExercise,
                                   onFinishWorkout,
                                   onDeleteExercise,
@@ -57,14 +65,14 @@ export function WorkoutScreen({
                 >
                     <WorkoutExerciseListItem
                         exerciseItem={item}
-                        onDeleteExercise={isReadOnly ? undefined : () => onDeleteExercise?.(item)}
-                        onEditSet={isReadOnly ? undefined : (setId, updates) =>
+                        onDeleteExercise={() => onDeleteExercise?.(item)}
+                        onEditSet={(setId, updates) =>
                             onEditSet?.(item.workoutExerciseId, setId, updates)
                         }
-                        onDeleteSet={isReadOnly ? undefined : (setId) =>
+                        onDeleteSet={(setId) =>
                             onDeleteSet?.(item.workoutExerciseId, setId)
                         }
-                        onAddSet={isReadOnly ? undefined : onAddSet}
+                        onAddSet={onAddSet}
                         viewOnly={isReadOnly}
                     />
                 </TouchableOpacity>
@@ -95,7 +103,7 @@ export function WorkoutScreen({
                         activeOpacity={0.7}
                     >
                         <AntDesign
-                            name={isReadOnly ? "arrow-left" : "close"}
+                            name={showArrow ? "arrow-left" : "close"}
                             size={24}
                             color="#eb0202"
                         />
@@ -112,7 +120,17 @@ export function WorkoutScreen({
                         )}
                     </View>
 
-                    <View style={{ width: 44 }} />
+                    {showDeleteButton ? (
+                        <TouchableOpacity
+                            onPress={onDelete}
+                            className="p-2 bg-surface_a10 rounded-xl"
+                            activeOpacity={0.7}
+                        >
+                            <AntDesign name="delete" size={24} color="#eb0202" />
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={{ width: 44 }} />
+                    )}
                 </View>
             </View>
 
@@ -139,7 +157,7 @@ export function WorkoutScreen({
                                         <View className="flex-row items-center justify-center">
                                             <AntDesign name="check" size={24} color="white" />
                                             <Text className="text-light font-bold text-lg ml-2">
-                                                Finish Workout
+                                                {finishButtonText}
                                             </Text>
                                         </View>
                                     </TouchableOpacity>

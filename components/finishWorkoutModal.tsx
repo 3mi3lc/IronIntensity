@@ -11,6 +11,8 @@ interface FinishWorkoutModalProps {
     workoutDate: Date;
     setWorkoutDate: (date: Date) => void;
     finishWorkoutWithData: () => void;
+    title?: string; // Optional custom title
+    buttonText?: string; // Optional custom button text
 }
 
 const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
@@ -21,6 +23,8 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                                                                    workoutDate,
                                                                    setWorkoutDate,
                                                                    finishWorkoutWithData,
+                                                                   title = 'Finish Workout', // Default value
+                                                                   buttonText = 'Complete Workout', // Default value
                                                                }) => {
     const [selected, setSelected] = React.useState(
         workoutDate.toISOString().split('T')[0]
@@ -40,6 +44,10 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
     };
 
     const handleFinish = () => {
+        if (!workoutNameInput.trim()) {
+            // Show an error or just return
+            return;
+        }
         onClose();
         finishWorkoutWithData();
     };
@@ -72,7 +80,7 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                             <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
                                 <AntDesign name="check-circle" size={20} color="white" />
                             </View>
-                            <Text className="text-white text-xl font-bold">Finish Workout</Text>
+                            <Text className="text-white text-xl font-bold">{title}</Text>
                         </View>
                         <Pressable
                             onPress={onClose}
@@ -131,10 +139,15 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                             {/* Finish Button */}
                             <Pressable
                                 onPress={handleFinish}
-                                className="bg-primary_a10 rounded-xl py-4 flex-row items-center justify-center gap-2 active:bg-primary_a0"
+                                disabled={!workoutNameInput.trim()}
+                                className={`rounded-xl py-4 flex-row items-center justify-center gap-2 ${
+                                    !workoutNameInput.trim()
+                                        ? 'bg-surface_a30'
+                                        : 'bg-primary_a10 active:bg-primary_a0'
+                                }`}
                             >
                                 <AntDesign name="check" size={20} color="white" />
-                                <Text className="text-white text-base font-bold">Complete Workout</Text>
+                                <Text className="text-white text-base font-bold">{buttonText}</Text>
                             </Pressable>
 
                             {/* Cancel Button */}

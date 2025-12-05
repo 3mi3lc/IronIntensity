@@ -73,16 +73,16 @@ const EditSetModal: React.FC<EditSetModalProps> = ({
                     }}
                 >
                     {/* Header */}
-                    <View className="bg-primary_a10 px-6 py-4 flex-row items-center justify-between">
+                    <View className="bg-primary_a0 px-6 py-4 flex-row items-center justify-between">
                         <View className="flex-row items-center gap-3">
-                            <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
+                            <View className="w-10 h-10 rounded-full bg-white/30 items-center justify-center">
                                 <AntDesign name="edit" size={20} color="white" />
                             </View>
                             <Text className="text-white text-xl font-bold">Edit Set</Text>
                         </View>
                         <Pressable
                             onPress={onClose}
-                            className="w-10 h-10 rounded-full bg-white/20 items-center justify-center active:bg-white/30"
+                            className="w-10 h-10 rounded-full bg-white/30 items-center justify-center active:bg-white/40"
                         >
                             <AntDesign name="close" size={20} color="white" />
                         </Pressable>
@@ -156,7 +156,7 @@ const EditSetModal: React.FC<EditSetModalProps> = ({
                         {/* Save Button */}
                         <Pressable
                             onPress={handleSave}
-                            className="bg-primary_a10 rounded-xl py-4 flex-row items-center justify-center gap-2 active:bg-primary_a0"
+                            className="bg-primary_a0 rounded-xl py-4 flex-row items-center justify-center gap-2 active:bg-primary_a0"
                         >
                             <AntDesign name="check" size={20} color="white" />
                             <Text className="text-white text-base font-bold">Save Changes</Text>
