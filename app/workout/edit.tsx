@@ -28,6 +28,7 @@ function EditWorkout() {
         handleFinishWorkout,
         handleDeleteWorkout,
         handleAddExercise,
+        finishWorkoutWithData,
     } = useWorkoutLogic(id, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -59,13 +60,6 @@ function EditWorkout() {
         router.back();
     };
 
-
-    const finishWorkoutWithData = async () => {
-        const success = await handleFinishWorkout(workoutNameInput, workoutDate);
-        if (success) {
-            router.push({ pathname: '/logging' });
-        }
-    };
 
     const confirmDeleteWorkout = async () => {
         setDeleteModalVisible(false);

@@ -1,7 +1,7 @@
 // src/repositories/workouts.ts
 import {db} from '@/db/client';
 import {exercises, workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import {and, eq, isNull} from 'drizzle-orm';
+import {and, desc, eq, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 
@@ -16,6 +16,36 @@ export async function getAllWorkouts(): Promise<Workout[]> {
         .from(workouts)
         .where(isNull(workouts.deleted_at))
         .orderBy(workouts.created_at); // Order by date, most recent first
+}
+
+export async function getWorkoutsForCalendar(userId: string, limit = 200) {
+    return db
+        .select()
+        .from(workouts)
+        .where(
+            and(
+                eq(workouts.user_id, userId),
+                isNull(workouts.deleted_at)          // <-- ignore deleted
+            )
+        )
+        .orderBy(desc(workouts.created_at))
+        .limit(limit);
+}
+
+export async function getWorkoutsByDate(userId: string, date: string) {
+    return db
+        .select()
+        .from(workouts)
+        .where(
+            and(
+                eq(workouts.user_id, userId),
+                isNull(workouts.deleted_at),         // <-- ignore deleted
+                eq(sql`date(
+                ${workouts.created_at}
+                )`, date)
+            )
+        )
+        .orderBy(desc(workouts.created_at));
 }
 
 export async function createWorkout(

@@ -1,21 +1,28 @@
 // hooks/useWorkoutCalendar.ts
-import { useState, useCallback } from 'react';
+import {useState, useCallback, useContext} from 'react';
 import { Workout } from '@/repositories/types';
-import { getAllWorkouts } from '@/repositories/workouts';
+import {getAllWorkouts, getWorkoutsByDate, getWorkoutsForCalendar} from '@/repositories/workouts';
 import { useFocusEffect } from 'expo-router';
+import {UserContext} from "@/contexts/UserContext";
 
 export const useWorkoutCalendar = () => {
     const [selectedDate, setSelectedDate] = useState('');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
+    const { user } = useContext(UserContext)!;   // <-- grab user
+    const userId = user?.id;                     // string | undefined
+
 
     const reloadCalendarData = useCallback(async () => {
+        if (!userId) return;                       // guard while logging out
         try {
-            const allWorkouts = await getAllWorkouts();
-            setWorkouts(allWorkouts.reverse());
+            const all = selectedDate
+                ? await getWorkoutsByDate(userId, selectedDate)
+                : await getWorkoutsForCalendar(userId);
+            setWorkouts(all);
         } catch (err) {
-            console.error('Failed to load workouts', err);
+            console.error(err);
         }
-    }, []);
+    }, [userId, selectedDate]);
 
     // Refresh when navigating back to this screen
     useFocusEffect(

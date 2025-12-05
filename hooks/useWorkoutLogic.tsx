@@ -20,6 +20,9 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [error, setError] = useState<string | null>(null);
     const [exerciseData, setExerciseData] = useState<ExerciseWithSets[]>([]);
     const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseWithSets | null>(null);
+    const [workoutNameInput, setWorkoutNameInput] = useState('');
+    const [workoutDate, setWorkoutDate] = useState(new Date());
+
 
     const loadWorkoutData = useCallback(async () => {
         if (!workoutId) return;
@@ -204,6 +207,18 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         });
     };
 
+    const finishWorkoutWithData = useCallback(
+        async (name = workoutNameInput, date = workoutDate) => {
+            const success = await handleFinishWorkout(name, date);
+            if (success) {
+                router.push({ pathname: '/logging' });
+            }
+            return success;
+        },
+        [handleFinishWorkout, workoutNameInput, workoutDate, router]
+    );
+
+
     return {
         user,
         workout,
@@ -221,5 +236,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         handleFinishWorkout,
         handleDeleteWorkout,
         handleAddExercise,
+        finishWorkoutWithData,
     };
 }

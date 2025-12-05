@@ -34,6 +34,7 @@ function PerformAgainWorkout() {
         handleFinishWorkout,
         handleDeleteWorkout,
         handleAddExercise,
+        finishWorkoutWithData,
     } = useWorkoutLogic(workoutId, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -98,13 +99,6 @@ function PerformAgainWorkout() {
         setCancelModalVisible(false);
         await handleDeleteWorkout();
         router.back();
-    };
-
-    const finishWorkoutWithData = async () => {
-        const success = await handleFinishWorkout(workoutNameInput, workoutDate);
-        if (success) {
-            router.push({ pathname: '/logging' });
-        }
     };
 
     return (
