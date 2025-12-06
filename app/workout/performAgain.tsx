@@ -20,6 +20,10 @@ function PerformAgainWorkout() {
     // Use the shared hook
     const {
         workout,
+        workoutNameInput,
+        workoutDate,
+        setWorkoutNameInput,
+        setWorkoutDate,
         loading,
         error,
         exerciseData,
@@ -31,7 +35,6 @@ function PerformAgainWorkout() {
         handleUpdateSet,
         handleDeleteExercise,
         handleReorderExercises,
-        handleFinishWorkout,
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
@@ -39,8 +42,6 @@ function PerformAgainWorkout() {
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
-    const [workoutNameInput, setWorkoutNameInput] = useState('');
-    const [workoutDate, setWorkoutDate] = useState(new Date());
 
     // Duplicate workout on mount
     useEffect(() => {

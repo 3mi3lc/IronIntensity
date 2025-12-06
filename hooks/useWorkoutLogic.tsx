@@ -11,7 +11,7 @@ import {
 import { addSet, softDeleteSet, updateSet } from '@/repositories/workoutExerciseSets';
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
 import { UserContext } from '@/contexts/UserContext';
-import {router} from "expo-router";
+import { router } from "expo-router";
 
 export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false) {
     const { user } = useContext(UserContext) ?? {};
@@ -22,7 +22,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseWithSets | null>(null);
     const [workoutNameInput, setWorkoutNameInput] = useState('');
     const [workoutDate, setWorkoutDate] = useState(new Date());
-
 
     const loadWorkoutData = useCallback(async () => {
         if (!workoutId) return;
@@ -173,11 +172,12 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     };
 
     const handleFinishWorkout = async (name: string, date: Date) => {
-        if (!workout || !user) return;
+        if (!workout || !user) return false;
 
         try {
+            // Use the provided name parameter, with fallback to 'Completed Workout'
             await updateWorkoutById(workout.id, {
-                name: name || 'Completed Workout',
+                name: name.trim() || 'Completed Workout',
                 created_at: date.toISOString(),
             });
             return true;
@@ -215,9 +215,8 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             }
             return success;
         },
-        [handleFinishWorkout, workoutNameInput, workoutDate, router]
+        [handleFinishWorkout, workoutNameInput, workoutDate]
     );
-
 
     return {
         user,
@@ -227,6 +226,10 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         exerciseData,
         exerciseToDelete,
         setExerciseToDelete,
+        workoutNameInput,
+        setWorkoutNameInput,
+        workoutDate,
+        setWorkoutDate,
         loadWorkoutData,
         handleAddSet,
         handleDeleteSet,

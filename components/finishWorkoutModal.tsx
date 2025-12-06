@@ -26,14 +26,12 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                                                                    title = 'Finish Workout', // Default value
                                                                    buttonText = 'Complete Workout', // Default value
                                                                }) => {
-    const [selected, setSelected] = React.useState(
-        workoutDate.toISOString().split('T')[0]
-    );
+    const selected = workoutDate.toISOString().split('T')[0];
 
     const onDayPress = (day: { dateString: string }) => {
-        setSelected(day.dateString);
         setWorkoutDate(new Date(day.dateString));
     };
+
 
     const markedDates = {
         [selected]: {

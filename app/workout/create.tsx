@@ -18,19 +18,22 @@ function CreateWorkout() {
 
     // Use the shared hook
     const {
-        workout,
+
         loading,
         error,
         exerciseData,
         exerciseToDelete,
         setExerciseToDelete,
         loadWorkoutData,
+        workoutNameInput,
+        setWorkoutNameInput,
+        workoutDate,
+        setWorkoutDate,
         handleAddSet,
         handleDeleteSet,
         handleUpdateSet,
         handleDeleteExercise,
         handleReorderExercises,
-        handleFinishWorkout,
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
@@ -38,8 +41,6 @@ function CreateWorkout() {
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
-    const [workoutNameInput, setWorkoutNameInput] = useState('');
-    const [workoutDate, setWorkoutDate] = useState(new Date());
 
     // Create workout on mount
     useEffect(() => {

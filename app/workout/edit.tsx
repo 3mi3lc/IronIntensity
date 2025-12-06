@@ -1,5 +1,5 @@
 // app/workout/edit.tsx
-import React, { useEffect, useState, useCallback, useContext } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { WorkoutScreen } from '@/components/workoutScreen';
 import FinishWorkoutModal from '@/components/finishWorkoutModal';
@@ -25,7 +25,10 @@ function EditWorkout() {
         handleUpdateSet,
         handleDeleteExercise,
         handleReorderExercises,
-        handleFinishWorkout,
+        workoutNameInput,
+        setWorkoutNameInput,
+        workoutDate,
+        setWorkoutDate,
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
@@ -33,8 +36,6 @@ function EditWorkout() {
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-    const [workoutNameInput, setWorkoutNameInput] = useState('');
-    const [workoutDate, setWorkoutDate] = useState(new Date());
 
     useEffect(() => {
         if (id) {
@@ -53,6 +54,9 @@ function EditWorkout() {
     useEffect(() => {
         if (workout?.name) {
             setWorkoutNameInput(workout.name);
+        }
+        if (workout?.created_at) {
+            setWorkoutDate(new Date(workout.created_at));
         }
     }, [workout]);
 
