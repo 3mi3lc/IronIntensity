@@ -1,7 +1,7 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
-import { workout_exercise_sets } from '@/db/schema';
-import { eq, and, isNull, sql, gt, lte, gte, lt } from 'drizzle-orm';
+import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
+import {eq, and, isNull, sql, gt, lte, gte, lt, desc, ne} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
 import type {
     WorkoutExerciseSet,
@@ -229,4 +229,92 @@ export async function reorderSet(
 
     return true;
 }
+
+export async function getHistoricalSetsForExercise(
+    exerciseId: string,
+    excludeWorkoutId?: string
+): Promise<Array<{ setNumber: number; reps: number; weight: number }> | null> {
+    try {
+        console.log('Step 1: Looking for most recent workout with exercise:', exerciseId, 'excluding:', excludeWorkoutId);
+
+        // Build the where conditions
+        const whereConditions = [
+            eq(workout_exercises.exercise_id, exerciseId),
+            isNull(workouts.deleted_at),
+            isNull(workout_exercises.deleted_at)
+        ];
+
+        // Exclude the current workout if provided
+        if (excludeWorkoutId) {
+            whereConditions.push(ne(workouts.id, excludeWorkoutId));
+        }
+
+        // Get the most recent workout that contains this exercise
+        const recentWorkouts = await db
+            .select({
+                workoutId: workouts.id,
+                workoutCreatedAt: workouts.created_at,
+                workoutName: workouts.name,
+            })
+            .from(workouts)
+            .innerJoin(
+                workout_exercises,
+                eq(workout_exercises.workout_id, workouts.id)
+            )
+            .where(and(...whereConditions))
+            .orderBy(desc(workouts.created_at))
+            .limit(5);
+
+        console.log('Recent workouts found:', recentWorkouts);
+
+        if (recentWorkouts.length === 0) {
+            console.log('No workouts found for this exercise');
+            return null;
+        }
+
+        const mostRecentWorkout = recentWorkouts[0];
+        console.log('Using most recent workout:', mostRecentWorkout);
+
+        // Get all sets from that workout for this exercise
+        const sets = await db
+            .select({
+                setNumber: workout_exercise_sets.set_number,
+                reps: workout_exercise_sets.reps,
+                weight: workout_exercise_sets.weight,
+                setId: workout_exercise_sets.id,
+            })
+            .from(workout_exercise_sets)
+            .innerJoin(
+                workout_exercises,
+                eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id)
+            )
+            .where(
+                and(
+                    eq(workout_exercises.exercise_id, exerciseId),
+                    eq(workout_exercises.workout_id, mostRecentWorkout.workoutId),
+                    isNull(workout_exercise_sets.deleted_at),
+                    isNull(workout_exercises.deleted_at)
+                )
+            )
+            .orderBy(workout_exercise_sets.set_number);
+
+        console.log('Sets found for workout:', sets);
+
+        if (sets.length === 0) {
+            console.log('No sets found in most recent workout');
+            return null;
+        }
+
+        return sets.map(s => ({
+            setNumber: s.setNumber,
+            reps: s.reps ?? 10,
+            weight: s.weight ?? 0,
+        }));
+    } catch (error) {
+        console.error('Error fetching historical sets for exercise:', error);
+        return null;
+    }
+}
+
+
 

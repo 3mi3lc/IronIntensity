@@ -8,7 +8,12 @@ import {
     updateWorkoutById,
     softDeleteWorkoutById,
 } from '@/repositories/workouts';
-import { addSet, softDeleteSet, updateSet } from '@/repositories/workoutExerciseSets';
+import {
+    addSet,
+    getHistoricalSetsForExercise,
+    softDeleteSet,
+    updateSet
+} from '@/repositories/workoutExerciseSets';
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
 import { UserContext } from '@/contexts/UserContext';
 import { router } from "expo-router";
@@ -22,6 +27,8 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseWithSets | null>(null);
     const [workoutNameInput, setWorkoutNameInput] = useState('');
     const [workoutDate, setWorkoutDate] = useState(new Date());
+    const [exerciseHistoricalSets, setExerciseHistoricalSets] = useState<Record<string, Array<{ setNumber: number; reps: number; weight: number }>>>({});
+
 
     const loadWorkoutData = useCallback(async () => {
         if (!workoutId) return;
@@ -41,13 +48,72 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         }
     }, [workoutId]);
 
+    const loadHistoricalSetsForExercise = useCallback(async (exerciseId: string) => {
+        // Check if we already loaded this exercise's history
+        if (exerciseHistoricalSets[exerciseId]) {
+            return exerciseHistoricalSets[exerciseId];
+        }
+
+        try {
+            const historicalSets = await getHistoricalSetsForExercise(exerciseId, workout?.id);
+            if (historicalSets) {
+                setExerciseHistoricalSets(prev => ({
+                    ...prev,
+                    [exerciseId]: historicalSets
+                }));
+                return historicalSets;
+            }
+        } catch (error) {
+            console.log('Could not load historical sets:', error);
+        }
+        return null;
+    }, [exerciseHistoricalSets, workout?.id]);
+
+
+    // Complete handleAddSet function for hooks/useWorkoutLogic.ts
+
     const handleAddSet = async (workoutExerciseId: string) => {
         if (isReadOnly) return;
 
         try {
+            const exercise = exerciseData.find(
+                (ex) => ex.workoutExerciseId === workoutExerciseId
+            );
+
+            if (!exercise) return;
+
+            const currentSetCount = exercise.sets.length;
+            const nextSetNumber = currentSetCount + 1;
+
+            let defaultReps = 10;
+            let defaultWeight = 0;
+
+            // Load historical sets once (will use cache if already loaded)
+            const historicalSets = await loadHistoricalSetsForExercise(exercise.exercise.id);
+
+            if (historicalSets && historicalSets.length > 0) {
+                const matchingSet = historicalSets.find(s => s.setNumber === nextSetNumber);
+
+                if (matchingSet) {
+                    defaultReps = matchingSet.reps ?? 10;
+                    defaultWeight = matchingSet.weight ?? 0;
+                } else if (currentSetCount > 0) {
+                    const lastSet = exercise.sets[currentSetCount - 1];
+                    defaultReps = lastSet.reps ?? 10;
+                    defaultWeight = lastSet.weight ?? 0;
+                } else {
+                    defaultReps = historicalSets[0].reps ?? 10;
+                    defaultWeight = historicalSets[0].weight ?? 0;
+                }
+            } else if (currentSetCount > 0) {
+                const lastSet = exercise.sets[currentSetCount - 1];
+                defaultReps = lastSet.reps ?? 10;
+                defaultWeight = lastSet.weight ?? 0;
+            }
+
             const newSet = await addSet(
                 workoutExerciseId,
-                { reps: 10, weight: 0 },
+                { reps: defaultReps, weight: defaultWeight },
                 { returnData: true }
             );
 
@@ -240,5 +306,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        loadHistoricalSetsForExercise
     };
 }
