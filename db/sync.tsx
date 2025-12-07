@@ -1,17 +1,18 @@
-// services/syncService.ts
-import { supabase } from '@/utils/supabase';
-import { Session } from '@supabase/supabase-js';
-import { db } from '@/db/client';
+// db/sync.tsx
+import {supabase} from '@/utils/supabase';
+import {Session} from '@supabase/supabase-js';
+import {db} from '@/db/client';
 import {
-    users,
-    exercises,
-    workouts,
-    workout_exercises,
-    workout_exercise_sets,
-    exercise_body_parts,
     body_parts,
+    exercise_body_parts,
+    exercises,
+    sync_metadata,
+    users,
+    workout_exercise_sets,
+    workout_exercises,
+    workouts,
 } from '@/db/schema';
-import { eq,  and, inArray } from 'drizzle-orm';
+import {and, eq, inArray, sql} from 'drizzle-orm';
 
 export class SyncService {
     private userId: string;
@@ -22,8 +23,108 @@ export class SyncService {
         this.session = session;
     }
 
-    private getSupabaseClient() {
-        return supabase;
+    // ==================== SYNC METADATA ====================
+    private async getLastSyncTime(entity: string): Promise<string | null> {
+        try {
+            const key = `last_sync_${entity}`;
+            const [result] = await db
+                .select()
+                .from(sync_metadata)
+                .where(eq(sync_metadata.key, key));
+
+            return result?.last_sync || null;
+        } catch (error) {
+            console.error('Failed to get last sync time:', error);
+            return null;
+        }
+    }
+
+    private async setLastSyncTime(entity: string, error?: string) {
+        try {
+            const key = `last_sync_${entity}`;
+            const now = new Date().toISOString();
+
+            // Check if record exists
+            const [existing] = await db
+                .select()
+                .from(sync_metadata)
+                .where(eq(sync_metadata.key, key));
+
+            if (existing) {
+                // Update existing record and increment sync_count
+                await db
+                    .update(sync_metadata)
+                    .set({
+                        last_sync: now,
+                        sync_count: sql`${sync_metadata.sync_count} + 1`,
+                        last_error: error || null,
+                    })
+                    .where(eq(sync_metadata.key, key));
+            } else {
+                // Insert new record
+                await db
+                    .insert(sync_metadata)
+                    .values({
+                        key,
+                        last_sync: now,
+                        sync_count: 1,
+                        last_error: error || null,
+                    });
+            }
+        } catch (err) {
+            console.error('Failed to set last sync time:', err);
+        }
+    }
+
+    private async recordSyncError(entity: string, error: string) {
+        try {
+            const key = `last_sync_${entity}`;
+
+            const [existing] = await db
+                .select()
+                .from(sync_metadata)
+                .where(eq(sync_metadata.key, key));
+
+            if (existing) {
+                await db
+                    .update(sync_metadata)
+                    .set({ last_error: error })
+                    .where(eq(sync_metadata.key, key));
+            } else {
+                await db
+                    .insert(sync_metadata)
+                    .values({
+                        key,
+                        last_sync: new Date().toISOString(),
+                        sync_count: 0,
+                        last_error: error,
+                    });
+            }
+        } catch (err) {
+            console.error('Failed to record sync error:', err);
+        }
+    }
+
+    // Get sync statistics for debugging/monitoring
+    async getSyncStats() {
+        try {
+            return await db
+                .select()
+                .from(sync_metadata);
+        } catch (error) {
+            console.error('Failed to get sync stats:', error);
+            return [];
+        }
+    }
+
+    // Optional: Reset sync history to force full sync
+    async resetSyncHistory() {
+        try {
+            await db.delete(sync_metadata);
+            console.log('Sync history cleared - next pull will fetch everything');
+        } catch (error) {
+            console.error('Failed to reset sync history:', error);
+        }
     }
 
     // ==================== SYNC USER ====================
@@ -62,11 +163,16 @@ export class SyncService {
     async pushExercises() {
         console.log('Syncing exercises...');
         try {
-            // Sync ALL exercises including deleted ones
+            // Only sync unsynced exercises
             const exercisesToSync = await db
                 .select()
                 .from(exercises)
-                .where(eq(exercises.user_id, this.userId));
+                .where(
+                    and(
+                        eq(exercises.user_id, this.userId),
+                        eq(exercises.is_synced, 0)
+                    )
+                );
 
             if (exercisesToSync.length === 0) {
                 console.log('No exercises to sync');
@@ -97,7 +203,12 @@ export class SyncService {
             await db
                 .update(exercises)
                 .set({ is_synced: 1 })
-                .where(eq(exercises.user_id, this.userId));
+                .where(
+                    and(
+                        eq(exercises.user_id, this.userId),
+                        eq(exercises.is_synced, 0)
+                    )
+                );
 
             console.log(`Synced ${exercisesToSync.length} exercises`);
             return true;
@@ -111,10 +222,11 @@ export class SyncService {
         console.log("Syncing exercise_body_parts...");
 
         try {
-            // Sync ALL including soft-deleted
+            // Only sync unsynced items
             const itemsToSync = await db
                 .select()
-                .from(exercise_body_parts);
+                .from(exercise_body_parts)
+                .where(eq(exercise_body_parts.is_synced, 0));
 
             if (itemsToSync.length === 0) {
                 console.log("No junction rows to sync");
@@ -171,18 +283,23 @@ export class SyncService {
     async pushWorkouts() {
         console.log('Syncing workouts...');
         try {
-            // Sync ALL workouts including soft-deleted ones
+            // Only sync unsynced workouts
             const workoutsToSync = await db
                 .select()
                 .from(workouts)
-                .where(eq(workouts.user_id, this.userId));
+                .where(
+                    and(
+                        eq(workouts.user_id, this.userId),
+                        eq(workouts.is_synced, 0)
+                    )
+                );
 
             if (workoutsToSync.length === 0) {
                 console.log('No workouts to sync');
                 return true;
             }
 
-            console.log(`Syncing ${workoutsToSync.length} workouts (including deleted)...`);
+            console.log(`Syncing ${workoutsToSync.length} workouts...`);
 
             const { error } = await supabase
                 .from('workouts')
@@ -205,7 +322,12 @@ export class SyncService {
             await db
                 .update(workouts)
                 .set({ is_synced: 1 })
-                .where(eq(workouts.user_id, this.userId));
+                .where(
+                    and(
+                        eq(workouts.user_id, this.userId),
+                        eq(workouts.is_synced, 0)
+                    )
+                );
 
             console.log(`Synced ${workoutsToSync.length} workouts`);
             return true;
@@ -219,10 +341,11 @@ export class SyncService {
     async pushWorkoutExercises() {
         console.log('Syncing workout exercises...');
         try {
-            // Get ALL workout_exercises including those referencing deleted workouts
+            // Only sync unsynced workout_exercises
             const workoutExercisesToSync = await db
                 .select()
-                .from(workout_exercises);
+                .from(workout_exercises)
+                .where(eq(workout_exercises.is_synced, 0));
 
             if (workoutExercisesToSync.length === 0) {
                 console.log('No workout exercises to sync');
@@ -245,7 +368,6 @@ export class SyncService {
             // If any workout_exercise references a deleted workout, mark it as deleted too
             for (const we of workoutExercisesToSync) {
                 if (we.workout_id && localWorkoutMap.get(we.workout_id) !== null) {
-                    // The referenced workout is deleted, so delete this workout_exercise
                     console.log(`Marking workout_exercise ${we.id} as deleted (references deleted workout)`);
                     await db
                         .update(workout_exercises)
@@ -257,11 +379,10 @@ export class SyncService {
             // Re-fetch after marking deleted ones
             const finalWorkoutExercisesToSync = await db
                 .select()
-                .from(workout_exercises);
+                .from(workout_exercises)
+                .where(eq(workout_exercises.is_synced, 0));
 
-            const client = this.getSupabaseClient();
-
-            const { error } = await client
+            const { error } = await supabase
                 .from('workout_exercises')
                 .upsert(
                     finalWorkoutExercisesToSync.map(we => ({
@@ -282,7 +403,8 @@ export class SyncService {
 
             await db
                 .update(workout_exercises)
-                .set({ is_synced: 1 });
+                .set({ is_synced: 1 })
+                .where(eq(workout_exercises.is_synced, 0));
 
             console.log(`Synced ${finalWorkoutExercisesToSync.length} workout exercises`);
             return true;
@@ -296,10 +418,11 @@ export class SyncService {
     async pushSets() {
         console.log('Syncing sets...');
         try {
-            // Get ALL sets
+            // Only sync unsynced sets
             const setsToSync = await db
                 .select()
-                .from(workout_exercise_sets);
+                .from(workout_exercise_sets)
+                .where(eq(workout_exercise_sets.is_synced, 0));
 
             if (setsToSync.length === 0) {
                 console.log('No sets to sync');
@@ -333,11 +456,10 @@ export class SyncService {
             // Re-fetch after marking deleted ones
             const finalSetsToSync = await db
                 .select()
-                .from(workout_exercise_sets);
+                .from(workout_exercise_sets)
+                .where(eq(workout_exercise_sets.is_synced, 0));
 
-            const client = this.getSupabaseClient();
-
-            const { error } = await client
+            const { error } = await supabase
                 .from('workout_exercise_sets')
                 .upsert(
                     finalSetsToSync.map(s => ({
@@ -359,7 +481,8 @@ export class SyncService {
 
             await db
                 .update(workout_exercise_sets)
-                .set({ is_synced: 1 });
+                .set({ is_synced: 1 })
+                .where(eq(workout_exercise_sets.is_synced, 0));
 
             console.log(`Synced ${finalSetsToSync.length} sets`);
             return true;
@@ -460,14 +583,26 @@ export class SyncService {
     async pullWorkouts() {
         console.log('Pulling workouts from Supabase...');
         try {
-            // Pull ALL workouts including soft-deleted ones
-            const { data, error } = await supabase
+            const lastSync = await this.getLastSyncTime('workouts');
+
+            let query = supabase
                 .from('workouts')
                 .select('*')
                 .eq('user_id', this.userId);
 
+            // Only pull records updated since last sync
+            if (lastSync) {
+                query = query.gt('updated_at', lastSync);
+                console.log(`Pulling workouts updated after ${lastSync}`);
+            } else {
+                console.log('First sync - pulling all workouts');
+            }
+
+            const { data, error } = await query;
+
             if (error) {
                 console.error('Failed to pull workouts:', error);
+                await this.recordSyncError('workouts', error.message);
                 return false;
             }
 
@@ -493,10 +628,14 @@ export class SyncService {
                     });
             }
 
+            // Update last sync time after successful pull
+            await this.setLastSyncTime('workouts');
+
             console.log(`Pulled ${data?.length || 0} workouts`);
             return true;
         } catch (error) {
             console.error('Pull workouts error:', error);
+            await this.recordSyncError('workouts', error instanceof Error ? error.message : 'Unknown error');
             return false;
         }
     }
@@ -504,13 +643,25 @@ export class SyncService {
     async pullExercises() {
         console.log("Pulling exercises...");
         try {
-            const { data, error } = await supabase
+            const lastSync = await this.getLastSyncTime('exercises');
+
+            let query = supabase
                 .from("exercises")
                 .select("*")
                 .eq("user_id", this.userId);
 
+            if (lastSync) {
+                query = query.gt('updated_at', lastSync);
+                console.log(`Pulling exercises updated after ${lastSync}`);
+            } else {
+                console.log('First sync - pulling all exercises');
+            }
+
+            const { data, error } = await query;
+
             if (error) {
                 console.error("Pull exercises failed:", error);
+                await this.recordSyncError('exercises', error.message);
                 return false;
             }
 
@@ -538,10 +689,13 @@ export class SyncService {
                     });
             }
 
+            await this.setLastSyncTime('exercises');
+
             console.log(`Pulled ${data?.length || 0} exercises`);
             return true;
         } catch (err) {
             console.error("Pull exercises error:", err);
+            await this.recordSyncError('exercises', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }
@@ -549,12 +703,22 @@ export class SyncService {
     async pullWorkoutExercises() {
         console.log("Pulling workout exercises...");
         try {
-            const { data, error } = await supabase
-                .from("workout_exercises")
-                .select("*");
+            const lastSync = await this.getLastSyncTime('workout_exercises');
+
+            let query = supabase.from("workout_exercises").select("*");
+
+            if (lastSync) {
+                query = query.gt('updated_at', lastSync);
+                console.log(`Pulling workout_exercises updated after ${lastSync}`);
+            } else {
+                console.log('First sync - pulling all workout_exercises');
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("Pull workout_exercises failed:", error);
+                await this.recordSyncError('workout_exercises', error.message);
                 return false;
             }
 
@@ -581,10 +745,13 @@ export class SyncService {
                     });
             }
 
+            await this.setLastSyncTime('workout_exercises');
+
             console.log(`Pulled ${data?.length || 0} workout_exercises`);
             return true;
         } catch (err) {
             console.error("Pull workout_exercises error:", err);
+            await this.recordSyncError('workout_exercises', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }
@@ -592,12 +759,22 @@ export class SyncService {
     async pullSets() {
         console.log("Pulling sets...");
         try {
-            const { data, error } = await supabase
-                .from("workout_exercise_sets")
-                .select("*");
+            const lastSync = await this.getLastSyncTime('workout_exercise_sets');
+
+            let query = supabase.from("workout_exercise_sets").select("*");
+
+            if (lastSync) {
+                query = query.gt('updated_at', lastSync);
+                console.log(`Pulling sets updated after ${lastSync}`);
+            } else {
+                console.log('First sync - pulling all sets');
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("Pull sets failed:", error);
+                await this.recordSyncError('workout_exercise_sets', error.message);
                 return false;
             }
 
@@ -627,10 +804,13 @@ export class SyncService {
                     });
             }
 
+            await this.setLastSyncTime('workout_exercise_sets');
+
             console.log(`Pulled ${data?.length || 0} sets`);
             return true;
         } catch (err) {
             console.error("Pull sets error:", err);
+            await this.recordSyncError('workout_exercise_sets', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }
@@ -639,12 +819,22 @@ export class SyncService {
         console.log("Pulling exercise_body_parts...");
 
         try {
-            const { data, error } = await supabase
-                .from("exercise_body_parts")
-                .select("*");
+            const lastSync = await this.getLastSyncTime('exercise_body_parts');
+
+            let query = supabase.from("exercise_body_parts").select("*");
+
+            if (lastSync) {
+                query = query.gt('updated_at', lastSync);
+                console.log(`Pulling exercise_body_parts updated after ${lastSync}`);
+            } else {
+                console.log('First sync - pulling all exercise_body_parts');
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("Pull failed:", error);
+                await this.recordSyncError('exercise_body_parts', error.message);
                 return false;
             }
 
@@ -668,10 +858,13 @@ export class SyncService {
                     });
             }
 
+            await this.setLastSyncTime('exercise_body_parts');
+
             console.log(`Pulled ${data?.length || 0} exercise_body_parts`);
             return true;
         } catch (e) {
             console.error("Pull junction table error:", e);
+            await this.recordSyncError('exercise_body_parts', e instanceof Error ? e.message : 'Unknown error');
             return false;
         }
     }

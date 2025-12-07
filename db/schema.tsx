@@ -84,3 +84,10 @@ export const exercise_body_parts = sqliteTable(
         pk: primaryKey({ columns: [table.exercise_id, table.body_part_id] }),
     })
 );
+
+export const sync_metadata = sqliteTable('sync_metadata', {
+    key: text('key').primaryKey().notNull(),
+    last_sync: text('last_sync').notNull(),
+    sync_count: integer('sync_count').default(0), // Track how many times synced
+    last_error: text('last_error'), // Store last error for debugging
+});

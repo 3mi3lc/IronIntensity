@@ -5,18 +5,18 @@ import {useSync} from "@/hooks/useSync";
 import {useAuth} from "@/hooks/useAuth";
 
 export default function Profile() {
-    const { syncData, pullData } = useSync();
+    const { pushData, pullData } = useSync();
     const { user, signOut } = useAuth();
 
     const [isSyncing, setIsSyncing] = useState(false);
     const [isPulling, setIsPulling] = useState(false);
 
     const handleSync = async () => {
-        if (!syncData) return;
+        if (!pushData) return;
 
         setIsSyncing(true);
         try {
-            const success = await syncData();
+            const success = await pushData();
             Alert.alert(success ? "Success" : "Failed",
                 success ? "Data synced successfully!" : "Failed to sync. Try again.");
         } finally {
