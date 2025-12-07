@@ -27,7 +27,7 @@ export class SyncService {
     }
 
     // ==================== SYNC USER ====================
-    async syncUser() {
+    async pushUser() {
         console.log('Syncing user...');
         try {
             const [localUser] = await db.select().from(users).where(eq(users.id, this.userId));
@@ -59,7 +59,7 @@ export class SyncService {
     }
 
     // ==================== SYNC EXERCISES ====================
-    async syncExercises() {
+    async pushExercises() {
         console.log('Syncing exercises...');
         try {
             // Sync ALL exercises including deleted ones
@@ -107,7 +107,7 @@ export class SyncService {
         }
     }
 
-    async syncExerciseBodyParts() {
+    async pushExerciseBodyParts() {
         console.log("Syncing exercise_body_parts...");
 
         try {
@@ -168,7 +168,7 @@ export class SyncService {
     }
 
     // ==================== SYNC WORKOUTS ====================
-    async syncWorkouts() {
+    async pushWorkouts() {
         console.log('Syncing workouts...');
         try {
             // Sync ALL workouts including soft-deleted ones
@@ -216,7 +216,7 @@ export class SyncService {
     }
 
     // ==================== SYNC WORKOUT EXERCISES ====================
-    async syncWorkoutExercises() {
+    async pushWorkoutExercises() {
         console.log('Syncing workout exercises...');
         try {
             // Get ALL workout_exercises including those referencing deleted workouts
@@ -293,7 +293,7 @@ export class SyncService {
     }
 
     // ==================== SYNC SETS ====================
-    async syncSets() {
+    async pushSets() {
         console.log('Syncing sets...');
         try {
             // Get ALL sets
@@ -369,65 +369,90 @@ export class SyncService {
         }
     }
 
-    // ==================== FULL SYNC ====================
-    async syncAll() {
-        console.log('Starting full sync...');
+    // ==================== PUSH ALL (SYNC) ====================
+    async pushAll() {
+        console.log('Starting full push (sync to server)...');
 
-        const userSync = await this.syncUser();
-        if (!userSync) {
-            console.error('User sync failed');
+        const userPush = await this.pushUser();
+        if (!userPush) {
+            console.error('User push failed');
             return false;
         }
 
-        const exercisesSync = await this.syncExercises();
-        if (!exercisesSync) {
-            console.error('Exercises sync failed');
+        const exercisesPush = await this.pushExercises();
+        if (!exercisesPush) {
+            console.error('Exercises push failed');
             return false;
         }
 
-        const ebpSync = await this.syncExerciseBodyParts();
-        if (!ebpSync) {
-            console.warn('Exercise body parts sync had issues, continuing...');
+        const ebpPush = await this.pushExerciseBodyParts();
+        if (!ebpPush) {
+            console.warn('Exercise body parts push had issues, continuing...');
         }
 
-        const workoutsSync = await this.syncWorkouts();
-        if (!workoutsSync) {
-            console.error('Workouts sync failed');
+        const workoutsPush = await this.pushWorkouts();
+        if (!workoutsPush) {
+            console.error('Workouts push failed');
             return false;
         }
 
-        const workoutExercisesSync = await this.syncWorkoutExercises();
-        if (!workoutExercisesSync) {
-            console.error('Workout exercises sync failed');
+        const workoutExercisesPush = await this.pushWorkoutExercises();
+        if (!workoutExercisesPush) {
+            console.error('Workout exercises push failed');
             return false;
         }
 
-        const setsSync = await this.syncSets();
-        if (!setsSync) {
-            console.error('Sets sync failed');
+        const setsPush = await this.pushSets();
+        if (!setsPush) {
+            console.error('Sets push failed');
             return false;
         }
 
-        console.log('✅ Full sync completed successfully');
+        console.log('✅ Full push completed successfully');
         return true;
     }
 
+    // ==================== PULL ALL ====================
     async pullAll() {
-        console.log("Pulling everything from Supabase...");
+        console.log('Starting full pull (fetch from server)...');
 
-        const ok0 = await this.pullBodyParts();
-        const ok1 = await this.pullExercises();
-        const ok2 = await this.pullWorkouts();
-        const ok3 = await this.pullWorkoutExercises();
-        const ok4 = await this.pullSets();
-        const ok5 = await this.pullExerciseBodyParts();
-
-        if (!ok0 || !ok1 || !ok2 || !ok3 || !ok4 || !ok5) {
-            console.error("Pull failed");
+        const bodyPartsPull = await this.pullBodyParts();
+        if (!bodyPartsPull) {
+            console.error('Body parts pull failed');
             return false;
         }
 
-        console.log("✅ Pull completed successfully");
+        const exercisesPull = await this.pullExercises();
+        if (!exercisesPull) {
+            console.error('Exercises pull failed');
+            return false;
+        }
+
+        const workoutsPull = await this.pullWorkouts();
+        if (!workoutsPull) {
+            console.error('Workouts pull failed');
+            return false;
+        }
+
+        const workoutExercisesPull = await this.pullWorkoutExercises();
+        if (!workoutExercisesPull) {
+            console.error('Workout exercises pull failed');
+            return false;
+        }
+
+        const setsPull = await this.pullSets();
+        if (!setsPull) {
+            console.error('Sets pull failed');
+            return false;
+        }
+
+        const ebpPull = await this.pullExerciseBodyParts();
+        if (!ebpPull) {
+            console.error('Exercise body parts pull failed');
+            return false;
+        }
+
+        console.log('✅ Full pull completed successfully');
         return true;
     }
 
