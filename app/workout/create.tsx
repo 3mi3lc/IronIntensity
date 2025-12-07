@@ -1,18 +1,18 @@
 // app/workout/create.tsx
-import React, { useEffect, useState, useCallback, useContext } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { WorkoutScreen } from '@/components/workoutScreen';
 import FinishWorkoutModal from '@/components/finishWorkoutModal';
 import CancelWorkoutModal from '@/components/cancelWorkoutModal';
 import ExerciseDeleteModal from '@/components/exerciseDeleteModal';
-import { UserContext } from '@/contexts/UserContext';
 import { createWorkout } from '@/repositories/workouts';
 import { useWorkoutLogic } from '@/hooks/useWorkoutLogic';
+import {useAuth} from "@/hooks/useAuth";
 
 function CreateWorkout() {
     const router = useRouter();
-    const { user } = useContext(UserContext) ?? {};
+    const { user } = useAuth();
     const [workoutId, setWorkoutId] = useState<string | undefined>();
     const [isCreating, setIsCreating] = useState(false);
 

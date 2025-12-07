@@ -1,14 +1,14 @@
 // app/auth/login.tsx
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import {useContext, useEffect, useState} from 'react';
-import { UserContext } from '@/contexts/UserContext';
+import { useEffect, useState} from 'react';
 import { AntDesign } from '@expo/vector-icons';
 import '../globals.css';
+import {useAuth} from "@/hooks/useAuth";
 
 export default function Login() {
     const router = useRouter();
-    const { signIn, signUp, user } = useContext(UserContext) ?? {};
+    const { signIn, signUp, user } = useAuth();
 
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');

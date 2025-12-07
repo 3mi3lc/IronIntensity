@@ -1,10 +1,12 @@
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useContext, useState } from 'react';
-import { UserContext } from '@/contexts/UserContext';
+import {  useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
+import {useSync} from "@/hooks/useSync";
+import {useAuth} from "@/hooks/useAuth";
 
 export default function Profile() {
-    const { user, signOut, syncData, pullData } = useContext(UserContext) ?? {};
+    const { syncData, pullData } = useSync();
+    const { user, signOut } = useAuth();
 
     const [isSyncing, setIsSyncing] = useState(false);
     const [isPulling, setIsPulling] = useState(false);

@@ -1,5 +1,6 @@
+// app/_layout.tsx
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { Suspense, useContext, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
@@ -7,15 +8,21 @@ import migrations from '@/drizzle/migrations';
 import { useDrizzleStudio } from 'expo-drizzle-studio-plugin';
 import { db, expoDb, DATABASE_NAME } from '@/db/client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { UserProvider, UserContext } from '@/contexts/UserContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { UserProvider } from '@/contexts/UserContext';
+import { useAuth } from '@/hooks/useAuth';
+import { useAutoSync } from '@/hooks/useAutoSync';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import './globals.css';
 
-function RootLayoutContent() {
-    const { user, isLoading } = useContext(UserContext) ?? { user: null, isLoading: true };
+function RootLayoutNav() {
+    const { user, isLoading } = useAuth();
     const segments = useSegments();
     const router = useRouter();
+
+    // Auto-sync when user logs in
+    useAutoSync();
 
     useEffect(() => {
         if (isLoading) return;
@@ -63,6 +70,7 @@ export default function RootLayout() {
             </View>
         );
     }
+
     if (!success) {
         return (
             <View className="flex-1 bg-surface_a0 justify-center items-center">
@@ -85,9 +93,11 @@ export default function RootLayout() {
                         databaseName={DATABASE_NAME}
                         options={{ enableChangeListener: true }}
                         useSuspense>
-                        <UserProvider>
-                            <RootLayoutContent />
-                        </UserProvider>
+                        <AuthProvider>
+                            <UserProvider>
+                                <RootLayoutNav />
+                            </UserProvider>
+                        </AuthProvider>
                     </SQLiteProvider>
                 </Suspense>
             </GestureHandlerRootView>

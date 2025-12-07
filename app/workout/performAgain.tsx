@@ -1,19 +1,19 @@
 // app/workout/performAgain.tsx
-import React, { useEffect, useState, useCallback, useContext } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { WorkoutScreen } from '@/components/workoutScreen';
 import FinishWorkoutModal from '@/components/finishWorkoutModal';
 import CancelWorkoutModal from '@/components/cancelWorkoutModal';
 import ExerciseDeleteModal from '@/components/exerciseDeleteModal';
-import { UserContext } from '@/contexts/UserContext';
 import { duplicateWorkout } from '@/repositories/workouts';
 import { useWorkoutLogic } from '@/hooks/useWorkoutLogic';
+import {useAuth} from "@/hooks/useAuth";
 
 function PerformAgainWorkout() {
     const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
     const router = useRouter();
-    const { user  } = useContext(UserContext) ?? {};
+    const { user  } = useAuth();
     const [workoutId, setWorkoutId] = useState<string | undefined>();
     const [isDuplicating, setIsDuplicating] = useState(false);
 

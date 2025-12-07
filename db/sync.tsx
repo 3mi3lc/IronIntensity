@@ -7,9 +7,11 @@ import {
     exercises,
     workouts,
     workout_exercises,
-    workout_exercise_sets, exercise_body_parts, body_parts,
+    workout_exercise_sets,
+    exercise_body_parts,
+    body_parts,
 } from '@/db/schema';
-import { eq, isNull, and } from 'drizzle-orm';
+import { eq,  and, inArray } from 'drizzle-orm';
 
 export class SyncService {
     private userId: string;
@@ -20,19 +22,14 @@ export class SyncService {
         this.session = session;
     }
 
-    // Helper to get authenticated Supabase client
     private getSupabaseClient() {
-        if (this.session) {
-            // Create a client with the session
-            return supabase;
-        }
         return supabase;
     }
+
     // ==================== SYNC USER ====================
     async syncUser() {
         console.log('Syncing user...');
         try {
-            // Get local user
             const [localUser] = await db.select().from(users).where(eq(users.id, this.userId));
 
             if (!localUser) {
@@ -40,7 +37,6 @@ export class SyncService {
                 return false;
             }
 
-            // Upsert to Supabase
             const { error } = await supabase
                 .from('users')
                 .upsert({
@@ -66,16 +62,11 @@ export class SyncService {
     async syncExercises() {
         console.log('Syncing exercises...');
         try {
-            // Sync ALL exercises (not just unsynced)
+            // Sync ALL exercises including deleted ones
             const exercisesToSync = await db
                 .select()
                 .from(exercises)
-                .where(
-                    and(
-                        eq(exercises.user_id, this.userId),
-                        isNull(exercises.deleted_at)
-                    )
-                );
+                .where(eq(exercises.user_id, this.userId));
 
             if (exercisesToSync.length === 0) {
                 console.log('No exercises to sync');
@@ -103,16 +94,10 @@ export class SyncService {
                 return false;
             }
 
-            // Mark ALL as synced
             await db
                 .update(exercises)
                 .set({ is_synced: 1 })
-                .where(
-                    and(
-                        eq(exercises.user_id, this.userId),
-                        isNull(exercises.deleted_at)
-                    )
-                );
+                .where(eq(exercises.user_id, this.userId));
 
             console.log(`Synced ${exercisesToSync.length} exercises`);
             return true;
@@ -126,10 +111,10 @@ export class SyncService {
         console.log("Syncing exercise_body_parts...");
 
         try {
+            // Sync ALL including soft-deleted
             const itemsToSync = await db
                 .select()
-                .from(exercise_body_parts)
-                .where(isNull(exercise_body_parts.deleted_at));
+                .from(exercise_body_parts);
 
             if (itemsToSync.length === 0) {
                 console.log("No junction rows to sync");
@@ -138,7 +123,6 @@ export class SyncService {
 
             console.log(`Syncing ${itemsToSync.length} exercise_body_parts...`);
 
-            // Sync one by one to handle errors better
             let successCount = 0;
             for (const item of itemsToSync) {
                 try {
@@ -156,10 +140,9 @@ export class SyncService {
 
                     if (error) {
                         console.error(`Failed to sync exercise_body_part ${item.exercise_id}-${item.body_part_id}:`, error);
-                        continue; // Skip this one, continue with others
+                        continue;
                     }
 
-                    // Mark as synced
                     await db
                         .update(exercise_body_parts)
                         .set({ is_synced: 1 })
@@ -184,29 +167,22 @@ export class SyncService {
         }
     }
 
-
-
-// ==================== SYNC WORKOUTS ====================
+    // ==================== SYNC WORKOUTS ====================
     async syncWorkouts() {
         console.log('Syncing workouts...');
         try {
-            // Sync ALL workouts (not just unsynced)
+            // Sync ALL workouts including soft-deleted ones
             const workoutsToSync = await db
                 .select()
                 .from(workouts)
-                .where(
-                    and(
-                        eq(workouts.user_id, this.userId),
-                        isNull(workouts.deleted_at)
-                    )
-                );
+                .where(eq(workouts.user_id, this.userId));
 
             if (workoutsToSync.length === 0) {
                 console.log('No workouts to sync');
                 return true;
             }
 
-            console.log(`Syncing ${workoutsToSync.length} workouts...`);
+            console.log(`Syncing ${workoutsToSync.length} workouts (including deleted)...`);
 
             const { error } = await supabase
                 .from('workouts')
@@ -226,16 +202,10 @@ export class SyncService {
                 return false;
             }
 
-            // Mark ALL as synced
             await db
                 .update(workouts)
                 .set({ is_synced: 1 })
-                .where(
-                    and(
-                        eq(workouts.user_id, this.userId),
-                        isNull(workouts.deleted_at)
-                    )
-                );
+                .where(eq(workouts.user_id, this.userId));
 
             console.log(`Synced ${workoutsToSync.length} workouts`);
             return true;
@@ -245,15 +215,14 @@ export class SyncService {
         }
     }
 
-// ==================== SYNC WORKOUT EXERCISES ====================
+    // ==================== SYNC WORKOUT EXERCISES ====================
     async syncWorkoutExercises() {
         console.log('Syncing workout exercises...');
         try {
-            // Sync ALL workout_exercises (not just unsynced)
+            // Get ALL workout_exercises including those referencing deleted workouts
             const workoutExercisesToSync = await db
                 .select()
-                .from(workout_exercises)
-                .where(isNull(workout_exercises.deleted_at));
+                .from(workout_exercises);
 
             if (workoutExercisesToSync.length === 0) {
                 console.log('No workout exercises to sync');
@@ -261,16 +230,41 @@ export class SyncService {
             }
 
             console.log(`Syncing ${workoutExercisesToSync.length} workout exercises...`);
-            console.log('DEBUG: Syncing workout_exercises:', workoutExercisesToSync);
-            console.log('DEBUG: User ID:', this.userId);
-            console.log('DEBUG: Session exists:', !!this.session);
+
+            // Find all unique workout IDs referenced
+            const referencedWorkoutIds = [...new Set(workoutExercisesToSync.map(we => we.workout_id).filter(Boolean))];
+
+            // Check which workouts exist locally (including deleted ones)
+            const localWorkouts = await db
+                .select({ id: workouts.id, deleted_at: workouts.deleted_at })
+                .from(workouts)
+                .where(inArray(workouts.id, referencedWorkoutIds as string[]));
+
+            const localWorkoutMap = new Map(localWorkouts.map(w => [w.id, w.deleted_at]));
+
+            // If any workout_exercise references a deleted workout, mark it as deleted too
+            for (const we of workoutExercisesToSync) {
+                if (we.workout_id && localWorkoutMap.get(we.workout_id) !== null) {
+                    // The referenced workout is deleted, so delete this workout_exercise
+                    console.log(`Marking workout_exercise ${we.id} as deleted (references deleted workout)`);
+                    await db
+                        .update(workout_exercises)
+                        .set({ deleted_at: localWorkoutMap.get(we.workout_id) })
+                        .where(eq(workout_exercises.id, we.id));
+                }
+            }
+
+            // Re-fetch after marking deleted ones
+            const finalWorkoutExercisesToSync = await db
+                .select()
+                .from(workout_exercises);
 
             const client = this.getSupabaseClient();
 
-            const { data, error } = await client
+            const { error } = await client
                 .from('workout_exercises')
                 .upsert(
-                    workoutExercisesToSync.map(we => ({
+                    finalWorkoutExercisesToSync.map(we => ({
                         id: we.id,
                         workout_id: we.workout_id,
                         exercise_id: we.exercise_id,
@@ -283,17 +277,14 @@ export class SyncService {
 
             if (error) {
                 console.error('Failed to sync workout exercises:', error);
-                console.error('DEBUG: First item being synced:', workoutExercisesToSync[0]);
                 return false;
             }
 
-            // Mark ALL as synced
             await db
                 .update(workout_exercises)
-                .set({ is_synced: 1 })
-                .where(isNull(workout_exercises.deleted_at));
+                .set({ is_synced: 1 });
 
-            console.log(`Synced ${workoutExercisesToSync.length} workout exercises`);
+            console.log(`Synced ${finalWorkoutExercisesToSync.length} workout exercises`);
             return true;
         } catch (error) {
             console.error('Sync workout exercises error:', error);
@@ -301,15 +292,14 @@ export class SyncService {
         }
     }
 
-// ==================== SYNC SETS ====================
+    // ==================== SYNC SETS ====================
     async syncSets() {
         console.log('Syncing sets...');
         try {
-            // Sync ALL sets (not just unsynced)
+            // Get ALL sets
             const setsToSync = await db
                 .select()
-                .from(workout_exercise_sets)
-                .where(isNull(workout_exercise_sets.deleted_at));
+                .from(workout_exercise_sets);
 
             if (setsToSync.length === 0) {
                 console.log('No sets to sync');
@@ -317,16 +307,40 @@ export class SyncService {
             }
 
             console.log(`Syncing ${setsToSync.length} sets...`);
-            console.log('DEBUG: Syncing sets:', setsToSync);
-            console.log('DEBUG: User ID:', this.userId);
-            console.log('DEBUG: Session exists:', !!this.session);
+
+            // Find all unique workout_exercise IDs referenced
+            const referencedWeIds = [...new Set(setsToSync.map(s => s.workout_exercise_id).filter(Boolean))];
+
+            // Check which workout_exercises exist locally (including deleted ones)
+            const localWe = await db
+                .select({ id: workout_exercises.id, deleted_at: workout_exercises.deleted_at })
+                .from(workout_exercises)
+                .where(inArray(workout_exercises.id, referencedWeIds as string[]));
+
+            const localWeMap = new Map(localWe.map(we => [we.id, we.deleted_at]));
+
+            // If any set references a deleted workout_exercise, mark it as deleted too
+            for (const s of setsToSync) {
+                if (s.workout_exercise_id && localWeMap.get(s.workout_exercise_id) !== null) {
+                    console.log(`Marking set ${s.id} as deleted (references deleted workout_exercise)`);
+                    await db
+                        .update(workout_exercise_sets)
+                        .set({ deleted_at: localWeMap.get(s.workout_exercise_id) })
+                        .where(eq(workout_exercise_sets.id, s.id));
+                }
+            }
+
+            // Re-fetch after marking deleted ones
+            const finalSetsToSync = await db
+                .select()
+                .from(workout_exercise_sets);
 
             const client = this.getSupabaseClient();
 
-            const { data, error } = await client
+            const { error } = await client
                 .from('workout_exercise_sets')
                 .upsert(
-                    setsToSync.map(s => ({
+                    finalSetsToSync.map(s => ({
                         id: s.id,
                         workout_exercise_id: s.workout_exercise_id,
                         set_number: s.set_number,
@@ -340,17 +354,14 @@ export class SyncService {
 
             if (error) {
                 console.error('Failed to sync sets:', error);
-                console.error('DEBUG: First item being synced:', setsToSync[0]);
                 return false;
             }
 
-            // Mark ALL as synced
             await db
                 .update(workout_exercise_sets)
-                .set({ is_synced: 1 })
-                .where(isNull(workout_exercise_sets.deleted_at));
+                .set({ is_synced: 1 });
 
-            console.log(`Synced ${setsToSync.length} sets`);
+            console.log(`Synced ${finalSetsToSync.length} sets`);
             return true;
         } catch (error) {
             console.error('Sync sets error:', error);
@@ -362,42 +373,35 @@ export class SyncService {
     async syncAll() {
         console.log('Starting full sync...');
 
-        // 1. Sync user first
         const userSync = await this.syncUser();
         if (!userSync) {
             console.error('User sync failed');
             return false;
         }
 
-        // 2. Sync exercises (must be before exercise_body_parts)
         const exercisesSync = await this.syncExercises();
         if (!exercisesSync) {
             console.error('Exercises sync failed');
             return false;
         }
 
-        // 3. Sync exercise_body_parts (junction table)
         const ebpSync = await this.syncExerciseBodyParts();
         if (!ebpSync) {
-            console.error('Exercise body parts sync failed');
-            console.warn('Continuing despite exercise_body_parts sync failure...');
+            console.warn('Exercise body parts sync had issues, continuing...');
         }
 
-        // 4. Sync workouts
         const workoutsSync = await this.syncWorkouts();
         if (!workoutsSync) {
             console.error('Workouts sync failed');
             return false;
         }
 
-        // 5. Sync workout_exercises
         const workoutExercisesSync = await this.syncWorkoutExercises();
         if (!workoutExercisesSync) {
             console.error('Workout exercises sync failed');
             return false;
         }
 
-        // 6. Sync sets
         const setsSync = await this.syncSets();
         if (!setsSync) {
             console.error('Sets sync failed');
@@ -408,14 +412,10 @@ export class SyncService {
         return true;
     }
 
-
-
     async pullAll() {
         console.log("Pulling everything from Supabase...");
 
-        // Pull body parts first (static data)
         const ok0 = await this.pullBodyParts();
-
         const ok1 = await this.pullExercises();
         const ok2 = await this.pullWorkouts();
         const ok3 = await this.pullWorkoutExercises();
@@ -431,36 +431,22 @@ export class SyncService {
         return true;
     }
 
-
-
-
-    // ==================== PULL DATA FROM SUPABASE ====================
+    // ==================== PULL METHODS ====================
     async pullWorkouts() {
         console.log('Pulling workouts from Supabase...');
         try {
+            // Pull ALL workouts including soft-deleted ones
             const { data, error } = await supabase
                 .from('workouts')
                 .select('*')
-                .eq('user_id', this.userId)
-                .is('deleted_at', null);
+                .eq('user_id', this.userId);
 
             if (error) {
                 console.error('Failed to pull workouts:', error);
                 return false;
             }
 
-            // Insert or update local DB
             for (const workout of data || []) {
-                if (workout.deleted_at) {
-                    await db.update(workouts)
-                        .set({
-                            deleted_at: workout.deleted_at,
-                            is_synced: 1
-                        })
-                        .where(eq(workouts.id, workout.id));
-                    continue;
-                }
-
                 await db.insert(workouts)
                     .values({
                         id: workout.id,
@@ -468,7 +454,7 @@ export class SyncService {
                         name: workout.name,
                         created_at: workout.created_at,
                         updated_at: workout.updated_at,
-                        deleted_at: null,
+                        deleted_at: workout.deleted_at,
                         is_synced: 1,
                     })
                     .onConflictDoUpdate({
@@ -482,7 +468,6 @@ export class SyncService {
                     });
             }
 
-
             console.log(`Pulled ${data?.length || 0} workouts`);
             return true;
         } catch (error) {
@@ -490,8 +475,6 @@ export class SyncService {
             return false;
         }
     }
-
-    // Add similar pull methods for exercises, sets, etc.
 
     async pullExercises() {
         console.log("Pulling exercises...");
@@ -633,8 +616,7 @@ export class SyncService {
         try {
             const { data, error } = await supabase
                 .from("exercise_body_parts")
-                .select("*")
-                .is('deleted_at', null);
+                .select("*");
 
             if (error) {
                 console.error("Pull failed:", error);
@@ -682,7 +664,6 @@ export class SyncService {
                 return false;
             }
 
-            // Insert or update local DB
             for (const item of data || []) {
                 await db.insert(body_parts)
                     .values({
@@ -704,7 +685,4 @@ export class SyncService {
             return false;
         }
     }
-
-
-
 }

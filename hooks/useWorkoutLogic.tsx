@@ -1,5 +1,5 @@
 // hooks/useWorkoutLogic.ts
-import { useState, useCallback, useContext } from 'react';
+import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
 import {
@@ -15,11 +15,11 @@ import {
     updateSet
 } from '@/repositories/workoutExerciseSets';
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
-import { UserContext } from '@/contexts/UserContext';
 import { router } from "expo-router";
+import {useAuth} from "@/hooks/useAuth";
 
 export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false) {
-    const { user } = useContext(UserContext) ?? {};
+    const { user } = useAuth();
     const [workout, setWorkout] = useState<Workout | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);

@@ -1,4 +1,4 @@
-import React, {useCallback, useContext, useState} from 'react';
+import React, { useState} from 'react';
 import {View, Text, TouchableOpacity, Animated, Alert } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { useWorkoutCalendar } from '@/hooks/useWorkoutCalendar';
@@ -6,13 +6,13 @@ import WorkoutListItem from '@/components/workoutListItem';
 import WorkoutOptionsModal from '@/components/workoutOptionsModal';
 import ScrollView = Animated.ScrollView;
 import {formatReadableDate} from "@/utils/formatDate";
-import {useFocusEffect, useRouter} from "expo-router";
-import { UserContext } from '@/contexts/UserContext';
+import { useRouter} from "expo-router";
 import { Workout } from '@/repositories/types';
+import {useAuth} from "@/hooks/useAuth";
 
 const CalendarComponent = () => {
     const router = useRouter();
-    const { user } = useContext(UserContext) ?? {};
+    const { user } = useAuth();
     const [isCreating, setIsCreating] = useState(false);
     const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
     const [modalVisible, setModalVisible] = useState(false);

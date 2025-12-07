@@ -1,14 +1,14 @@
 // hooks/useWorkoutCalendar.ts
-import { useState, useCallback, useContext, useMemo } from 'react';
+import { useState, useCallback,  useMemo } from 'react';
 import { Workout } from '@/repositories/types';
 import { getWorkoutsForCalendar } from '@/repositories/workouts';
 import { useFocusEffect } from 'expo-router';
-import { UserContext } from "@/contexts/UserContext";
+import {useAuth} from "@/hooks/useAuth";
 
 export const useWorkoutCalendar = () => {
     const [selectedDate, setSelectedDate] = useState('');
     const [workouts, setWorkouts] = useState<Workout[]>([]);
-    const { user } = useContext(UserContext)!;
+    const { user } = useAuth();
     const userId = user?.id;
 
     const reloadCalendarData = useCallback(async () => {
