@@ -1,15 +1,6 @@
 // db/sync.tsx
 import {supabase} from '@/utils/supabase';
 import {Session} from '@supabase/supabase-js';
-import {
-    body_parts,
-    exercise_body_parts,
-    exercises,
-    users,
-    workout_exercise_sets,
-    workout_exercises,
-    workouts,
-} from '@/db/schema';
 import {getLastSyncTime, setLastSyncTime, recordSyncError} from "@/repositories/syncMetadata";
 import {getUserById} from "@/repositories/users";
 import {getUnsyncedExercises, markExercisesAsSynced, upsertExercisesFromRemote} from "@/repositories/exercises";

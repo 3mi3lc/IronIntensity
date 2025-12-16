@@ -98,9 +98,9 @@ const CalendarComponent = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0">
-            <View className="flex-1 items-center px-4 pt-4">
+            <View className="flex-1 items-center px-4 pt-2">
                 {/* Calendar Card */}
-                <View className="w-full max-w-[400px] rounded-2xl bg-surface_a10 p-4 mb-4 shadow-lg">
+                <View className="w-full max-w-[400px] rounded-2xl bg-surface_a10 p-2 mb-4 shadow-lg">
                     <Calendar
                         firstDay={1}
                         onDayPress={onDayPress}
