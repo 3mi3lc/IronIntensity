@@ -1,7 +1,7 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
 import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import {eq, and, isNull, sql, gt, lte, gte, lt, desc, ne} from 'drizzle-orm';
+import {eq, and, isNull, sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
 import type {
     WorkoutExerciseSet,
@@ -126,110 +126,6 @@ export async function softDeleteSet(
     return true;
 }
 
-export async function getSetsForWorkoutExercise(
-    workoutExerciseId: string,
-    options?: { returnData?: boolean }
-): Promise<WorkoutExerciseSet[] | boolean> {
-    const query = db
-        .select()
-        .from(workout_exercise_sets)
-        .where(
-            and(
-                eq(workout_exercise_sets.workout_exercise_id, workoutExerciseId),
-                isNull(workout_exercise_sets.deleted_at)
-            )
-        )
-        .orderBy(workout_exercise_sets.set_number);
-
-    if (options?.returnData) {
-        // Return full data set
-        return query;
-    }
-
-    // If not returnData, just check if any sets exist (returns boolean)
-    const sets = await query.limit(1);
-    return sets.length > 0;
-}
-
-export async function reorderSetsForWorkoutExercise(
-    workoutExerciseId: string,
-    orderedSetIds: string[]
-) {
-    const ts = now();
-
-    await db.transaction(async (tx) => {
-        for (let i = 0; i < orderedSetIds.length; i++) {
-            await tx
-                .update(workout_exercise_sets)
-                .set({ set_number: i + 1, updated_at: ts, is_synced: 0 })
-                .where(
-                    and(
-                        eq(workout_exercise_sets.id, orderedSetIds[i]),
-                        eq(workout_exercise_sets.workout_exercise_id, workoutExerciseId)
-                    )
-                );
-        }
-    });
-}
-
-export async function reorderSet(
-    setId: string,
-    newSetNumber: number
-): Promise<boolean> {
-    const [target] = await db
-        .select({
-            id: workout_exercise_sets.id,
-            workoutExerciseId: workout_exercise_sets.workout_exercise_id,
-            oldSetNumber: workout_exercise_sets.set_number,
-        })
-        .from(workout_exercise_sets)
-        .where(eq(workout_exercise_sets.id, setId))
-        .limit(1);
-
-    if (!target) return false;
-
-    const { workoutExerciseId, oldSetNumber } = target;
-
-    if (newSetNumber === oldSetNumber) return true;
-
-    // Start a transaction
-    await db.transaction(async (tx) => {
-        if (newSetNumber < oldSetNumber) {
-            // Moving up: shift others down
-            await tx
-                .update(workout_exercise_sets)
-                .set({ set_number: sql`${workout_exercise_sets.set_number} + 1` })
-                .where(
-                    and(
-                        eq(workout_exercise_sets.workout_exercise_id, workoutExerciseId!),
-                        gte(workout_exercise_sets.set_number, newSetNumber),
-                        lt(workout_exercise_sets.set_number, oldSetNumber)
-                    )
-                );
-        } else {
-            // Moving down: shift others up
-            await tx
-                .update(workout_exercise_sets)
-                .set({ set_number: sql`${workout_exercise_sets.set_number} - 1` })
-                .where(
-                    and(
-                        eq(workout_exercise_sets.workout_exercise_id, workoutExerciseId!),
-                        gt(workout_exercise_sets.set_number, oldSetNumber),
-                        lte(workout_exercise_sets.set_number, newSetNumber)
-                    )
-                );
-        }
-
-        // Finally, update the target set
-        await tx
-            .update(workout_exercise_sets)
-            .set({ set_number: newSetNumber, updated_at: now(), is_synced: 0 })
-            .where(eq(workout_exercise_sets.id, setId));
-    });
-
-    return true;
-}
-
 export async function getHistoricalSetsForExercise(
     exerciseId: string,
     excludeWorkoutId?: string
@@ -316,5 +212,78 @@ export async function getHistoricalSetsForExercise(
     }
 }
 
+export async function getUnsyncedWorkoutExerciseSets(): Promise<WorkoutExerciseSet[]> {
+    return db
+        .select()
+        .from(workout_exercise_sets)
+        .where(eq(workout_exercise_sets.is_synced, 0));
+}
 
+export async function markWorkoutExerciseSetAsDeleted(setId: string, deletedAt: string): Promise<boolean> {
+    const result = await db
+        .update(workout_exercise_sets)
+        .set({ deleted_at: deletedAt })
+        .where(eq(workout_exercise_sets.id, setId));
 
+    return result.changes > 0;
+}
+
+export async function markWorkoutExerciseSetsAsSynced(setIds: string[]): Promise<boolean> {
+    if (setIds.length === 0) return true;
+
+    const result = await db
+        .update(workout_exercise_sets)
+        .set({ is_synced: 1 })
+        .where(inArray(workout_exercise_sets.id, setIds));
+
+    return result.changes > 0;
+}
+
+// For upserting workout exercise sets from remote (pull operation)
+export async function upsertWorkoutExerciseSetFromRemote(set: WorkoutExerciseSet): Promise<boolean> {
+    try {
+        await db.insert(workout_exercise_sets)
+            .values({
+                id: set.id,
+                workout_exercise_id: set.workout_exercise_id,
+                set_number: set.set_number,
+                reps: set.reps,
+                weight: set.weight,
+                created_at: set.created_at,
+                updated_at: set.updated_at,
+                deleted_at: set.deleted_at,
+                is_synced: 1,
+            })
+            .onConflictDoUpdate({
+                target: workout_exercise_sets.id,
+                set: {
+                    set_number: set.set_number,
+                    reps: set.reps,
+                    weight: set.weight,
+                    updated_at: set.updated_at,
+                    deleted_at: set.deleted_at,
+                    is_synced: 1,
+                }
+            });
+        return true;
+    } catch (error) {
+        console.error('Failed to upsert workout exercise set:', error);
+        return false;
+    }
+}
+
+// Batch upsert workout exercise sets from remote
+export async function upsertWorkoutExerciseSetsFromRemote(setsData: WorkoutExerciseSet[]): Promise<boolean> {
+    if (setsData.length === 0) return true;
+
+    try {
+        for (const set of setsData) {
+            const success = await upsertWorkoutExerciseSetFromRemote(set);
+            if (!success) return false;
+        }
+        return true;
+    } catch (error) {
+        console.error('Failed to batch upsert workout exercise sets:', error);
+        return false;
+    }
+}

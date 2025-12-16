@@ -1,7 +1,7 @@
 // src/repositories/workoutExercises.ts
 import {db} from '@/db/client';
-import { workout_exercises} from '@/db/schema';
-import {and, asc, eq, isNull, sql, gt, gte, lt, lte} from 'drizzle-orm';
+import {workout_exercise_sets, workout_exercises} from '@/db/schema';
+import {and, eq, isNull, sql, inArray} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {WorkoutExercise } from './types';
 
@@ -39,23 +39,6 @@ export async function addExerciseToWorkoutById(
     return we;
 }
 
-export async function listWorkoutExercises(workoutId: string) {
-    return db
-        .select()
-        .from(workout_exercises)
-        .where(
-            and(eq(workout_exercises.workout_id, workoutId), isNull(workout_exercises.deleted_at))
-        )
-        .orderBy(asc(workout_exercises.order_index));
-}
-
-export async function softDeleteWorkoutExercise(id: string) {
-    await db
-        .update(workout_exercises)
-        .set({ deleted_at: now(), updated_at: now(), is_synced: 0 })
-        .where(eq(workout_exercises.id, id));
-}
-
 export async function reorderWorkoutExercises(
     workoutId: string,
     orderedIds: string[]
@@ -77,106 +60,119 @@ export async function reorderWorkoutExercises(
     });
 }
 
-export async function moveWorkoutExerciseToIndex(
-    workoutExerciseId: string,
-    newIndex: number,
-    options?: { returnData?: boolean }
-): Promise<boolean | typeof workout_exercises.$inferSelect | null> {
-    const [current] = await db
-        .select()
-        .from(workout_exercises)
-        .where(eq(workout_exercises.id, workoutExerciseId));
-
-    if (!current || current.deleted_at == null) return false;
-
-    const workoutId = current.workout_id;
-    const oldIndex = current.order_index ?? 0;
-
-    if (newIndex === oldIndex) {
-        if (options?.returnData) return current;
-        return true;
-    }
-
-    await db.transaction(async (tx) => {
-        if (newIndex < oldIndex) {
-            // Shift items between newIndex and oldIndex down
-            await tx
-                .update(workout_exercises)
-                .set({
-                    order_index: sql`${workout_exercises.order_index} + 1`,
-                    updated_at: now(),
-                    is_synced: 0,
-                })
-                .where(
-                    and(
-                        eq(workout_exercises.workout_id, workoutId!),
-                        gte(workout_exercises.order_index, newIndex),
-                        lt(workout_exercises.order_index, oldIndex),
-                        isNull(workout_exercises.deleted_at)
-                    )
-                );
-        } else {
-            // Shift items between oldIndex and newIndex up
-            await tx
-                .update(workout_exercises)
-                .set({
-                    order_index: sql`${workout_exercises.order_index} - 1`,
-                    updated_at: now(),
-                    is_synced: 0,
-                })
-                .where(
-                    and(
-                        eq(workout_exercises.workout_id, workoutId!),
-                        gt(workout_exercises.order_index, oldIndex),
-                        lte(workout_exercises.order_index, newIndex),
-                        isNull(workout_exercises.deleted_at)
-                    )
-                );
-        }
-
-        // Move the current item to the new index
-        await tx
-            .update(workout_exercises)
-            .set({
-                order_index: newIndex,
-                updated_at: now(),
-                is_synced: 0,
-            })
-            .where(eq(workout_exercises.id, workoutExerciseId));
-    });
-
-    if (options?.returnData) {
-        const [updated] = await db
-            .select()
-            .from(workout_exercises)
-            .where(eq(workout_exercises.id, workoutExerciseId));
-        return updated ?? null;
-    }
-
-    return true;
-}
-
 export async function softDeleteWorkoutExerciseById(
     id: string,
     options?: { returnData?: boolean }
 ): Promise<WorkoutExercise | boolean> {
-    const query = db
-        .update(workout_exercises)
-        .set({
-            deleted_at: now(),
-            updated_at: now(),
-            is_synced: 0
-        })
-        .where(eq(workout_exercises.id, id));
+    const deletedAt = now();
 
-    if (options?.returnData) {
-        const [deletedExercise] = await query.returning();
-        return deletedExercise ?? null;
+    try {
+        // 1. Cascade delete to all sets first
+        await db
+            .update(workout_exercise_sets)
+            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .where(
+                and(
+                    eq(workout_exercise_sets.workout_exercise_id, id),
+                    isNull(workout_exercise_sets.deleted_at)
+                )
+            );
+
+        // 2. Then delete the workout_exercise itself
+        const query = db
+            .update(workout_exercises)
+            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .where(and(eq(workout_exercises.id, id), isNull(workout_exercises.deleted_at)));
+
+        if (options?.returnData) {
+            const [deletedExercise] = await query.returning();
+            return deletedExercise ?? null;
+        }
+
+        const result = await query;
+        return result.changes > 0;
+    } catch (error) {
+        console.error('Failed to soft delete workout_exercise with cascade:', error);
+        return false;
     }
-
-    const result = await query;
-    return result.changes > 0;
 }
 
 
+export async function getUnsyncedWorkoutExercises(): Promise<WorkoutExercise[]> {
+    return db.select().from(workout_exercises).where(eq(workout_exercises.is_synced, 0));
+}
 
+export async function markWorkoutExerciseAsDeleted(workoutExerciseId: string, deletedAt: string): Promise<boolean> {
+    const result = await db
+        .update(workout_exercises)
+        .set({ deleted_at: deletedAt })
+        .where(eq(workout_exercises.id, workoutExerciseId));
+
+    return result.changes > 0;
+}
+
+export async function markWorkoutExercisesAsSynced(workoutExerciseIds: string[]): Promise<boolean> {
+    if (workoutExerciseIds.length === 0) return true;
+
+    const result = await db
+        .update(workout_exercises)
+        .set({ is_synced: 1 })
+        .where(inArray(workout_exercises.id, workoutExerciseIds));
+
+    return result.changes > 0;
+}
+
+export async function getWorkoutExercisesByIdsWithDeletedStatus(workoutExerciseIds: string[]): Promise<Array<{ id: string; deleted_at: string | null }>> {
+    if (workoutExerciseIds.length === 0) return [];
+
+    return db
+        .select({id: workout_exercises.id, deleted_at: workout_exercises.deleted_at})
+        .from(workout_exercises)
+        .where(inArray(workout_exercises.id, workoutExerciseIds));
+}
+
+// For upserting workout exercises from remote (pull operation)
+export async function upsertWorkoutExerciseFromRemote(workoutExercise: WorkoutExercise): Promise<boolean> {
+    try {
+        await db.insert(workout_exercises)
+            .values({
+                id: workoutExercise.id,
+                workout_id: workoutExercise.workout_id,
+                exercise_id: workoutExercise.exercise_id,
+                order_index: workoutExercise.order_index,
+                created_at: workoutExercise.created_at,
+                updated_at: workoutExercise.updated_at,
+                deleted_at: workoutExercise.deleted_at,
+                is_synced: 1,
+            })
+            .onConflictDoUpdate({
+                target: workout_exercises.id,
+                set: {
+                    order_index: workoutExercise.order_index,
+                    updated_at: workoutExercise.updated_at,
+                    deleted_at: workoutExercise.deleted_at,
+                    is_synced: 1,
+                }
+            });
+        return true;
+    } catch (error) {
+        console.error('Failed to upsert workout exercise:', error);
+        return false;
+    }
+}
+
+// Batch upsert workout exercises from remote
+export async function upsertWorkoutExercisesFromRemote(workoutExercisesData: WorkoutExercise[]): Promise<boolean> {
+    if (workoutExercisesData.length === 0) return true;
+
+    try {
+        for (const workoutExercise of workoutExercisesData) {
+            const success = await upsertWorkoutExerciseFromRemote(workoutExercise);
+            if (!success) return false;
+        }
+        return true;
+    } catch (error) {
+        console.error('Failed to batch upsert workout exercises:', error);
+        return false;
+    }
+}

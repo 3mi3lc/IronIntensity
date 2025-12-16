@@ -1,7 +1,7 @@
 // src/repositories/workouts.ts
 import {db} from '@/db/client';
 import {exercises, workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import {and, desc, eq, isNull, sql} from 'drizzle-orm';
+import {and, desc, eq, inArray, isNull} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 
@@ -30,22 +30,6 @@ export async function getWorkoutsForCalendar(userId: string, limit = 200) {
         )
         .orderBy(desc(workouts.created_at))
         .limit(limit);
-}
-
-export async function getWorkoutsByDate(userId: string, date: string) {
-    return db
-        .select()
-        .from(workouts)
-        .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNull(workouts.deleted_at),         // <-- ignore deleted
-                eq(sql`date(
-                ${workouts.created_at}
-                )`, date)
-            )
-        )
-        .orderBy(desc(workouts.created_at));
 }
 
 export async function createWorkout(
@@ -93,20 +77,63 @@ export async function updateWorkoutNameById(
     return result.changes > 0;
 }
 
-export async function softDeleteWorkoutById(id: string, options?: {returnData : boolean}):Promise<Workout | boolean> {
-    const query = db
-        .update(workouts)
-        .set({ deleted_at: now(), updated_at: now(), is_synced: 0 })
-        .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
+export async function softDeleteWorkoutById(
+    id: string,
+    options?: { returnData?: boolean }
+): Promise<Workout | boolean> {
+    const deletedAt = now();
 
-    if(options?.returnData) {
-        const [deletedWorkout] = await query.returning();
-        return deletedWorkout;
+    try {
+        // 1. Get all workout_exercises for this workout (before deleting)
+        const workoutExercisesToDelete = await db
+            .select()
+            .from(workout_exercises)
+            .where(
+                and(
+                    eq(workout_exercises.workout_id, id),
+                    isNull(workout_exercises.deleted_at)
+                )
+            );
+
+        // 2. Cascade delete to workout_exercises and their sets
+        for (const we of workoutExercisesToDelete) {
+            // Mark workout_exercise as deleted
+            await db
+                .update(workout_exercises)
+                .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+                .where(eq(workout_exercises.id, we.id));
+
+            // Mark all sets for this workout_exercise as deleted
+            await db
+                .update(workout_exercise_sets)
+                .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+                .where(
+                    and(
+                        eq(workout_exercise_sets.workout_exercise_id, we.id),
+                        isNull(workout_exercise_sets.deleted_at)
+                    )
+                );
+        }
+
+        // 3. Finally, mark the workout itself as deleted
+        const query = db
+            .update(workouts)
+            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
+
+        if (options?.returnData) {
+            const [deletedWorkout] = await query.returning();
+            return deletedWorkout;
+        }
+
+        const result = await query;
+        return result.changes > 0;
+    } catch (error) {
+        console.error('Failed to soft delete workout with cascade:', error);
+        return false;
     }
-
-    const result = await query;
-    return result.changes > 0;
 }
+
 
 export async function getWorkoutById(id: string):Promise<Workout | null> {
     const [workout] = await db
@@ -115,6 +142,15 @@ export async function getWorkoutById(id: string):Promise<Workout | null> {
         .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
     return workout ?? null;
+}
+
+export async function getWorkoutsByIdsWithDeletedStatus(workoutIds: string[]): Promise<Array<{ id: string; deleted_at: string | null }>> {
+    if (workoutIds.length === 0) return [];
+
+    return db
+        .select({id: workouts.id, deleted_at: workouts.deleted_at})
+        .from(workouts)
+        .where(inArray(workouts.id, workoutIds));
 }
 
 export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise<ExerciseWithSets[]> {
@@ -299,4 +335,53 @@ export async function duplicateWorkout(
     }
 }
 
+export async function getUnsyncedWorkouts(): Promise<Workout[]> {
+    return db
+        .select()
+        .from(workouts)
+        .where(eq(workouts.is_synced, 0));
+}
+
+export async function markWorkoutsAsSynced(workoutIds: string[]): Promise<boolean> {
+    if (workoutIds.length === 0) return true;
+
+    const result = await db
+        .update(workouts)
+        .set({ is_synced: 1 })
+        .where(inArray(workouts.id, workoutIds));
+
+    return result.changes > 0;
+}
+
+export async function upsertWorkoutsFromRemote(workoutsData: Workout[]): Promise<boolean> {
+    if (workoutsData.length === 0) return true;
+
+    try {
+        for (const workout of workoutsData) {
+            await db.insert(workouts)
+                .values({
+                    id: workout.id,
+                    user_id: workout.user_id,
+                    name: workout.name,
+                    created_at: workout.created_at,
+                    updated_at: workout.updated_at,
+                    deleted_at: workout.deleted_at,
+                    is_synced: 1,
+                })
+                .onConflictDoUpdate({
+                    target: workouts.id,
+                    set: {
+                        name: workout.name,
+                        updated_at: workout.updated_at,
+                        deleted_at: workout.deleted_at,
+                        is_synced: 1,
+                    },
+                });
+        }
+        return true;
+    } catch (error) {
+        console.error('Failed to batch upsert workouts:', error);
+        return false;
+    }
+}
 

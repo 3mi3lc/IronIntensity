@@ -1,18 +1,40 @@
 // db/sync.tsx
 import {supabase} from '@/utils/supabase';
 import {Session} from '@supabase/supabase-js';
-import {db} from '@/db/client';
 import {
     body_parts,
     exercise_body_parts,
     exercises,
-    sync_metadata,
     users,
     workout_exercise_sets,
     workout_exercises,
     workouts,
 } from '@/db/schema';
-import {and, eq, inArray, sql} from 'drizzle-orm';
+import {getLastSyncTime, setLastSyncTime, recordSyncError} from "@/repositories/syncMetadata";
+import {getUserById} from "@/repositories/users";
+import {getUnsyncedExercises, markExercisesAsSynced, upsertExercisesFromRemote} from "@/repositories/exercises";
+import {
+    getUnsyncedExerciseBodyParts,
+    markExerciseBodyPartsAsSynced,
+    upsertExerciseBodyPartsFromRemote
+} from "@/repositories/exerciseBodyParts";
+import {
+    getUnsyncedWorkouts,
+    getWorkoutsByIdsWithDeletedStatus,
+    markWorkoutsAsSynced,
+    upsertWorkoutsFromRemote
+} from "@/repositories/workouts";
+import {
+    getUnsyncedWorkoutExercises, getWorkoutExercisesByIdsWithDeletedStatus,
+    markWorkoutExerciseAsDeleted,
+    markWorkoutExercisesAsSynced, upsertWorkoutExercisesFromRemote
+} from "@/repositories/workoutExercises";
+import {
+    getUnsyncedWorkoutExerciseSets,
+    markWorkoutExerciseSetAsDeleted,
+    markWorkoutExerciseSetsAsSynced, upsertWorkoutExerciseSetsFromRemote
+} from "@/repositories/workoutExerciseSets";
+import {upsertBodyPartsFromRemote} from "@/repositories/bodyParts";
 
 export class SyncService {
     private userId: string;
@@ -22,116 +44,13 @@ export class SyncService {
         this.userId = userId;
         this.session = session;
     }
-
-    // ==================== SYNC METADATA ====================
-    private async getLastSyncTime(entity: string): Promise<string | null> {
-        try {
-            const key = `last_sync_${entity}`;
-            const [result] = await db
-                .select()
-                .from(sync_metadata)
-                .where(eq(sync_metadata.key, key));
-
-            return result?.last_sync || null;
-        } catch (error) {
-            console.error('Failed to get last sync time:', error);
-            return null;
-        }
-    }
-
-    private async setLastSyncTime(entity: string, error?: string) {
-        try {
-            const key = `last_sync_${entity}`;
-            const now = new Date().toISOString();
-
-            // Check if record exists
-            const [existing] = await db
-                .select()
-                .from(sync_metadata)
-                .where(eq(sync_metadata.key, key));
-
-            if (existing) {
-                // Update existing record and increment sync_count
-                await db
-                    .update(sync_metadata)
-                    .set({
-                        last_sync: now,
-                        sync_count: sql`${sync_metadata.sync_count} + 1`,
-                        last_error: error || null,
-                    })
-                    .where(eq(sync_metadata.key, key));
-            } else {
-                // Insert new record
-                await db
-                    .insert(sync_metadata)
-                    .values({
-                        key,
-                        last_sync: now,
-                        sync_count: 1,
-                        last_error: error || null,
-                    });
-            }
-        } catch (err) {
-            console.error('Failed to set last sync time:', err);
-        }
-    }
-
-    private async recordSyncError(entity: string, error: string) {
-        try {
-            const key = `last_sync_${entity}`;
-
-            const [existing] = await db
-                .select()
-                .from(sync_metadata)
-                .where(eq(sync_metadata.key, key));
-
-            if (existing) {
-                await db
-                    .update(sync_metadata)
-                    .set({ last_error: error })
-                    .where(eq(sync_metadata.key, key));
-            } else {
-                await db
-                    .insert(sync_metadata)
-                    .values({
-                        key,
-                        last_sync: new Date().toISOString(),
-                        sync_count: 0,
-                        last_error: error,
-                    });
-            }
-        } catch (err) {
-            console.error('Failed to record sync error:', err);
-        }
-    }
-
-    // Get sync statistics for debugging/monitoring
-    async getSyncStats() {
-        try {
-            return await db
-                .select()
-                .from(sync_metadata);
-        } catch (error) {
-            console.error('Failed to get sync stats:', error);
-            return [];
-        }
-    }
-
-    // Optional: Reset sync history to force full sync
-    async resetSyncHistory() {
-        try {
-            await db.delete(sync_metadata);
-            console.log('Sync history cleared - next pull will fetch everything');
-        } catch (error) {
-            console.error('Failed to reset sync history:', error);
-        }
-    }
+    
 
     // ==================== SYNC USER ====================
     async pushUser() {
         console.log('Syncing user...');
         try {
-            const [localUser] = await db.select().from(users).where(eq(users.id, this.userId));
+            const localUser = await getUserById(this.userId);
 
             if (!localUser) {
                 console.error('Local user not found');
@@ -164,15 +83,7 @@ export class SyncService {
         console.log('Syncing exercises...');
         try {
             // Only sync unsynced exercises
-            const exercisesToSync = await db
-                .select()
-                .from(exercises)
-                .where(
-                    and(
-                        eq(exercises.user_id, this.userId),
-                        eq(exercises.is_synced, 0)
-                    )
-                );
+            const exercisesToSync = await getUnsyncedExercises();
 
             if (exercisesToSync.length === 0) {
                 console.log('No exercises to sync');
@@ -200,15 +111,12 @@ export class SyncService {
                 return false;
             }
 
-            await db
-                .update(exercises)
-                .set({ is_synced: 1 })
-                .where(
-                    and(
-                        eq(exercises.user_id, this.userId),
-                        eq(exercises.is_synced, 0)
-                    )
-                );
+            const exerciseIds = exercisesToSync.map(e => e.id);
+            const marked = await markExercisesAsSynced(exerciseIds);
+
+            if (!marked) {
+                console.warn('Warning: Failed to mark some exercises as synced');
+            }
 
             console.log(`Synced ${exercisesToSync.length} exercises`);
             return true;
@@ -222,11 +130,7 @@ export class SyncService {
         console.log("Syncing exercise_body_parts...");
 
         try {
-            // Only sync unsynced items
-            const itemsToSync = await db
-                .select()
-                .from(exercise_body_parts)
-                .where(eq(exercise_body_parts.is_synced, 0));
+            const itemsToSync = await getUnsyncedExerciseBodyParts();
 
             if (itemsToSync.length === 0) {
                 console.log("No junction rows to sync");
@@ -235,44 +139,37 @@ export class SyncService {
 
             console.log(`Syncing ${itemsToSync.length} exercise_body_parts...`);
 
-            let successCount = 0;
-            for (const item of itemsToSync) {
-                try {
-                    const { error } = await supabase
-                        .from("exercise_body_parts")
-                        .upsert({
-                            exercise_id: item.exercise_id,
-                            body_part_id: item.body_part_id,
-                            created_at: item.created_at,
-                            updated_at: item.updated_at,
-                            deleted_at: item.deleted_at,
-                        }, {
-                            onConflict: 'exercise_id,body_part_id'
-                        });
-
-                    if (error) {
-                        console.error(`Failed to sync exercise_body_part ${item.exercise_id}-${item.body_part_id}:`, error);
-                        continue;
+            // Batch upsert all items at once
+            const { error } = await supabase
+                .from("exercise_body_parts")
+                .upsert(
+                    itemsToSync.map(item => ({
+                        exercise_id: item.exercise_id,
+                        body_part_id: item.body_part_id,
+                        created_at: item.created_at,
+                        updated_at: item.updated_at,
+                        deleted_at: item.deleted_at,
+                    })),
+                    {
+                        onConflict: 'exercise_id,body_part_id'
                     }
+                );
 
-                    await db
-                        .update(exercise_body_parts)
-                        .set({ is_synced: 1 })
-                        .where(
-                            and(
-                                eq(exercise_body_parts.exercise_id, item.exercise_id),
-                                eq(exercise_body_parts.body_part_id, item.body_part_id)
-                            )
-                        );
-
-                    successCount++;
-                } catch (err) {
-                    console.error(`Error syncing exercise_body_part:`, err);
-                }
+            if (error) {
+                console.error('Failed to sync exercise_body_parts:', error);
+                return false;
             }
 
-            console.log(`Synced ${successCount}/${itemsToSync.length} exercise_body_parts`);
-            return successCount > 0 || itemsToSync.length === 0;
+            // Mark all as synced after successful batch upsert
+            await markExerciseBodyPartsAsSynced(
+                itemsToSync.map(item => ({
+                    exercise_id: item.exercise_id,
+                    body_part_id: item.body_part_id
+                }))
+            );
+
+            console.log(`Synced ${itemsToSync.length} exercise_body_parts`);
+            return true;
         } catch (e) {
             console.error("Sync exercise_body_parts error:", e);
             return false;
@@ -284,15 +181,7 @@ export class SyncService {
         console.log('Syncing workouts...');
         try {
             // Only sync unsynced workouts
-            const workoutsToSync = await db
-                .select()
-                .from(workouts)
-                .where(
-                    and(
-                        eq(workouts.user_id, this.userId),
-                        eq(workouts.is_synced, 0)
-                    )
-                );
+            const workoutsToSync = await getUnsyncedWorkouts();
 
             if (workoutsToSync.length === 0) {
                 console.log('No workouts to sync');
@@ -319,15 +208,12 @@ export class SyncService {
                 return false;
             }
 
-            await db
-                .update(workouts)
-                .set({ is_synced: 1 })
-                .where(
-                    and(
-                        eq(workouts.user_id, this.userId),
-                        eq(workouts.is_synced, 0)
-                    )
-                );
+            const workoutIds = workoutsToSync.map(e => e.id);
+            const marked = await markWorkoutsAsSynced(workoutIds);
+
+            if (!marked) {
+                console.warn('Warning: Failed to mark some workouts as synced');
+            }
 
             console.log(`Synced ${workoutsToSync.length} workouts`);
             return true;
@@ -342,10 +228,7 @@ export class SyncService {
         console.log('Syncing workout exercises...');
         try {
             // Only sync unsynced workout_exercises
-            const workoutExercisesToSync = await db
-                .select()
-                .from(workout_exercises)
-                .where(eq(workout_exercises.is_synced, 0));
+            const workoutExercisesToSync = await getUnsyncedWorkoutExercises();
 
             if (workoutExercisesToSync.length === 0) {
                 console.log('No workout exercises to sync');
@@ -358,29 +241,25 @@ export class SyncService {
             const referencedWorkoutIds = [...new Set(workoutExercisesToSync.map(we => we.workout_id).filter(Boolean))];
 
             // Check which workouts exist locally (including deleted ones)
-            const localWorkouts = await db
-                .select({ id: workouts.id, deleted_at: workouts.deleted_at })
-                .from(workouts)
-                .where(inArray(workouts.id, referencedWorkoutIds as string[]));
-
+            const localWorkouts = await getWorkoutsByIdsWithDeletedStatus(referencedWorkoutIds as string[]);
             const localWorkoutMap = new Map(localWorkouts.map(w => [w.id, w.deleted_at]));
 
             // If any workout_exercise references a deleted workout, mark it as deleted too
             for (const we of workoutExercisesToSync) {
-                if (we.workout_id && localWorkoutMap.get(we.workout_id) !== null) {
+                const parentDeletedAt = we.workout_id ? localWorkoutMap.get(we.workout_id) : null;
+                if (parentDeletedAt !== undefined && parentDeletedAt !== null) {
                     console.log(`Marking workout_exercise ${we.id} as deleted (references deleted workout)`);
-                    await db
-                        .update(workout_exercises)
-                        .set({ deleted_at: localWorkoutMap.get(we.workout_id) })
-                        .where(eq(workout_exercises.id, we.id));
+                    await markWorkoutExerciseAsDeleted(we.id, parentDeletedAt);
                 }
             }
 
             // Re-fetch after marking deleted ones
-            const finalWorkoutExercisesToSync = await db
-                .select()
-                .from(workout_exercises)
-                .where(eq(workout_exercises.is_synced, 0));
+            const finalWorkoutExercisesToSync = await getUnsyncedWorkoutExercises();
+
+            if (finalWorkoutExercisesToSync.length === 0) {
+                console.log('No workout exercises remaining after cascading deletes');
+                return true;
+            }
 
             const { error } = await supabase
                 .from('workout_exercises')
@@ -401,10 +280,13 @@ export class SyncService {
                 return false;
             }
 
-            await db
-                .update(workout_exercises)
-                .set({ is_synced: 1 })
-                .where(eq(workout_exercises.is_synced, 0));
+            // Mark the specific workout exercises as synced
+            const workoutExerciseIds = finalWorkoutExercisesToSync.map(we => we.id);
+            const marked = await markWorkoutExercisesAsSynced(workoutExerciseIds);
+
+            if (!marked) {
+                console.warn('Warning: Failed to mark some workout exercises as synced');
+            }
 
             console.log(`Synced ${finalWorkoutExercisesToSync.length} workout exercises`);
             return true;
@@ -419,10 +301,7 @@ export class SyncService {
         console.log('Syncing sets...');
         try {
             // Only sync unsynced sets
-            const setsToSync = await db
-                .select()
-                .from(workout_exercise_sets)
-                .where(eq(workout_exercise_sets.is_synced, 0));
+            const setsToSync = await getUnsyncedWorkoutExerciseSets();
 
             if (setsToSync.length === 0) {
                 console.log('No sets to sync');
@@ -435,29 +314,25 @@ export class SyncService {
             const referencedWeIds = [...new Set(setsToSync.map(s => s.workout_exercise_id).filter(Boolean))];
 
             // Check which workout_exercises exist locally (including deleted ones)
-            const localWe = await db
-                .select({ id: workout_exercises.id, deleted_at: workout_exercises.deleted_at })
-                .from(workout_exercises)
-                .where(inArray(workout_exercises.id, referencedWeIds as string[]));
-
+            const localWe = await getWorkoutExercisesByIdsWithDeletedStatus(referencedWeIds as string[]);
             const localWeMap = new Map(localWe.map(we => [we.id, we.deleted_at]));
 
             // If any set references a deleted workout_exercise, mark it as deleted too
             for (const s of setsToSync) {
-                if (s.workout_exercise_id && localWeMap.get(s.workout_exercise_id) !== null) {
+                const parentDeletedAt = s.workout_exercise_id ? localWeMap.get(s.workout_exercise_id) : null;
+                if (parentDeletedAt !== undefined && parentDeletedAt !== null) {
                     console.log(`Marking set ${s.id} as deleted (references deleted workout_exercise)`);
-                    await db
-                        .update(workout_exercise_sets)
-                        .set({ deleted_at: localWeMap.get(s.workout_exercise_id) })
-                        .where(eq(workout_exercise_sets.id, s.id));
+                    await markWorkoutExerciseSetAsDeleted(s.id, parentDeletedAt);
                 }
             }
 
             // Re-fetch after marking deleted ones
-            const finalSetsToSync = await db
-                .select()
-                .from(workout_exercise_sets)
-                .where(eq(workout_exercise_sets.is_synced, 0));
+            const finalSetsToSync = await getUnsyncedWorkoutExerciseSets();
+
+            if (finalSetsToSync.length === 0) {
+                console.log('No sets remaining after cascading deletes');
+                return true;
+            }
 
             const { error } = await supabase
                 .from('workout_exercise_sets')
@@ -479,10 +354,13 @@ export class SyncService {
                 return false;
             }
 
-            await db
-                .update(workout_exercise_sets)
-                .set({ is_synced: 1 })
-                .where(eq(workout_exercise_sets.is_synced, 0));
+            // Mark the specific sets as synced
+            const setIds = finalSetsToSync.map(s => s.id);
+            const marked = await markWorkoutExerciseSetsAsSynced(setIds);
+
+            if (!marked) {
+                console.warn('Warning: Failed to mark some sets as synced');
+            }
 
             console.log(`Synced ${finalSetsToSync.length} sets`);
             return true;
@@ -583,14 +461,13 @@ export class SyncService {
     async pullWorkouts() {
         console.log('Pulling workouts from Supabase...');
         try {
-            const lastSync = await this.getLastSyncTime('workouts');
+            const lastSync = await getLastSyncTime('workouts');
 
             let query = supabase
                 .from('workouts')
                 .select('*')
                 .eq('user_id', this.userId);
 
-            // Only pull records updated since last sync
             if (lastSync) {
                 query = query.gt('updated_at', lastSync);
                 console.log(`Pulling workouts updated after ${lastSync}`);
@@ -598,44 +475,28 @@ export class SyncService {
                 console.log('First sync - pulling all workouts');
             }
 
-            const { data, error } = await query;
+            const {data, error} = await query;
 
             if (error) {
                 console.error('Failed to pull workouts:', error);
-                await this.recordSyncError('workouts', error.message);
+                await recordSyncError('workouts', error.message);
                 return false;
             }
 
-            for (const workout of data || []) {
-                await db.insert(workouts)
-                    .values({
-                        id: workout.id,
-                        user_id: workout.user_id,
-                        name: workout.name,
-                        created_at: workout.created_at,
-                        updated_at: workout.updated_at,
-                        deleted_at: workout.deleted_at,
-                        is_synced: 1,
-                    })
-                    .onConflictDoUpdate({
-                        target: workouts.id,
-                        set: {
-                            name: workout.name,
-                            updated_at: workout.updated_at,
-                            deleted_at: workout.deleted_at,
-                            is_synced: 1,
-                        },
-                    });
+            const success = await upsertWorkoutsFromRemote(data || []);
+
+            if (!success) {
+                await recordSyncError('workouts', 'Failed to upsert workouts locally');
+                return false;
             }
 
-            // Update last sync time after successful pull
-            await this.setLastSyncTime('workouts');
+            await setLastSyncTime('workouts');
 
             console.log(`Pulled ${data?.length || 0} workouts`);
             return true;
         } catch (error) {
             console.error('Pull workouts error:', error);
-            await this.recordSyncError('workouts', error instanceof Error ? error.message : 'Unknown error');
+            await recordSyncError('workouts', error instanceof Error ? error.message : 'Unknown error');
             return false;
         }
     }
@@ -643,7 +504,7 @@ export class SyncService {
     async pullExercises() {
         console.log("Pulling exercises...");
         try {
-            const lastSync = await this.getLastSyncTime('exercises');
+            const lastSync = await getLastSyncTime('exercises');
 
             let query = supabase
                 .from("exercises")
@@ -661,49 +522,33 @@ export class SyncService {
 
             if (error) {
                 console.error("Pull exercises failed:", error);
-                await this.recordSyncError('exercises', error.message);
+                await recordSyncError('exercises', error.message);
                 return false;
             }
 
-            for (const item of data || []) {
-                await db.insert(exercises)
-                    .values({
-                        id: item.id,
-                        user_id: item.user_id,
-                        name: item.name,
-                        description: item.description,
-                        created_at: item.created_at,
-                        updated_at: item.updated_at,
-                        deleted_at: item.deleted_at,
-                        is_synced: 1,
-                    })
-                    .onConflictDoUpdate({
-                        target: exercises.id,
-                        set: {
-                            name: item.name,
-                            description: item.description,
-                            updated_at: item.updated_at,
-                            deleted_at: item.deleted_at,
-                            is_synced: 1,
-                        }
-                    });
+            const success = await upsertExercisesFromRemote(data || []);
+
+            if (!success) {
+                await recordSyncError('exercises', 'Failed to upsert exercises locally');
+                return false;
             }
 
-            await this.setLastSyncTime('exercises');
+            await setLastSyncTime('exercises');
 
             console.log(`Pulled ${data?.length || 0} exercises`);
             return true;
         } catch (err) {
             console.error("Pull exercises error:", err);
-            await this.recordSyncError('exercises', err instanceof Error ? err.message : 'Unknown error');
+            await recordSyncError('exercises', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }
 
+
     async pullWorkoutExercises() {
         console.log("Pulling workout exercises...");
         try {
-            const lastSync = await this.getLastSyncTime('workout_exercises');
+            const lastSync = await getLastSyncTime('workout_exercises');
 
             let query = supabase.from("workout_exercises").select("*");
 
@@ -718,40 +563,24 @@ export class SyncService {
 
             if (error) {
                 console.error("Pull workout_exercises failed:", error);
-                await this.recordSyncError('workout_exercises', error.message);
+                await recordSyncError('workout_exercises', error.message);
                 return false;
             }
 
-            for (const item of data || []) {
-                await db.insert(workout_exercises)
-                    .values({
-                        id: item.id,
-                        workout_id: item.workout_id,
-                        exercise_id: item.exercise_id,
-                        order_index: item.order_index,
-                        created_at: item.created_at,
-                        updated_at: item.updated_at,
-                        deleted_at: item.deleted_at,
-                        is_synced: 1,
-                    })
-                    .onConflictDoUpdate({
-                        target: workout_exercises.id,
-                        set: {
-                            order_index: item.order_index,
-                            updated_at: item.updated_at,
-                            deleted_at: item.deleted_at,
-                            is_synced: 1,
-                        }
-                    });
+            const success = await upsertWorkoutExercisesFromRemote(data || []);
+
+            if (!success) {
+                await recordSyncError('workout_exercises', 'Failed to upsert workout exercises locally');
+                return false;
             }
 
-            await this.setLastSyncTime('workout_exercises');
+            await setLastSyncTime('workout_exercises');
 
             console.log(`Pulled ${data?.length || 0} workout_exercises`);
             return true;
         } catch (err) {
             console.error("Pull workout_exercises error:", err);
-            await this.recordSyncError('workout_exercises', err instanceof Error ? err.message : 'Unknown error');
+            await recordSyncError('workout_exercises', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }
@@ -759,7 +588,7 @@ export class SyncService {
     async pullSets() {
         console.log("Pulling sets...");
         try {
-            const lastSync = await this.getLastSyncTime('workout_exercise_sets');
+            const lastSync = await getLastSyncTime('workout_exercise_sets');
 
             let query = supabase.from("workout_exercise_sets").select("*");
 
@@ -774,52 +603,34 @@ export class SyncService {
 
             if (error) {
                 console.error("Pull sets failed:", error);
-                await this.recordSyncError('workout_exercise_sets', error.message);
+                await recordSyncError('workout_exercise_sets', error.message);
                 return false;
             }
 
-            for (const item of data || []) {
-                await db.insert(workout_exercise_sets)
-                    .values({
-                        id: item.id,
-                        workout_exercise_id: item.workout_exercise_id,
-                        set_number: item.set_number,
-                        reps: item.reps,
-                        weight: item.weight,
-                        created_at: item.created_at,
-                        updated_at: item.updated_at,
-                        deleted_at: item.deleted_at,
-                        is_synced: 1,
-                    })
-                    .onConflictDoUpdate({
-                        target: workout_exercise_sets.id,
-                        set: {
-                            set_number: item.set_number,
-                            reps: item.reps,
-                            weight: item.weight,
-                            updated_at: item.updated_at,
-                            deleted_at: item.deleted_at,
-                            is_synced: 1,
-                        }
-                    });
+            const success = await upsertWorkoutExerciseSetsFromRemote(data || []);
+
+            if (!success) {
+                await recordSyncError('workout_exercise_sets', 'Failed to upsert workout exercise sets locally');
+                return false;
             }
 
-            await this.setLastSyncTime('workout_exercise_sets');
+            await setLastSyncTime('workout_exercise_sets');
 
             console.log(`Pulled ${data?.length || 0} sets`);
             return true;
         } catch (err) {
             console.error("Pull sets error:", err);
-            await this.recordSyncError('workout_exercise_sets', err instanceof Error ? err.message : 'Unknown error');
+            await recordSyncError('workout_exercise_sets', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }
+
 
     async pullExerciseBodyParts() {
         console.log("Pulling exercise_body_parts...");
 
         try {
-            const lastSync = await this.getLastSyncTime('exercise_body_parts');
+            const lastSync = await getLastSyncTime('exercise_body_parts');
 
             let query = supabase.from("exercise_body_parts").select("*");
 
@@ -834,37 +645,24 @@ export class SyncService {
 
             if (error) {
                 console.error("Pull failed:", error);
-                await this.recordSyncError('exercise_body_parts', error.message);
+                await recordSyncError('exercise_body_parts', error.message);
                 return false;
             }
 
-            for (const item of data || []) {
-                await db.insert(exercise_body_parts)
-                    .values({
-                        exercise_id: item.exercise_id,
-                        body_part_id: item.body_part_id,
-                        created_at: item.created_at,
-                        updated_at: item.updated_at,
-                        deleted_at: item.deleted_at,
-                        is_synced: 1,
-                    })
-                    .onConflictDoUpdate({
-                        target: [exercise_body_parts.exercise_id, exercise_body_parts.body_part_id],
-                        set: {
-                            updated_at: item.updated_at,
-                            deleted_at: item.deleted_at,
-                            is_synced: 1,
-                        }
-                    });
+            const success = await upsertExerciseBodyPartsFromRemote(data || []);
+
+            if (!success) {
+                await recordSyncError('exercise_body_parts', 'Failed to upsert exercise body parts locally');
+                return false;
             }
 
-            await this.setLastSyncTime('exercise_body_parts');
+            await setLastSyncTime('exercise_body_parts');
 
             console.log(`Pulled ${data?.length || 0} exercise_body_parts`);
             return true;
         } catch (e) {
             console.error("Pull junction table error:", e);
-            await this.recordSyncError('exercise_body_parts', e instanceof Error ? e.message : 'Unknown error');
+            await recordSyncError('exercise_body_parts', e instanceof Error ? e.message : 'Unknown error');
             return false;
         }
     }
@@ -882,18 +680,11 @@ export class SyncService {
                 return false;
             }
 
-            for (const item of data || []) {
-                await db.insert(body_parts)
-                    .values({
-                        id: item.id,
-                        name: item.name,
-                    })
-                    .onConflictDoUpdate({
-                        target: body_parts.id,
-                        set: {
-                            name: item.name,
-                        }
-                    });
+            const success = await upsertBodyPartsFromRemote(data || []);
+
+            if (!success) {
+                console.error('Failed to upsert body parts locally');
+                return false;
             }
 
             console.log(`Pulled ${data?.length || 0} body parts`);

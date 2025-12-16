@@ -1,7 +1,7 @@
-import { db } from '@/db/client';
-import {body_parts, exercise_body_parts, exercises} from '@/db/schema';
+import {db} from '@/db/client';
+import { exercise_body_parts} from '@/db/schema';
 import {and, eq} from 'drizzle-orm';
-import {BodyPart, Exercise, ExerciseBodyPart} from "@/repositories/types";
+import { ExerciseBodyPart} from "@/repositories/types";
 
 // Add a body part to an exercise
 export async function addBodyPartToExercise(
@@ -25,42 +25,79 @@ export async function addBodyPartToExercise(
     const result = await query;
     return result.changes > 0;
 }
-// Remove a body part from an exercise (hard delete)
-export async function removeBodyPartFromExercise(exercise_id: string, body_part_id: string) {
+
+export async function getUnsyncedExerciseBodyParts(): Promise<ExerciseBodyPart[]> {
     return db
-        .delete(exercise_body_parts)
-        .where(
-            and(
-                eq(exercise_body_parts.exercise_id, exercise_id),
-                eq(exercise_body_parts.body_part_id, body_part_id)
-            )
-        );
+        .select()
+        .from(exercise_body_parts)
+        .where(eq(exercise_body_parts.is_synced, 0));
 }
 
-// Get all body parts linked to an exercise
-export async function getBodyPartsForExercise(exercise_id: string): Promise<BodyPart[]> {
-    const rows = await db
-        .select()
-        .from(body_parts)
-        .innerJoin(
-            exercise_body_parts,
-            eq(body_parts.id, exercise_body_parts.body_part_id)
-        )
-        .where(eq(exercise_body_parts.exercise_id, exercise_id));
+export async function markExerciseBodyPartsAsSynced(
+    items: Array<{ exercise_id: string; body_part_id: string }>
+): Promise<boolean> {
+    if (items.length === 0) return true;
 
-    return rows.map(row => row.body_parts);
+    // Since exercise_body_parts has a composite primary key,
+    // we need to update each one individually
+    let successCount = 0;
+
+    for (const item of items) {
+        const result = await db
+            .update(exercise_body_parts)
+            .set({ is_synced: 1 })
+            .where(
+                and(
+                    eq(exercise_body_parts.exercise_id, item.exercise_id),
+                    eq(exercise_body_parts.body_part_id, item.body_part_id)
+                )
+            );
+
+        if (result.changes > 0) successCount++;
+    }
+
+    return successCount === items.length;
 }
 
-// Get all exercises linked to a body part
-export async function getExercisesForBodyPart(body_part_id: string): Promise<Exercise[]> {
-    const rows = await db
-        .select()
-        .from(exercises)
-        .innerJoin(
-            exercise_body_parts,
-            eq(exercises.id, exercise_body_parts.exercise_id)
-        )
-        .where(eq(exercise_body_parts.body_part_id, body_part_id));
+// For upserting exercise body parts from remote (pull operation)
+export async function upsertExerciseBodyPartFromRemote(exerciseBodyPart: ExerciseBodyPart): Promise<boolean> {
+    try {
+        await db.insert(exercise_body_parts)
+            .values({
+                exercise_id: exerciseBodyPart.exercise_id,
+                body_part_id: exerciseBodyPart.body_part_id,
+                created_at: exerciseBodyPart.created_at,
+                updated_at: exerciseBodyPart.updated_at,
+                deleted_at: exerciseBodyPart.deleted_at,
+                is_synced: 1,
+            })
+            .onConflictDoUpdate({
+                target: [exercise_body_parts.exercise_id, exercise_body_parts.body_part_id],
+                set: {
+                    updated_at: exerciseBodyPart.updated_at,
+                    deleted_at: exerciseBodyPart.deleted_at,
+                    is_synced: 1,
+                }
+            });
+        return true;
+    } catch (error) {
+        console.error('Failed to upsert exercise body part:', error);
+        return false;
+    }
+}
 
-    return rows.map(row => row.exercises);
+// Batch upsert exercise body parts from remote
+export async function upsertExerciseBodyPartsFromRemote(exerciseBodyPartsData: ExerciseBodyPart[]): Promise<boolean> {
+    if (exerciseBodyPartsData.length === 0) return true;
+
+    try {
+        for (const exerciseBodyPart of exerciseBodyPartsData) {
+            const success = await upsertExerciseBodyPartFromRemote(exerciseBodyPart);
+            if (!success) return false;
+        }
+        return true;
+    } catch (error) {
+        console.error('Failed to batch upsert exercise body parts:', error);
+        return false;
+    }
 }
