@@ -28,6 +28,7 @@ export const workouts = sqliteTable('workouts', {
         .notNull()
         .references(() => users.id),
     name: text('name').notNull(),
+    completed_at: text('completed_at'),
     created_at: text('created_at').default("datetime('now')"),
     updated_at: text('updated_at').default("datetime('now')"),
     deleted_at: text('deleted_at'),
@@ -55,6 +56,7 @@ export const workout_exercise_sets = sqliteTable('workout_exercise_sets', {
         .references(() => workout_exercises.id),
     set_number: integer('set_number').notNull(),
     reps: integer('reps').notNull(),
+    is_pr: integer('is_pr').default(0),
     weight: real('weight'),
     created_at: text('created_at').default("datetime('now')"),
     updated_at: text('updated_at').default("datetime('now')"),
@@ -90,4 +92,18 @@ export const sync_metadata = sqliteTable('sync_metadata', {
     last_sync: text('last_sync').notNull(),
     sync_count: integer('sync_count').default(0), // Track how many times synced
     last_error: text('last_error'), // Store last error for debugging
+});
+
+export const body_weight_entries = sqliteTable('body_weight_entries', {
+    id: text('id').primaryKey().notNull(),
+    user_id: text('user_id')
+        .notNull()
+        .references(() => users.id),
+    weight: real('weight').notNull(), // in kg or lbs
+    recorded_at: text('recorded_at').notNull(),
+    notes: text('notes'),
+    created_at: text('created_at').default("datetime('now')"),
+    updated_at: text('updated_at').default("datetime('now')"),
+    deleted_at: text('deleted_at'),
+    is_synced: integer('is_synced').default(0),
 });

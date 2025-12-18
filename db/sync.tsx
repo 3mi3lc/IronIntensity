@@ -16,16 +16,24 @@ import {
     upsertWorkoutsFromRemote
 } from "@/repositories/workouts";
 import {
-    getUnsyncedWorkoutExercises, getWorkoutExercisesByIdsWithDeletedStatus,
+    getUnsyncedWorkoutExercises,
+    getWorkoutExercisesByIdsWithDeletedStatus,
     markWorkoutExerciseAsDeleted,
-    markWorkoutExercisesAsSynced, upsertWorkoutExercisesFromRemote
+    markWorkoutExercisesAsSynced,
+    upsertWorkoutExercisesFromRemote
 } from "@/repositories/workoutExercises";
 import {
     getUnsyncedWorkoutExerciseSets,
     markWorkoutExerciseSetAsDeleted,
-    markWorkoutExerciseSetsAsSynced, upsertWorkoutExerciseSetsFromRemote
+    markWorkoutExerciseSetsAsSynced,
+    upsertWorkoutExerciseSetsFromRemote
 } from "@/repositories/workoutExerciseSets";
 import {upsertBodyPartsFromRemote} from "@/repositories/bodyParts";
+import {
+    getUnsyncedBodyWeightEntries,
+    markBodyWeightEntriesAsSynced,
+    upsertBodyWeightEntriesFromRemote
+} from "@/repositories/bodyWeightEntries";
 
 export class SyncService {
     private userId: string;
@@ -35,7 +43,7 @@ export class SyncService {
         this.userId = userId;
         this.session = session;
     }
-    
+
 
     // ==================== SYNC USER ====================
     async pushUser() {
@@ -73,7 +81,6 @@ export class SyncService {
     async pushExercises() {
         console.log('Syncing exercises...');
         try {
-            // Only sync unsynced exercises
             const exercisesToSync = await getUnsyncedExercises();
 
             if (exercisesToSync.length === 0) {
@@ -130,7 +137,6 @@ export class SyncService {
 
             console.log(`Syncing ${itemsToSync.length} exercise_body_parts...`);
 
-            // Batch upsert all items at once
             const { error } = await supabase
                 .from("exercise_body_parts")
                 .upsert(
@@ -151,7 +157,6 @@ export class SyncService {
                 return false;
             }
 
-            // Mark all as synced after successful batch upsert
             await markExerciseBodyPartsAsSynced(
                 itemsToSync.map(item => ({
                     exercise_id: item.exercise_id,
@@ -171,7 +176,6 @@ export class SyncService {
     async pushWorkouts() {
         console.log('Syncing workouts...');
         try {
-            // Only sync unsynced workouts
             const workoutsToSync = await getUnsyncedWorkouts();
 
             if (workoutsToSync.length === 0) {
@@ -188,6 +192,7 @@ export class SyncService {
                         id: w.id,
                         user_id: w.user_id,
                         name: w.name,
+                        completed_at: w.completed_at,
                         created_at: w.created_at,
                         updated_at: w.updated_at,
                         deleted_at: w.deleted_at,
@@ -199,7 +204,7 @@ export class SyncService {
                 return false;
             }
 
-            const workoutIds = workoutsToSync.map(e => e.id);
+            const workoutIds = workoutsToSync.map(w => w.id);
             const marked = await markWorkoutsAsSynced(workoutIds);
 
             if (!marked) {
@@ -218,7 +223,6 @@ export class SyncService {
     async pushWorkoutExercises() {
         console.log('Syncing workout exercises...');
         try {
-            // Only sync unsynced workout_exercises
             const workoutExercisesToSync = await getUnsyncedWorkoutExercises();
 
             if (workoutExercisesToSync.length === 0) {
@@ -228,14 +232,10 @@ export class SyncService {
 
             console.log(`Syncing ${workoutExercisesToSync.length} workout exercises...`);
 
-            // Find all unique workout IDs referenced
             const referencedWorkoutIds = [...new Set(workoutExercisesToSync.map(we => we.workout_id).filter(Boolean))];
-
-            // Check which workouts exist locally (including deleted ones)
             const localWorkouts = await getWorkoutsByIdsWithDeletedStatus(referencedWorkoutIds as string[]);
             const localWorkoutMap = new Map(localWorkouts.map(w => [w.id, w.deleted_at]));
 
-            // If any workout_exercise references a deleted workout, mark it as deleted too
             for (const we of workoutExercisesToSync) {
                 const parentDeletedAt = we.workout_id ? localWorkoutMap.get(we.workout_id) : null;
                 if (parentDeletedAt !== undefined && parentDeletedAt !== null) {
@@ -244,7 +244,6 @@ export class SyncService {
                 }
             }
 
-            // Re-fetch after marking deleted ones
             const finalWorkoutExercisesToSync = await getUnsyncedWorkoutExercises();
 
             if (finalWorkoutExercisesToSync.length === 0) {
@@ -271,7 +270,6 @@ export class SyncService {
                 return false;
             }
 
-            // Mark the specific workout exercises as synced
             const workoutExerciseIds = finalWorkoutExercisesToSync.map(we => we.id);
             const marked = await markWorkoutExercisesAsSynced(workoutExerciseIds);
 
@@ -291,7 +289,6 @@ export class SyncService {
     async pushSets() {
         console.log('Syncing sets...');
         try {
-            // Only sync unsynced sets
             const setsToSync = await getUnsyncedWorkoutExerciseSets();
 
             if (setsToSync.length === 0) {
@@ -301,14 +298,10 @@ export class SyncService {
 
             console.log(`Syncing ${setsToSync.length} sets...`);
 
-            // Find all unique workout_exercise IDs referenced
             const referencedWeIds = [...new Set(setsToSync.map(s => s.workout_exercise_id).filter(Boolean))];
-
-            // Check which workout_exercises exist locally (including deleted ones)
             const localWe = await getWorkoutExercisesByIdsWithDeletedStatus(referencedWeIds as string[]);
             const localWeMap = new Map(localWe.map(we => [we.id, we.deleted_at]));
 
-            // If any set references a deleted workout_exercise, mark it as deleted too
             for (const s of setsToSync) {
                 const parentDeletedAt = s.workout_exercise_id ? localWeMap.get(s.workout_exercise_id) : null;
                 if (parentDeletedAt !== undefined && parentDeletedAt !== null) {
@@ -317,7 +310,6 @@ export class SyncService {
                 }
             }
 
-            // Re-fetch after marking deleted ones
             const finalSetsToSync = await getUnsyncedWorkoutExerciseSets();
 
             if (finalSetsToSync.length === 0) {
@@ -333,6 +325,7 @@ export class SyncService {
                         workout_exercise_id: s.workout_exercise_id,
                         set_number: s.set_number,
                         reps: s.reps,
+                        is_pr: s.is_pr,
                         weight: s.weight,
                         created_at: s.created_at,
                         updated_at: s.updated_at,
@@ -345,7 +338,6 @@ export class SyncService {
                 return false;
             }
 
-            // Mark the specific sets as synced
             const setIds = finalSetsToSync.map(s => s.id);
             const marked = await markWorkoutExerciseSetsAsSynced(setIds);
 
@@ -357,6 +349,54 @@ export class SyncService {
             return true;
         } catch (error) {
             console.error('Sync sets error:', error);
+            return false;
+        }
+    }
+
+    // ==================== SYNC BODY WEIGHT ENTRIES ====================
+    async pushBodyWeightEntries() {
+        console.log('Syncing body weight entries...');
+        try {
+            const entriesToSync = await getUnsyncedBodyWeightEntries(this.userId);
+
+            if (entriesToSync.length === 0) {
+                console.log('No body weight entries to sync');
+                return true;
+            }
+
+            console.log(`Syncing ${entriesToSync.length} body weight entries...`);
+
+            const { error } = await supabase
+                .from('body_weight_entries')
+                .upsert(
+                    entriesToSync.map(e => ({
+                        id: e.id,
+                        user_id: e.user_id,
+                        weight: e.weight,
+                        recorded_at: e.recorded_at,
+                        notes: e.notes,
+                        created_at: e.created_at,
+                        updated_at: e.updated_at,
+                        deleted_at: e.deleted_at,
+                    }))
+                );
+
+            if (error) {
+                console.error('Failed to sync body weight entries:', error);
+                return false;
+            }
+
+            const entryIds = entriesToSync.map(e => e.id);
+            const marked = await markBodyWeightEntriesAsSynced(entryIds);
+
+            if (!marked) {
+                console.warn('Warning: Failed to mark some body weight entries as synced');
+            }
+
+            console.log(`Synced ${entriesToSync.length} body weight entries`);
+            return true;
+        } catch (error) {
+            console.error('Sync body weight entries error:', error);
             return false;
         }
     }
@@ -397,6 +437,12 @@ export class SyncService {
         const setsPush = await this.pushSets();
         if (!setsPush) {
             console.error('Sets push failed');
+            return false;
+        }
+
+        const bodyWeightPush = await this.pushBodyWeightEntries();
+        if (!bodyWeightPush) {
+            console.error('Body weight entries push failed');
             return false;
         }
 
@@ -444,6 +490,12 @@ export class SyncService {
             return false;
         }
 
+        const bodyWeightPull = await this.pullBodyWeightEntries();
+        if (!bodyWeightPull) {
+            console.error('Body weight entries pull failed');
+            return false;
+        }
+
         console.log('✅ Full pull completed successfully');
         return true;
     }
@@ -457,7 +509,8 @@ export class SyncService {
             let query = supabase
                 .from('workouts')
                 .select('*')
-                .eq('user_id', this.userId);
+                .eq('user_id', this.userId)
+                .is('deleted_at', null); // ADD THIS - only pull non-deleted workouts
 
             if (lastSync) {
                 query = query.gt('updated_at', lastSync);
@@ -500,7 +553,8 @@ export class SyncService {
             let query = supabase
                 .from("exercises")
                 .select("*")
-                .eq("user_id", this.userId);
+                .eq("user_id", this.userId)
+                .is('deleted_at', null); // ADD THIS
 
             if (lastSync) {
                 query = query.gt('updated_at', lastSync);
@@ -535,13 +589,15 @@ export class SyncService {
         }
     }
 
-
     async pullWorkoutExercises() {
         console.log("Pulling workout exercises...");
         try {
             const lastSync = await getLastSyncTime('workout_exercises');
 
-            let query = supabase.from("workout_exercises").select("*");
+            let query = supabase
+                .from("workout_exercises")
+                .select("*")
+                .is('deleted_at', null); // ADD THIS
 
             if (lastSync) {
                 query = query.gt('updated_at', lastSync);
@@ -581,7 +637,10 @@ export class SyncService {
         try {
             const lastSync = await getLastSyncTime('workout_exercise_sets');
 
-            let query = supabase.from("workout_exercise_sets").select("*");
+            let query = supabase
+                .from("workout_exercise_sets")
+                .select("*")
+                .is('deleted_at', null); // ADD THIS
 
             if (lastSync) {
                 query = query.gt('updated_at', lastSync);
@@ -616,14 +675,16 @@ export class SyncService {
         }
     }
 
-
     async pullExerciseBodyParts() {
         console.log("Pulling exercise_body_parts...");
 
         try {
             const lastSync = await getLastSyncTime('exercise_body_parts');
 
-            let query = supabase.from("exercise_body_parts").select("*");
+            let query = supabase
+                .from("exercise_body_parts")
+                .select("*")
+                .is('deleted_at', null); // ADD THIS
 
             if (lastSync) {
                 query = query.gt('updated_at', lastSync);
@@ -682,6 +743,50 @@ export class SyncService {
             return true;
         } catch (err) {
             console.error("Pull body parts error:", err);
+            return false;
+        }
+    }
+
+    async pullBodyWeightEntries() {
+        console.log("Pulling body weight entries...");
+        try {
+            const lastSync = await getLastSyncTime('body_weight_entries');
+
+            let query = supabase
+                .from("body_weight_entries")
+                .select("*")
+                .eq("user_id", this.userId)
+                .is('deleted_at', null);
+
+            if (lastSync) {
+                query = query.gt('updated_at', lastSync);
+                console.log(`Pulling body weight entries updated after ${lastSync}`);
+            } else {
+                console.log('First sync - pulling all body weight entries');
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error("Pull body weight entries failed:", error);
+                await recordSyncError('body_weight_entries', error.message);
+                return false;
+            }
+
+            const success = await upsertBodyWeightEntriesFromRemote(data || []);
+
+            if (!success) {
+                await recordSyncError('body_weight_entries', 'Failed to upsert body weight entries locally');
+                return false;
+            }
+
+            await setLastSyncTime('body_weight_entries');
+
+            console.log(`Pulled ${data?.length || 0} body weight entries`);
+            return true;
+        } catch (err) {
+            console.error("Pull body weight entries error:", err);
+            await recordSyncError('body_weight_entries', err instanceof Error ? err.message : 'Unknown error');
             return false;
         }
     }

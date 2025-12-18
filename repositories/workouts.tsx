@@ -8,6 +8,7 @@ import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 interface UpdateWorkoutInput {
     name?: string;
     created_at?: string;
+    completed_at?: string;
 }
 
 export async function getAllWorkouts(): Promise<Workout[]> {
@@ -363,6 +364,7 @@ export async function upsertWorkoutsFromRemote(workoutsData: Workout[]): Promise
                     id: workout.id,
                     user_id: workout.user_id,
                     name: workout.name,
+                    completed_at: workout.completed_at, // ADD THIS
                     created_at: workout.created_at,
                     updated_at: workout.updated_at,
                     deleted_at: workout.deleted_at,
@@ -372,6 +374,7 @@ export async function upsertWorkoutsFromRemote(workoutsData: Workout[]): Promise
                     target: workouts.id,
                     set: {
                         name: workout.name,
+                        completed_at: workout.completed_at, // ADD THIS
                         updated_at: workout.updated_at,
                         deleted_at: workout.deleted_at,
                         is_synced: 1,

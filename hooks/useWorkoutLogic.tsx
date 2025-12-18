@@ -241,11 +241,19 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         if (!workout || !user) return false;
 
         try {
-            // Use the provided name parameter, with fallback to 'Completed Workout'
-            await updateWorkoutById(workout.id, {
+            const updates: Record<string, any> = {
                 name: name.trim() || 'Completed Workout',
+
+                // This is the workout date (stats use this)
                 created_at: date.toISOString(),
-            });
+            };
+
+            // Only set completed_at ONCE
+            if (!workout.completed_at) {
+                updates.completed_at = new Date().toISOString();
+            }
+
+            await updateWorkoutById(workout.id, updates);
             return true;
         } catch (error) {
             console.error('Failed to finish workout:', error);
@@ -253,6 +261,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             return false;
         }
     };
+
 
     const handleDeleteWorkout = async () => {
         if (!workout?.id) return false;

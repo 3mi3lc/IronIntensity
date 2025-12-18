@@ -4,7 +4,7 @@ import {
     exercises,
     workouts,
     workout_exercises,
-    workout_exercise_sets, body_parts, exercise_body_parts,
+    workout_exercise_sets, body_parts, exercise_body_parts, body_weight_entries,
 } from '@/db/schema';
 
 export type User = typeof users.$inferSelect;
@@ -26,6 +26,9 @@ export type BodyPart = typeof body_parts.$inferSelect;
 
 export type ExerciseBodyPart = typeof exercise_body_parts.$inferSelect;
 export type NewExerciseBodyPart = typeof exercise_body_parts.$inferInsert;
+
+export type BodyWeightEntry = typeof body_weight_entries.$inferSelect;
+export type NewBodyWeightEntry = typeof body_weight_entries.$inferSelect;
 
 export type ExerciseWithSets = {
     workoutExerciseId: string;
