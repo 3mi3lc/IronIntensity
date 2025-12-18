@@ -70,6 +70,9 @@ const Statistics = () => {
     useEffect(() => {
         if (user?.id) {
             loadStatistics();
+        } else {
+            // Reset loading state when user logs out
+            setLoading(false);
         }
     }, [user?.id, selectedRange]);
 
@@ -147,12 +150,14 @@ const Statistics = () => {
     };
 
     const loadExerciseDetails = async (exerciseId: string) => {
+        if (!user?.id) return;
+
         const { startDate, endDate } = getDateRange(selectedRange);
 
         try {
             const [volumeData, maxWeightData] = await Promise.all([
-                getExerciseVolumeByDay(user!.id, exerciseId, startDate, endDate),
-                getExerciseMaxWeightByDay(user!.id, exerciseId, startDate, endDate)
+                getExerciseVolumeByDay(user.id, exerciseId, startDate, endDate),
+                getExerciseMaxWeightByDay(user.id, exerciseId, startDate, endDate)
             ]);
 
             setExerciseVolumeData(volumeData);
@@ -176,7 +181,9 @@ const Statistics = () => {
     };
 
     const loadBodyWeightData = async (startDate: string, endDate: string) => {
-        const entries = await getBodyWeightEntries(user!.id, startDate, endDate);
+        if (!user?.id) return;
+
+        const entries = await getBodyWeightEntries(user.id, startDate, endDate);
 
         if (entries.length === 0) {
             setBodyWeightData({ labels: [], data: [] });
@@ -220,20 +227,22 @@ const Statistics = () => {
     };
 
     const loadVolumeData = async (startDate: string, endDate: string) => {
+        if (!user?.id) return;
+
         let volumeByPeriod;
 
         switch (selectedRange) {
             case '7d':
-                volumeByPeriod = await getCumulativeVolumeByDay(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByDay(user.id, startDate, endDate);
                 break;
             case '30d':
-                volumeByPeriod = await getCumulativeVolumeByDay(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByDay(user.id, startDate, endDate);
                 break;
             case '90d':
-                volumeByPeriod = await getCumulativeVolumeByWeek(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByWeek(user.id, startDate, endDate);
                 break;
             case '1y':
-                volumeByPeriod = await getCumulativeVolumeByMonth(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByMonth(user.id, startDate, endDate);
                 break;
         }
 
@@ -263,12 +272,12 @@ const Statistics = () => {
         const data = volumeByPeriod.map(v => v.volume);
         setVolumeData({ labels, data });
 
-        const total = await getTotalVolume(user!.id, startDate, endDate);
+        const total = await getTotalVolume(user.id, startDate, endDate);
         setTotalVolume(total);
 
         const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(selectedRange);
         const { changePercent } = await getVolumeComparison(
-            user!.id,
+            user.id,
             startDate,
             endDate,
             prevStart,
@@ -278,16 +287,18 @@ const Statistics = () => {
     };
 
     const loadWorkoutsData = async (startDate: string, endDate: string) => {
+        if (!user?.id) return;
+
         let workoutsByPeriod;
 
         switch (selectedRange) {
             case '7d':
             case '30d':
-                workoutsByPeriod = await getCumulativeWorkoutsByDay(user!.id, startDate, endDate);
+                workoutsByPeriod = await getCumulativeWorkoutsByDay(user.id, startDate, endDate);
                 break;
             case '90d':
             case '1y':
-                workoutsByPeriod = await getCumulativeWorkoutsByWeek(user!.id, startDate, endDate);
+                workoutsByPeriod = await getCumulativeWorkoutsByWeek(user.id, startDate, endDate);
                 break;
         }
 
@@ -317,12 +328,12 @@ const Statistics = () => {
         const data = workoutsByPeriod.map(w => w.count);
         setWorkoutsData({ labels, data });
 
-        const total = await getTotalWorkouts(user!.id, startDate, endDate);
+        const total = await getTotalWorkouts(user.id, startDate, endDate);
         setWorkoutCount(total);
 
         const { startDate: prevStart, endDate: prevEnd } = getPreviousDateRange(selectedRange);
         const { change } = await getWorkoutCountComparison(
-            user!.id,
+            user.id,
             startDate,
             endDate,
             prevStart,
@@ -332,8 +343,10 @@ const Statistics = () => {
     };
 
     const loadTopExercises = async (startDate: string, endDate: string, limit?: number) => {
+        if (!user?.id) return;
+
         const exercises = await getTopExercisesByVolume(
-            user!.id,
+            user.id,
             startDate,
             endDate,
             limit || (showAllExercises ? 999 : 10)
@@ -342,7 +355,9 @@ const Statistics = () => {
     };
 
     const loadRecentPRs = async () => {
-        const prs = await getRecentPRs(user!.id, 10);
+        if (!user?.id) return;
+
+        const prs = await getRecentPRs(user.id, 10);
         setRecentPRs(prs);
     };
 
@@ -368,10 +383,10 @@ const Statistics = () => {
     }
 
     // Show exercise history screen if selected
-    if (showExerciseHistory && selectedExerciseForHistory) {
+    if (showExerciseHistory && selectedExerciseForHistory && user?.id) {
         return (
             <ExerciseHistoryScreen
-                userId={user!.id}
+                userId={user.id}
                 exerciseId={selectedExerciseForHistory.id}
                 exerciseName={selectedExerciseForHistory.name}
                 onBack={() => {
@@ -702,12 +717,14 @@ const Statistics = () => {
             </ScrollView>
 
             {/* Add Weight Modal */}
-            <AddBodyWeightModal
-                visible={showAddWeightModal}
-                onClose={() => setShowAddWeightModal(false)}
-                onSuccess={loadStatistics}
-                userId={user!.id}
-            />
+            {user?.id && (
+                <AddBodyWeightModal
+                    visible={showAddWeightModal}
+                    onClose={() => setShowAddWeightModal(false)}
+                    onSuccess={loadStatistics}
+                    userId={user.id}
+                />
+            )}
         </SafeAreaView>
     );
 };

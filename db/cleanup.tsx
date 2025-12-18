@@ -6,7 +6,7 @@ import {
     workouts,
     workout_exercises,
     workout_exercise_sets,
-    exercise_body_parts,
+    exercise_body_parts, sync_metadata, body_weight_entries,
     // Don't delete body_parts - they're shared static data
 } from '@/db/schema';
 
@@ -31,6 +31,12 @@ export async function clearAllUserData() {
 
         await db.delete(users);
         console.log('Cleared users');
+
+        await db.delete(body_weight_entries);
+        console.log('Cleared body_weight_entries');
+
+        await db.delete(sync_metadata);
+        console.log('Cleared sync_metadata');
 
         console.log('✅ All local user data cleared');
         return true;
