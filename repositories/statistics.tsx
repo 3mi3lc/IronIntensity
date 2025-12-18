@@ -465,3 +465,177 @@ export async function getWorkoutCountComparison(
         change: current - previous
     };
 }
+
+export async function getCumulativeVolumeByDay(
+    userId: string,
+    startDate: string,
+    endDate: string
+): Promise<VolumeDataPoint[]> {
+    const dailyVolumes = await getVolumeByDay(userId, startDate, endDate);
+
+    // Convert to cumulative
+    let cumulative = 0;
+    return dailyVolumes.map(point => {
+        cumulative += point.volume;
+        return {
+            date: point.date,
+            volume: cumulative
+        };
+    });
+}
+
+export async function getCumulativeVolumeByWeek(
+    userId: string,
+    startDate: string,
+    endDate: string
+): Promise<VolumeDataPoint[]> {
+    const weeklyVolumes = await getVolumeByWeek(userId, startDate, endDate);
+
+    let cumulative = 0;
+    return weeklyVolumes.map(point => {
+        cumulative += point.volume;
+        return {
+            date: point.date,
+            volume: cumulative
+        };
+    });
+}
+
+export async function getCumulativeVolumeByMonth(
+    userId: string,
+    startDate: string,
+    endDate: string
+): Promise<VolumeDataPoint[]> {
+    const monthlyVolumes = await getVolumeByMonth(userId, startDate, endDate);
+
+    let cumulative = 0;
+    return monthlyVolumes.map(point => {
+        cumulative += point.volume;
+        return {
+            date: point.date,
+            volume: cumulative
+        };
+    });
+}
+
+// ==================== CUMULATIVE WORKOUTS ====================
+
+export async function getCumulativeWorkoutsByDay(
+    userId: string,
+    startDate: string,
+    endDate: string
+): Promise<WorkoutDataPoint[]> {
+    const dailyWorkouts = await getWorkoutsByDay(userId, startDate, endDate);
+
+    let cumulative = 0;
+    return dailyWorkouts.map(point => {
+        cumulative += point.count;
+        return {
+            date: point.date,
+            count: cumulative
+        };
+    });
+}
+
+export async function getCumulativeWorkoutsByWeek(
+    userId: string,
+    startDate: string,
+    endDate: string
+): Promise<WorkoutDataPoint[]> {
+    const weeklyWorkouts = await getWorkoutsByWeek(userId, startDate, endDate);
+
+    let cumulative = 0;
+    return weeklyWorkouts.map(point => {
+        cumulative += point.count;
+        return {
+            date: point.date,
+            count: cumulative
+        };
+    });
+}
+
+// ==================== EXERCISE HISTORY ====================
+
+interface ExerciseHistorySet {
+    id: string;
+    setNumber: number;
+    reps: number;
+    weight: number;
+    isPr: boolean;
+    createdAt: string;
+}
+
+interface ExerciseHistoryWorkout {
+    workoutId: string;
+    workoutName: string;
+    completedAt: string;
+    sets: ExerciseHistorySet[];
+}
+
+export async function getExerciseHistory(
+    userId: string,
+    exerciseId: string,
+    limit: number = 20
+): Promise<ExerciseHistoryWorkout[]> {
+    const result = await db
+        .select({
+            workoutId: workouts.id,
+            workoutName: workouts.name,
+            completedAt: workouts.completed_at,
+            setId: workout_exercise_sets.id,
+            setNumber: workout_exercise_sets.set_number,
+            reps: workout_exercise_sets.reps,
+            weight: workout_exercise_sets.weight,
+            isPr: workout_exercise_sets.is_pr,
+            setCreatedAt: workout_exercise_sets.created_at,
+        })
+        .from(workout_exercise_sets)
+        .innerJoin(
+            workout_exercises,
+            eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id)
+        )
+        .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
+        .where(
+            and(
+                eq(workouts.user_id, userId),
+                eq(workout_exercises.exercise_id, exerciseId),
+                isNotNull(workouts.completed_at),
+                isNull(workouts.deleted_at),
+                isNull(workout_exercise_sets.deleted_at)
+            )
+        )
+        .orderBy(desc(workouts.completed_at), workout_exercise_sets.set_number)
+        .limit(limit * 10); // Fetch more to account for multiple sets per workout
+
+    // Group by workout
+    const workoutMap = new Map<string, ExerciseHistoryWorkout>();
+
+    result.forEach((row) => {
+        if (!workoutMap.has(row.workoutId)) {
+            workoutMap.set(row.workoutId, {
+                workoutId: row.workoutId,
+                workoutName: row.workoutName,
+                completedAt: row.completedAt!,
+                sets: [],
+            });
+        }
+
+        const workout = workoutMap.get(row.workoutId)!;
+        workout.sets.push({
+            id: row.setId,
+            setNumber: row.setNumber,
+            reps: row.reps,
+            weight: row.weight || 0,
+            isPr: row.isPr === 1,
+            createdAt: row.setCreatedAt || '',
+        });
+    });
+
+    // Convert to array and limit
+    return Array.from(workoutMap.values())
+        .slice(0, limit)
+        .map(workout => ({
+            ...workout,
+            sets: workout.sets.sort((a, b) => a.setNumber - b.setNumber)
+        }));
+}

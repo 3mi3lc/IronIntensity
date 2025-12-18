@@ -9,21 +9,22 @@ import { getBodyWeightEntries } from '@/repositories/bodyWeightEntries';
 import {
     getTotalWorkouts,
     getTotalVolume,
-    getVolumeByDay,
-    getVolumeByWeek,
-    getVolumeByMonth,
-    getWorkoutsByDay,
-    getWorkoutsByWeek,
     getTopExercisesByVolume,
     getRecentPRs,
     getVolumeComparison,
     getWorkoutCountComparison,
     getExerciseVolumeByDay,
-    getExerciseMaxWeightByDay
+    getExerciseMaxWeightByDay,
+    getCumulativeVolumeByDay,
+    getCumulativeVolumeByWeek,
+    getCumulativeVolumeByMonth,
+    getCumulativeWorkoutsByDay,
+    getCumulativeWorkoutsByWeek
 } from '@/repositories/statistics';
 import { formatDistanceToNow, format } from 'date-fns';
 import { AddBodyWeightModal } from '@/components/addBodyWeightModal';
 import { MetricCard } from '@/components/metricCard';
+import { ExerciseHistoryScreen } from '../exercise/exerciseHistoryScreen';
 
 type TimeRange = '7d' | '30d' | '90d' | '1y';
 type MetricType = 'volume' | 'weight' | 'workouts' | 'exercises';
@@ -50,6 +51,13 @@ const Statistics = () => {
     const [exerciseVolumeData, setExerciseVolumeData] = useState<ChartDataPoint>({ labels: [], data: [] });
     const [exerciseMaxWeightData, setExerciseMaxWeightData] = useState<ChartDataPoint>({ labels: [], data: [] });
     const [showAllExercises, setShowAllExercises] = useState(false);
+
+    // Exercise history state
+    const [showExerciseHistory, setShowExerciseHistory] = useState(false);
+    const [selectedExerciseForHistory, setSelectedExerciseForHistory] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
 
     // Summary stats
     const [totalVolume, setTotalVolume] = useState(0);
@@ -141,21 +149,29 @@ const Statistics = () => {
     const loadExerciseDetails = async (exerciseId: string) => {
         const { startDate, endDate } = getDateRange(selectedRange);
 
-        const volumeData = await getExerciseVolumeByDay(user!.id, exerciseId, startDate, endDate);
-        const maxWeightData = await getExerciseMaxWeightByDay(user!.id, exerciseId, startDate, endDate);
+        try {
+            const [volumeData, maxWeightData] = await Promise.all([
+                getExerciseVolumeByDay(user!.id, exerciseId, startDate, endDate),
+                getExerciseMaxWeightByDay(user!.id, exerciseId, startDate, endDate)
+            ]);
 
-        setExerciseVolumeData(volumeData);
-        setExerciseMaxWeightData(maxWeightData);
+            setExerciseVolumeData(volumeData);
+            setExerciseMaxWeightData(maxWeightData);
+        } catch (error) {
+            console.error('Error loading exercise details:', error);
+        }
     };
 
-    const handleExerciseToggle = (exerciseId: string) => {
+    const handleExerciseToggle = async (exerciseId: string) => {
         if (expandedExercise === exerciseId) {
+            // Collapsing
             setExpandedExercise(null);
             setExerciseVolumeData({ labels: [], data: [] });
             setExerciseMaxWeightData({ labels: [], data: [] });
         } else {
+            // Expanding
             setExpandedExercise(exerciseId);
-            loadExerciseDetails(exerciseId);
+            await loadExerciseDetails(exerciseId);
         }
     };
 
@@ -208,16 +224,16 @@ const Statistics = () => {
 
         switch (selectedRange) {
             case '7d':
-                volumeByPeriod = await getVolumeByDay(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByDay(user!.id, startDate, endDate);
                 break;
             case '30d':
-                volumeByPeriod = await getVolumeByDay(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByDay(user!.id, startDate, endDate);
                 break;
             case '90d':
-                volumeByPeriod = await getVolumeByWeek(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByWeek(user!.id, startDate, endDate);
                 break;
             case '1y':
-                volumeByPeriod = await getVolumeByMonth(user!.id, startDate, endDate);
+                volumeByPeriod = await getCumulativeVolumeByMonth(user!.id, startDate, endDate);
                 break;
         }
 
@@ -267,11 +283,11 @@ const Statistics = () => {
         switch (selectedRange) {
             case '7d':
             case '30d':
-                workoutsByPeriod = await getWorkoutsByDay(user!.id, startDate, endDate);
+                workoutsByPeriod = await getCumulativeWorkoutsByDay(user!.id, startDate, endDate);
                 break;
             case '90d':
             case '1y':
-                workoutsByPeriod = await getWorkoutsByWeek(user!.id, startDate, endDate);
+                workoutsByPeriod = await getCumulativeWorkoutsByWeek(user!.id, startDate, endDate);
                 break;
         }
 
@@ -320,7 +336,7 @@ const Statistics = () => {
             user!.id,
             startDate,
             endDate,
-            limit
+            limit || (showAllExercises ? 999 : 10)
         );
         setTopExercises(exercises);
     };
@@ -348,6 +364,21 @@ const Statistics = () => {
             <SafeAreaView className="flex-1 bg-surface_a0 items-center justify-center">
                 <Text className="text-surface_a50">Loading statistics...</Text>
             </SafeAreaView>
+        );
+    }
+
+    // Show exercise history screen if selected
+    if (showExerciseHistory && selectedExerciseForHistory) {
+        return (
+            <ExerciseHistoryScreen
+                userId={user!.id}
+                exerciseId={selectedExerciseForHistory.id}
+                exerciseName={selectedExerciseForHistory.name}
+                onBack={() => {
+                    setShowExerciseHistory(false);
+                    setSelectedExerciseForHistory(null);
+                }}
+            />
         );
     }
 
@@ -381,17 +412,6 @@ const Statistics = () => {
                     nestedScrollEnabled={true}
                 >
                     <MetricCard
-                        isSelected={selectedMetric === 'volume'}
-                        onPress={() => setSelectedMetric('volume')}
-                        iconSource="AntDesign"
-                        iconName="bar-chart"
-                        value={`${(totalVolume / 1000).toFixed(1)}k kg`}
-                        label="Volume"
-                        sublabel={`${volumeChange > 0 ? '+' : ''}${volumeChange}%`}
-                        sublabelColor={volumeChange > 0 ? 'green' : volumeChange < 0 ? 'red' : 'default'}
-                    />
-
-                    <MetricCard
                         isSelected={selectedMetric === 'weight'}
                         onPress={() => setSelectedMetric('weight')}
                         iconSource="AntDesign"
@@ -400,17 +420,6 @@ const Statistics = () => {
                         label="Body Weight"
                         sublabel={weightChange !== 0 ? `${weightChange > 0 ? '+' : ''}${weightChange.toFixed(1)} kg` : '-'}
                         sublabelColor={weightChange > 0 ? 'green' : weightChange < 0 ? 'red' : 'default'}
-                    />
-
-                    <MetricCard
-                        isSelected={selectedMetric === 'workouts'}
-                        onPress={() => setSelectedMetric('workouts')}
-                        iconSource="AntDesign"
-                        iconName="calendar"
-                        value={workoutCount.toString()}
-                        label="Workouts"
-                        sublabel={`${workoutCountChange > 0 ? '+' : ''}${workoutCountChange}`}
-                        sublabelColor={workoutCountChange > 0 ? 'green' : workoutCountChange < 0 ? 'red' : 'default'}
                     />
 
                     <MetricCard
@@ -425,6 +434,28 @@ const Statistics = () => {
                         label="Top Exercises"
                         sublabel="Tap to view"
                         sublabelColor="default"
+                    />
+
+                    <MetricCard
+                        isSelected={selectedMetric === 'workouts'}
+                        onPress={() => setSelectedMetric('workouts')}
+                        iconSource="AntDesign"
+                        iconName="calendar"
+                        value={workoutCount.toString()}
+                        label="Workouts"
+                        sublabel={`${workoutCountChange > 0 ? '+' : ''}${workoutCountChange}`}
+                        sublabelColor={workoutCountChange > 0 ? 'green' : workoutCountChange < 0 ? 'red' : 'default'}
+                    />
+
+                    <MetricCard
+                        isSelected={selectedMetric === 'volume'}
+                        onPress={() => setSelectedMetric('volume')}
+                        iconSource="AntDesign"
+                        iconName="bar-chart"
+                        value={`${(totalVolume / 1000).toFixed(1)}k kg`}
+                        label="Volume"
+                        sublabel={`${volumeChange > 0 ? '+' : ''}${volumeChange}%`}
+                        sublabelColor={volumeChange > 0 ? 'green' : volumeChange < 0 ? 'red' : 'default'}
                     />
                 </ScrollView>
 
@@ -454,109 +485,146 @@ const Statistics = () => {
                         <View className="bg-surface_a10 p-4 rounded-xl mb-6">
                             <Text className="text-light font-bold text-lg mb-4">Exercise Details</Text>
 
-                            {topExercises.map((exercise) => (
-                                <View key={exercise.exerciseId} className="mb-4">
-                                    <TouchableOpacity
-                                        onPress={() => handleExerciseToggle(exercise.exerciseId)}
-                                        activeOpacity={0.8}
-                                        className="mb-2"
-                                    >
-                                        <View className="flex-row justify-between items-center mb-2">
-                                            <View className="flex-1">
-                                                <Text className="text-light font-semibold">{exercise.exerciseName}</Text>
-                                                <Text className="text-surface_a50 text-sm">
-                                                    {(exercise.totalVolume / 1000).toFixed(1)}k kg total volume
-                                                </Text>
+                            {topExercises.map((exercise) => {
+                                const isExpanded = expandedExercise === exercise.exerciseId;
+
+                                return (
+                                    <View key={exercise.exerciseId} className="mb-4">
+                                        <TouchableOpacity
+                                            onPress={() => handleExerciseToggle(exercise.exerciseId)}
+                                            activeOpacity={0.8}
+                                            className="mb-2"
+                                        >
+                                            <View className="flex-row justify-between items-center mb-2">
+                                                <View className="flex-1">
+                                                    <Text className="text-light font-semibold">{exercise.exerciseName}</Text>
+                                                    <Text className="text-surface_a50 text-sm">
+                                                        {(exercise.totalVolume / 1000).toFixed(1)}k kg total volume
+                                                    </Text>
+                                                </View>
+                                                <AntDesign
+                                                    name={isExpanded ? "up" : "down"}
+                                                    size={20}
+                                                    color="#f34023"
+                                                />
                                             </View>
-                                            <AntDesign
-                                                name={expandedExercise === exercise.exerciseId ? "up" : "down"}
-                                                size={20}
-                                                color="#f34023"
-                                            />
-                                        </View>
-                                        <View className="bg-surface_a20 h-2 rounded-full overflow-hidden">
-                                            <View
-                                                className="bg-primary_a0 h-full"
-                                                style={{ width: `${(exercise.totalVolume / maxVolume) * 100}%` }}
-                                            />
-                                        </View>
-                                    </TouchableOpacity>
-
-                                    {expandedExercise === exercise.exerciseId && (
-                                        <View className="mt-3 bg-surface_a20 p-3 rounded-lg">
-                                            {/* Volume Chart */}
-                                            <Text className="text-light font-semibold mb-2">Volume Over Time</Text>
-                                            {exerciseVolumeData.labels.length > 0 ? (
-                                                <LineChart
-                                                    data={{
-                                                        labels: exerciseVolumeData.labels,
-                                                        datasets: [{ data: exerciseVolumeData.data.length > 0 ? exerciseVolumeData.data : [0] }],
-                                                    }}
-                                                    width={screenWidth - 88}
-                                                    height={160}
-                                                    chartConfig={{
-                                                        backgroundColor: '#1a1a1a',
-                                                        backgroundGradientFrom: '#1a1a1a',
-                                                        backgroundGradientTo: '#1a1a1a',
-                                                        decimalPlaces: 0,
-                                                        color: (opacity = 1) => `rgba(243, 64, 35, ${opacity})`,
-                                                        labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                                                        style: { borderRadius: 12 },
-                                                        propsForDots: { r: '3', strokeWidth: '1', stroke: '#f34023' },
-                                                    }}
-                                                    bezier
-                                                    style={{ marginVertical: 8, borderRadius: 12 }}
+                                            <View className="bg-surface_a20 h-2 rounded-full overflow-hidden">
+                                                <View
+                                                    className="bg-primary_a0 h-full"
+                                                    style={{ width: `${(exercise.totalVolume / maxVolume) * 100}%` }}
                                                 />
-                                            ) : (
-                                                <View className="py-8 items-center">
-                                                    <Text className="text-surface_a50">Loading volume data...</Text>
-                                                </View>
-                                            )}
+                                            </View>
+                                        </TouchableOpacity>
 
-                                            {/* Max Weight Chart */}
-                                            <Text className="text-light font-semibold mb-2 mt-4">Max Weight Over Time</Text>
-                                            {exerciseMaxWeightData.labels.length > 0 ? (
-                                                <LineChart
-                                                    data={{
-                                                        labels: exerciseMaxWeightData.labels,
-                                                        datasets: [{ data: exerciseMaxWeightData.data.length > 0 ? exerciseMaxWeightData.data : [0] }],
+                                        {isExpanded && (
+                                            <View className="mt-3 bg-surface_a20 p-3 rounded-lg">
+                                                {/* Volume Chart */}
+                                                <Text className="text-light font-semibold mb-2">Volume Over Time</Text>
+                                                {exerciseVolumeData.labels.length > 0 ? (
+                                                    <LineChart
+                                                        data={{
+                                                            labels: exerciseVolumeData.labels,
+                                                            datasets: [{ data: exerciseVolumeData.data.length > 0 ? exerciseVolumeData.data : [0] }],
+                                                        }}
+                                                        width={screenWidth - 88}
+                                                        height={160}
+                                                        chartConfig={{
+                                                            backgroundColor: '#1a1a1a',
+                                                            backgroundGradientFrom: '#1a1a1a',
+                                                            backgroundGradientTo: '#1a1a1a',
+                                                            decimalPlaces: 0,
+                                                            color: (opacity = 1) => `rgba(243, 64, 35, ${opacity})`,
+                                                            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                                            style: { borderRadius: 12 },
+                                                            propsForDots: { r: '3', strokeWidth: '1', stroke: '#f34023' },
+                                                        }}
+                                                        bezier
+                                                        style={{ marginVertical: 8, borderRadius: 12 }}
+                                                    />
+                                                ) : (
+                                                    <View className="py-8 items-center">
+                                                        <Text className="text-surface_a50">Loading volume data...</Text>
+                                                    </View>
+                                                )}
+
+                                                {/* Max Weight Chart */}
+                                                <Text className="text-light font-semibold mb-2 mt-4">Max Weight Over Time</Text>
+                                                {exerciseMaxWeightData.labels.length > 0 ? (
+                                                    <LineChart
+                                                        data={{
+                                                            labels: exerciseMaxWeightData.labels,
+                                                            datasets: [{ data: exerciseMaxWeightData.data.length > 0 ? exerciseMaxWeightData.data : [0] }],
+                                                        }}
+                                                        width={screenWidth - 88}
+                                                        height={160}
+                                                        chartConfig={{
+                                                            backgroundColor: '#1a1a1a',
+                                                            backgroundGradientFrom: '#1a1a1a',
+                                                            backgroundGradientTo: '#1a1a1a',
+                                                            decimalPlaces: 1,
+                                                            color: (opacity = 1) => `rgba(74, 222, 128, ${opacity})`,
+                                                            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                                            style: { borderRadius: 12 },
+                                                            propsForDots: { r: '3', strokeWidth: '1', stroke: '#4ade80' },
+                                                        }}
+                                                        bezier
+                                                        style={{ marginVertical: 8, borderRadius: 12 }}
+                                                    />
+                                                ) : (
+                                                    <View className="py-8 items-center">
+                                                        <Text className="text-surface_a50">Loading weight data...</Text>
+                                                    </View>
+                                                )}
+
+                                                {/* View History Button */}
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        setSelectedExerciseForHistory({
+                                                            id: exercise.exerciseId,
+                                                            name: exercise.exerciseName
+                                                        });
+                                                        setShowExerciseHistory(true);
                                                     }}
-                                                    width={screenWidth - 88}
-                                                    height={160}
-                                                    chartConfig={{
-                                                        backgroundColor: '#1a1a1a',
-                                                        backgroundGradientFrom: '#1a1a1a',
-                                                        backgroundGradientTo: '#1a1a1a',
-                                                        decimalPlaces: 1,
-                                                        color: (opacity = 1) => `rgba(74, 222, 128, ${opacity})`,
-                                                        labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                                                        style: { borderRadius: 12 },
-                                                        propsForDots: { r: '3', strokeWidth: '1', stroke: '#4ade80' },
-                                                    }}
-                                                    bezier
-                                                    style={{ marginVertical: 8, borderRadius: 12 }}
-                                                />
-                                            ) : (
-                                                <View className="py-8 items-center">
-                                                    <Text className="text-surface_a50">Loading weight data...</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    )}
-                                </View>
-                            ))}
+                                                    className="mt-4 bg-primary_a0 py-3 rounded-lg"
+                                                    activeOpacity={0.8}
+                                                >
+                                                    <View className="flex-row items-center justify-center">
+                                                        <AntDesign name="history" size={18} color="white" />
+                                                        <Text className="text-white font-semibold ml-2">
+                                                            View Exercise History
+                                                        </Text>
+                                                    </View>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
+                                    </View>
+                                );
+                            })}
 
                             {/* View All Exercises Button */}
-                            {!showAllExercises && (
+                            {!showAllExercises && topExercises.length >= 10 && (
                                 <TouchableOpacity
                                     onPress={async () => {
                                         setShowAllExercises(true);
                                         const { startDate, endDate } = getDateRange(selectedRange);
-                                        await loadTopExercises(startDate, endDate); // fetch all exercises
+                                        await loadTopExercises(startDate, endDate, 999);
                                     }}
                                     className="mt-2 p-2 bg-primary_a0 rounded-md items-center"
                                 >
                                     <Text className="text-white font-semibold">View All Exercises</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {showAllExercises && topExercises.length > 10 && (
+                                <TouchableOpacity
+                                    onPress={async () => {
+                                        setShowAllExercises(false);
+                                        const { startDate, endDate } = getDateRange(selectedRange);
+                                        await loadTopExercises(startDate, endDate, 10);
+                                    }}
+                                    className="mt-2 p-2 bg-surface_a20 rounded-md items-center"
+                                >
+                                    <Text className="text-surface_a50 font-semibold">Show Less</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
