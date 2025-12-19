@@ -6,7 +6,7 @@ import {
     getWorkoutById,
     getWorkoutWithExercisesAndSets,
     updateWorkoutById,
-    softDeleteWorkoutById,
+    softDeleteWorkoutById, updateWorkoutTimestamps,
 } from '@/repositories/workouts';
 import {
     addSet,
@@ -241,15 +241,28 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         if (!workout || !user) return false;
 
         try {
+            const newWorkoutDate = date.toISOString();
+
             const updates: Record<string, any> = {
                 name: name.trim() || 'Completed Workout',
-
-                // This is the workout date (stats use this)
-                created_at: date.toISOString(),
+                created_at: newWorkoutDate,
             };
 
-            // Only set completed_at ONCE
-            if (!workout.completed_at) {
+            // If workout is already completed and user is changing the date
+            if (workout.completed_at && workout.created_at) {
+                const originalCreatedAt = new Date(workout.created_at);
+                const originalCompletedAt = new Date(workout.completed_at);
+                const timeDifferenceMs = originalCompletedAt.getTime() - originalCreatedAt.getTime();
+
+                const newCompletedAt = new Date(date.getTime() + timeDifferenceMs);
+                updates.completed_at = newCompletedAt.toISOString();
+
+                // Calculate how much the date shifted
+                const dateShiftMs = date.getTime() - originalCreatedAt.getTime();
+
+                // Update all workout_exercises and sets with the shifted timestamps
+                await updateWorkoutTimestamps(workout.id, dateShiftMs);
+            } else {
                 updates.completed_at = new Date().toISOString();
             }
 
@@ -261,7 +274,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             return false;
         }
     };
-
 
     const handleDeleteWorkout = async () => {
         if (!workout?.id) return false;

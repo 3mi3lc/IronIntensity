@@ -388,3 +388,61 @@ export async function upsertWorkoutsFromRemote(workoutsData: Workout[]): Promise
     }
 }
 
+export async function updateWorkoutTimestamps(
+    workoutId: string,
+    dateShiftMs: number
+): Promise<boolean> {
+    try {
+        // Get all workout_exercises for this workout
+        const workoutExercisesList = await db
+            .select()
+            .from(workout_exercises)
+            .where(eq(workout_exercises.workout_id, workoutId));
+
+        // Update each workout_exercise
+        for (const we of workoutExercisesList) {
+            if (!we.created_at) continue; // Skip if no created_at
+
+            const originalCreatedAt = new Date(we.created_at);
+            const newCreatedAt = new Date(originalCreatedAt.getTime() + dateShiftMs);
+
+            await db
+                .update(workout_exercises)
+                .set({
+                    created_at: newCreatedAt.toISOString(),
+                    updated_at: now(),
+                    is_synced: 0
+                })
+                .where(eq(workout_exercises.id, we.id));
+
+            // Get all sets for this workout_exercise
+            const sets = await db
+                .select()
+                .from(workout_exercise_sets)
+                .where(eq(workout_exercise_sets.workout_exercise_id, we.id));
+
+            // Update each set
+            for (const set of sets) {
+                if (!set.created_at) continue; // Skip if no created_at
+
+                const originalSetCreatedAt = new Date(set.created_at);
+                const newSetCreatedAt = new Date(originalSetCreatedAt.getTime() + dateShiftMs);
+
+                await db
+                    .update(workout_exercise_sets)
+                    .set({
+                        created_at: newSetCreatedAt.toISOString(),
+                        updated_at: now(),
+                        is_synced: 0
+                    })
+                    .where(eq(workout_exercise_sets.id, set.id));
+            }
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Failed to update workout timestamps:', error);
+        return false;
+    }
+}
+
