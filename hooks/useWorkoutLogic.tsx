@@ -29,6 +29,12 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [workoutDate, setWorkoutDate] = useState(new Date());
     const [exerciseHistoricalSets, setExerciseHistoricalSets] = useState<Record<string, Array<{ setNumber: number; reps: number; weight: number }>>>({});
 
+    // Exercise history state
+    const [showExerciseHistory, setShowExerciseHistory] = useState(false);
+    const [selectedExerciseForHistory, setSelectedExerciseForHistory] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
 
     const loadWorkoutData = useCallback(async () => {
         if (!workoutId) return;
@@ -69,8 +75,16 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         return null;
     }, [exerciseHistoricalSets, workout?.id]);
 
+    // Exercise history handlers
+    const handleViewExerciseHistory = useCallback((exerciseId: string, exerciseName: string) => {
+        setSelectedExerciseForHistory({ id: exerciseId, name: exerciseName });
+        setShowExerciseHistory(true);
+    }, []);
 
-    // Complete handleAddSet function for hooks/useWorkoutLogic.ts
+    const handleCloseExerciseHistory = useCallback(() => {
+        setShowExerciseHistory(false);
+        setSelectedExerciseForHistory(null);
+    }, []);
 
     const handleAddSet = async (workoutExerciseId: string) => {
         if (isReadOnly) return;
@@ -327,6 +341,11 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
-        loadHistoricalSetsForExercise
+        loadHistoricalSetsForExercise,
+        // Exercise history
+        showExerciseHistory,
+        selectedExerciseForHistory,
+        handleViewExerciseHistory,
+        handleCloseExerciseHistory,
     };
 }

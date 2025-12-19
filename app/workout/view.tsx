@@ -3,10 +3,12 @@ import React, { useEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { WorkoutScreen } from '@/components/workoutScreen';
 import { useWorkoutLogic } from '@/hooks/useWorkoutLogic';
+import {useAuth} from "@/hooks/useAuth";
 
 function ViewWorkout() {
     const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
     const router = useRouter();
+    const { user } = useAuth();
 
     const {
         workout,
@@ -14,6 +16,10 @@ function ViewWorkout() {
         error,
         exerciseData,
         loadWorkoutData,
+        showExerciseHistory,
+        selectedExerciseForHistory,
+        handleViewExerciseHistory,
+        handleCloseExerciseHistory,
     } = useWorkoutLogic(id, true); // isReadOnly = true
 
     useEffect(() => {
@@ -39,6 +45,11 @@ function ViewWorkout() {
             showFinishButton={false}
             showAddButton={false}
             onBack={handleBack}
+            showExerciseHistory={showExerciseHistory}
+            selectedExerciseForHistory={selectedExerciseForHistory}
+            onCloseExerciseHistory={handleCloseExerciseHistory}
+            onViewExerciseHistory={handleViewExerciseHistory}
+            userId={user?.id}
         />
     );
 }

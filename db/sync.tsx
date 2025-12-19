@@ -238,7 +238,7 @@ export class SyncService {
 
             for (const we of workoutExercisesToSync) {
                 const parentDeletedAt = we.workout_id ? localWorkoutMap.get(we.workout_id) : null;
-                if (parentDeletedAt !== undefined && parentDeletedAt !== null) {
+                if (parentDeletedAt !== undefined && parentDeletedAt !== null && !we.deleted_at) {
                     console.log(`Marking workout_exercise ${we.id} as deleted (references deleted workout)`);
                     await markWorkoutExerciseAsDeleted(we.id, parentDeletedAt);
                 }
@@ -304,7 +304,7 @@ export class SyncService {
 
             for (const s of setsToSync) {
                 const parentDeletedAt = s.workout_exercise_id ? localWeMap.get(s.workout_exercise_id) : null;
-                if (parentDeletedAt !== undefined && parentDeletedAt !== null) {
+                if (parentDeletedAt !== undefined && parentDeletedAt !== null && !s.deleted_at) {
                     console.log(`Marking set ${s.id} as deleted (references deleted workout_exercise)`);
                     await markWorkoutExerciseSetAsDeleted(s.id, parentDeletedAt);
                 }

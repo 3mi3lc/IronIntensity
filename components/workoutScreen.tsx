@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { ExerciseWithSets } from '@/repositories/types';
 import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
+import { ExerciseHistoryScreen } from '@/app/exercise/exerciseHistoryScreen';
 import { AntDesign } from '@expo/vector-icons';
 
 interface WorkoutScreenProps {
@@ -19,7 +20,7 @@ interface WorkoutScreenProps {
     showAddButton: boolean;
     showDeleteButton?: boolean;
     showArrow?: boolean;
-    finishButtonText?: string; // New prop for custom button text
+    finishButtonText?: string;
     onBack: () => void;
     onDelete?: () => void;
     onAddExercise?: () => void;
@@ -29,6 +30,12 @@ interface WorkoutScreenProps {
     onDeleteSet?: (workoutExerciseId: string, setId: string) => void;
     onEditSet?: (workoutExerciseId: string, setId: string, updates: any) => void;
     onReorderExercises?: (data: ExerciseWithSets[]) => void;
+    onViewExerciseHistory?: (exerciseId: string, exerciseName: string) => void;
+    // Exercise history props
+    userId?: string;
+    showExerciseHistory?: boolean;
+    selectedExerciseForHistory?: { id: string; name: string } | null;
+    onCloseExerciseHistory?: () => void;
 }
 
 export function WorkoutScreen({
@@ -43,7 +50,7 @@ export function WorkoutScreen({
                                   showAddButton,
                                   showDeleteButton = false,
                                   showArrow,
-                                  finishButtonText = 'Finish Workout', // Default value
+                                  finishButtonText = 'Finish Workout',
                                   onBack,
                                   onDelete,
                                   onAddExercise,
@@ -53,7 +60,26 @@ export function WorkoutScreen({
                                   onDeleteSet,
                                   onEditSet,
                                   onReorderExercises,
+                                  onViewExerciseHistory,
+                                  // Exercise history props
+                                  userId,
+                                  showExerciseHistory,
+                                  selectedExerciseForHistory,
+                                  onCloseExerciseHistory,
                               }: WorkoutScreenProps) {
+
+    // If showing exercise history, render that instead
+    if (showExerciseHistory && selectedExerciseForHistory && userId) {
+        return (
+            <ExerciseHistoryScreen
+                userId={userId}
+                exerciseId={selectedExerciseForHistory.id}
+                exerciseName={selectedExerciseForHistory.name}
+                onBack={onCloseExerciseHistory || (() => {})}
+            />
+        );
+    }
+
     const renderItem = useCallback(
         ({ item, drag, isActive }: RenderItemParams<ExerciseWithSets>) => {
             return (
@@ -73,12 +99,13 @@ export function WorkoutScreen({
                             onDeleteSet?.(item.workoutExerciseId, setId)
                         }
                         onAddSet={onAddSet}
+                        onViewHistory={onViewExerciseHistory}
                         viewOnly={isReadOnly}
                     />
                 </TouchableOpacity>
             );
         },
-        [isReadOnly, onDeleteExercise, onEditSet, onDeleteSet, onAddSet]
+        [isReadOnly, onDeleteExercise, onEditSet, onDeleteSet, onAddSet, onViewExerciseHistory]
     );
 
     if (loading) {

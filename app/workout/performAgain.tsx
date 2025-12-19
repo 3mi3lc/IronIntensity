@@ -38,6 +38,10 @@ function PerformAgainWorkout() {
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        showExerciseHistory,
+        selectedExerciseForHistory,
+        handleViewExerciseHistory,
+        handleCloseExerciseHistory,
     } = useWorkoutLogic(workoutId, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -122,6 +126,11 @@ function PerformAgainWorkout() {
                 onDeleteSet={handleDeleteSet}
                 onEditSet={handleUpdateSet}
                 onReorderExercises={handleReorderExercises}
+                userId={user?.id}
+                showExerciseHistory={showExerciseHistory}
+                selectedExerciseForHistory={selectedExerciseForHistory}
+                onCloseExerciseHistory={handleCloseExerciseHistory}
+                onViewExerciseHistory={handleViewExerciseHistory}
             />
 
             {/* Modals */}

@@ -18,7 +18,6 @@ function CreateWorkout() {
 
     // Use the shared hook
     const {
-
         loading,
         error,
         exerciseData,
@@ -37,6 +36,10 @@ function CreateWorkout() {
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        showExerciseHistory,
+        selectedExerciseForHistory,
+        handleViewExerciseHistory,
+        handleCloseExerciseHistory,
     } = useWorkoutLogic(workoutId, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -118,6 +121,11 @@ function CreateWorkout() {
                 onDeleteSet={handleDeleteSet}
                 onEditSet={handleUpdateSet}
                 onReorderExercises={handleReorderExercises}
+                userId={user?.id}
+                showExerciseHistory={showExerciseHistory}
+                selectedExerciseForHistory={selectedExerciseForHistory}
+                onCloseExerciseHistory={handleCloseExerciseHistory}
+                onViewExerciseHistory={handleViewExerciseHistory}
             />
 
             {/* Modals */}

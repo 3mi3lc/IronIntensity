@@ -1,4 +1,4 @@
-// components/ExerciseHistoryScreen.tsx
+// app/exercise/exerciseHistoryScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -103,8 +103,8 @@ export function ExerciseHistoryScreen({
                 contentContainerStyle={{ paddingBottom: 80 }}
             >
                 {error && (
-                    <View className="bg-primary_a10/20 border border-primary_a10 p-4 rounded-xl mb-4">
-                        <Text className="text-primary_a10 font-semibold">{error}</Text>
+                    <View className="bg-red-500/20 border border-red-500 p-4 rounded-xl mb-4">
+                        <Text className="text-red-500 font-semibold">{error}</Text>
                     </View>
                 )}
 

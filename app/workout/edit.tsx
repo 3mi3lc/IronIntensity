@@ -13,6 +13,7 @@ function EditWorkout() {
 
     // Use the shared hook
     const {
+        user,
         workout,
         loading,
         error,
@@ -32,6 +33,11 @@ function EditWorkout() {
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        // Exercise history from hook
+        showExerciseHistory,
+        selectedExerciseForHistory,
+        handleViewExerciseHistory,
+        handleCloseExerciseHistory,
     } = useWorkoutLogic(id, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -64,7 +70,6 @@ function EditWorkout() {
         router.back();
     };
 
-
     const confirmDeleteWorkout = async () => {
         setDeleteModalVisible(false);
         const success = await handleDeleteWorkout();
@@ -83,7 +88,7 @@ function EditWorkout() {
                 error={error}
                 exerciseData={exerciseData}
                 workoutId={id}
-                finishButtonText={"Finish Editing"}
+                finishButtonText="Finish Editing"
                 showFinishButton={exerciseData.length > 0}
                 showAddButton={true}
                 showDeleteButton={true}
@@ -97,6 +102,12 @@ function EditWorkout() {
                 onDeleteSet={handleDeleteSet}
                 onEditSet={handleUpdateSet}
                 onReorderExercises={handleReorderExercises}
+                onViewExerciseHistory={handleViewExerciseHistory}
+                // Exercise history props - passed to WorkoutScreen
+                userId={user?.id}
+                showExerciseHistory={showExerciseHistory}
+                selectedExerciseForHistory={selectedExerciseForHistory}
+                onCloseExerciseHistory={handleCloseExerciseHistory}
             />
 
             {/* Modals */}
@@ -108,8 +119,8 @@ function EditWorkout() {
                 workoutDate={workoutDate}
                 setWorkoutDate={setWorkoutDate}
                 finishWorkoutWithData={finishWorkoutWithData}
-                title={"Finish Editing"}
-                buttonText={"Complete Editing"}
+                title="Finish Editing"
+                buttonText="Complete Editing"
             />
 
             <ExerciseDeleteModal

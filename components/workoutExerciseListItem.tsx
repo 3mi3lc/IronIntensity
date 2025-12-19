@@ -8,7 +8,8 @@ type Props = {
     onEditSet?: (setId: string, updates: { reps?: number; weight?: number; setNumber?: number }) => void;
     onDeleteSet?: (setId: string) => void;
     onAddSet?: (workoutExerciseId: string) => void;
-    onDeleteExercise?: (workoutExerciseId: string) => void;   // <-- NEW
+    onDeleteExercise?: (workoutExerciseId: string) => void;
+    onViewHistory?: (exerciseId: string, exerciseName: string) => void;
     viewOnly?: boolean;
 };
 
@@ -17,7 +18,8 @@ const WorkoutExerciseItem = ({
                                  onEditSet,
                                  onDeleteSet,
                                  onAddSet,
-                                 onDeleteExercise,   // <-- NEW
+                                 onDeleteExercise,
+                                 onViewHistory,
                                  viewOnly = false
                              }: Props) => {
     return (
@@ -35,11 +37,15 @@ const WorkoutExerciseItem = ({
                         {exerciseItem.exercise.name}
                     </Text>
 
-                    {/* Drag Handle Icon (optional - you can remove if not needed) */}
-                    {!viewOnly && (
-                        <View className="ml-2">
-                            <AntDesign name="menu-fold" size={20} color="#8b8b8b" />
-                        </View>
+                    {/* History Button */}
+                    {onViewHistory && (
+                        <TouchableOpacity
+                            onPress={() => onViewHistory(exerciseItem.exercise.id, exerciseItem.exercise.name)}
+                            className="ml-3 "
+                            activeOpacity={1}
+                        >
+                            <AntDesign name="clock-circle" size={20} color="#f34023" />
+                        </TouchableOpacity>
                     )}
 
                     {/* Delete Icon */}
@@ -47,7 +53,7 @@ const WorkoutExerciseItem = ({
                         <TouchableOpacity
                             onPress={() => onDeleteExercise?.(exerciseItem.workoutExerciseId)}
                             className="ml-3"
-                            activeOpacity={0.7}
+                            activeOpacity={1}
                         >
                             <AntDesign name="delete" size={20} color="#f34023" />
                         </TouchableOpacity>
