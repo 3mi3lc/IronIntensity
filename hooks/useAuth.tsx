@@ -4,6 +4,7 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { UserContext } from '@/contexts/UserContext';
 import { clearAllUserData } from '@/db/cleanup';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const useAuth = () => {
     const auth = useContext(AuthContext);
@@ -35,13 +36,18 @@ export const useAuth = () => {
 
     const signIn = async (email: string, password: string) => {
         try {
-            const { error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
             if (error) {
                 return { error: error.message };
+            }
+
+            // Store the user ID for offline access
+            if (data.user) {
+                await AsyncStorage.setItem('lastUserId', data.user.id);
             }
 
             return {};
@@ -54,6 +60,9 @@ export const useAuth = () => {
         try {
             // Clear local database
             await clearAllUserData();
+
+            // Clear stored user ID
+            await AsyncStorage.removeItem('lastUserId');
 
             // Sign out from Supabase
             await supabase.auth.signOut();
@@ -70,6 +79,7 @@ export const useAuth = () => {
         session: auth.session,
         user: userContext?.user || null,
         isLoading: auth.isLoading || userContext?.isLoading || false,
+        isOffline: userContext?.isOffline || false,
         signUp,
         signIn,
         signOut,
