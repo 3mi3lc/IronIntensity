@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { Alert } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { UserContext } from '@/contexts/UserContext';
@@ -57,20 +58,65 @@ export const useAuth = () => {
     };
 
     const signOut = async () => {
+        const isOffline = userContext?.isOffline || false;
+
+        // Show warning if offline
+        if (isOffline) {
+            return new Promise<void>((resolve) => {
+                Alert.alert(
+                    'Sign Out Offline',
+                    'You are currently offline. If you sign out now, you will need an internet connection to sign back in.\n\nAre you sure you want to continue?',
+                    [
+                        {
+                            text: 'Cancel',
+                            style: 'cancel',
+                            onPress: () => resolve(),
+                        },
+                        {
+                            text: 'Sign Out',
+                            style: 'destructive',
+                            onPress: async () => {
+                                await performSignOut();
+                                resolve();
+                            },
+                        },
+                    ]
+                );
+            });
+        }
+
+        // If online, sign out normally
+        await performSignOut();
+    };
+
+    const performSignOut = async () => {
         try {
-            // Clear local database
+            // Clear user state immediately
+            userContext?.clearUser();
+
+            // Clear local database first (most important for offline)
             await clearAllUserData();
 
             // Clear stored user ID
             await AsyncStorage.removeItem('lastUserId');
 
-            // Sign out from Supabase
-            await supabase.auth.signOut();
+            await supabase.auth.signOut({ scope: 'local' });
 
-            // Navigate to login
+            // Force navigate to login
             router.replace('/auth/login');
         } catch (error) {
             console.error('Failed to sign out:', error);
+
+            // Even if something fails, try to clear critical data and redirect
+            try {
+                userContext?.clearUser();
+                await AsyncStorage.removeItem('lastUserId');
+                // Still try to clear local Supabase session
+                await supabase.auth.signOut({ scope: 'local' });
+            } catch (cleanupError) {
+                console.error('Failed to cleanup:', cleanupError);
+            }
+
             router.replace('/auth/login');
         }
     };

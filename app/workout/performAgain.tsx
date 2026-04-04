@@ -38,6 +38,7 @@ function PerformAgainWorkout() {
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        exerciseMaxWeights,
         showExerciseHistory,
         selectedExerciseForHistory,
         handleViewExerciseHistory,
@@ -131,6 +132,7 @@ function PerformAgainWorkout() {
                 selectedExerciseForHistory={selectedExerciseForHistory}
                 onCloseExerciseHistory={handleCloseExerciseHistory}
                 onViewExerciseHistory={handleViewExerciseHistory}
+                exerciseMaxWeights={exerciseMaxWeights}
             />
 
             {/* Modals */}

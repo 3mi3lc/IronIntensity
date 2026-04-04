@@ -20,30 +20,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         let mounted = true;
 
         // Get initial session
-        supabase.auth.getSession().then(({ data: { session }, error }) => {
-            if (!mounted) return;
+        const initSession = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
 
-            if (error) {
-                console.error('AuthContext: Session error:', error.message);
-                if (error.message.includes('Refresh Token Not Found') ||
-                    error.message.includes('Invalid Refresh Token')) {
-                    supabase.auth.signOut();
+                if (!mounted) return;
+
+                if (error) {
+                    console.error('AuthContext: Session error:', error.message);
+                    if (error.message.includes('Refresh Token Not Found') ||
+                        error.message.includes('Invalid Refresh Token')) {
+                        await supabase.auth.signOut({ scope: 'local' });
+                        setSession(null);
+                        setSupabaseUser(null);
+                    }
+                    setIsLoading(false);
+                    return;
+                }
+
+                initialSessionHandled.current = true;
+                setSession(session);
+                setSupabaseUser(session?.user || null);
+                setIsLoading(false);
+            } catch (error) {
+                console.error('AuthContext: Init session error:', error);
+                if (mounted) {
                     setSession(null);
                     setSupabaseUser(null);
+                    setIsLoading(false);
                 }
-                setIsLoading(false);
-                return;
             }
+        };
 
-            initialSessionHandled.current = true;
-            setSession(session);
-            setSupabaseUser(session?.user || null);
-            setIsLoading(false);
-        });
+        initSession();
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
+
+            console.log('AuthContext: Auth state change:', event);
 
             // Skip duplicate INITIAL_SESSION
             if (event === 'INITIAL_SESSION' && initialSessionHandled.current) {
@@ -53,27 +68,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // Just update session for token refresh
             if (event === 'TOKEN_REFRESHED') {
                 setSession(session);
+                setSupabaseUser(session?.user || null);
                 return;
             }
 
-            // Handle sign out
+            // Handle sign out - ensure complete cleanup
             if (event === 'SIGNED_OUT') {
+                console.log('AuthContext: Signing out - clearing all state');
                 setSession(null);
                 setSupabaseUser(null);
                 initialSessionHandled.current = false;
+                setIsLoading(false);
                 return;
             }
 
             // Handle sign in
             if (event === 'SIGNED_IN') {
+                console.log('AuthContext: Signed in');
                 setSession(session);
                 setSupabaseUser(session?.user || null);
+                setIsLoading(false);
                 return;
             }
 
-            // Default
+            // Default - update session
             setSession(session);
             setSupabaseUser(session?.user || null);
+            setIsLoading(false);
         });
 
         return () => {

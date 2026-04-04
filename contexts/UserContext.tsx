@@ -9,6 +9,7 @@ interface UserContextType {
     isLoading: boolean;
     refreshTrigger: number;
     triggerRefresh: () => void;
+    clearUser: () => void;
     isOffline: boolean;
 }
 
@@ -27,6 +28,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setRefreshTrigger(prev => prev + 1);
     };
 
+    const clearUser = () => {
+        setUser(null);
+    };
+
     // Monitor network connectivity
     useEffect(() => {
         const unsubscribe = NetInfo.addEventListener(state => {
@@ -43,6 +48,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         let timeoutId: ReturnType<typeof setTimeout>;
 
         const loadUser = async () => {
+            // If offline, immediately try to load local user
+            if (isOffline) {
+                console.log('Offline detected - loading from local database');
+                await checkLocalUser();
+                return;
+            }
+
             // If auth is still loading, wait with timeout
             if (auth.isLoading) {
                 setIsLoading(true);
@@ -61,12 +73,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
             // If no Supabase user, check if we have a local user (offline mode)
             if (!auth.supabaseUser) {
+                console.log('No Supabase user - checking local database');
                 await checkLocalUser();
                 return;
             }
 
             // We have a Supabase user, create/update local user
             try {
+                console.log('Creating/updating user from Supabase:', auth.supabaseUser.email);
                 const localUser = await createOrUpdateUser({
                     id: auth.supabaseUser.id,
                     email: auth.supabaseUser.email!,
@@ -86,13 +100,13 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const checkLocalUser = async () => {
             try {
                 // Try to get the last logged-in user from local database
-                // You'll need to implement this function
                 const localUser = await getLastLocalUser();
 
                 if (localUser) {
-                    console.log('Loaded user from local database (offline mode)');
+                    console.log('Loaded user from local database (offline mode):', localUser.email);
                     setUser(localUser);
                 } else {
+                    console.log('No local user found');
                     setUser(null);
                 }
             } catch (error) {
@@ -108,10 +122,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             clearTimeout(timeoutId);
         };
-    }, [auth?.supabaseUser, auth?.isLoading]);
+    }, [auth?.supabaseUser, auth?.isLoading, isOffline]);
 
     return (
-        <UserContext.Provider value={{ user, isLoading, refreshTrigger, triggerRefresh, isOffline }}>
+        <UserContext.Provider value={{ user, isLoading, refreshTrigger, triggerRefresh, clearUser, isOffline }}>
             {children}
         </UserContext.Provider>
     );

@@ -3,6 +3,7 @@ import {  useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
 import {useSync} from "@/hooks/useSync";
 import {useAuth} from "@/hooks/useAuth";
+import { recalculateAllPRs } from '@/repositories/workoutExerciseSets';
 
 export default function Profile() {
     const { pushData, pullData } = useSync();
@@ -10,6 +11,7 @@ export default function Profile() {
 
     const [isSyncing, setIsSyncing] = useState(false);
     const [isPulling, setIsPulling] = useState(false);
+    const [isRecalculating, setIsRecalculating] = useState(false);
 
     const handleSync = async () => {
         if (!pushData) return;
@@ -49,6 +51,31 @@ export default function Profile() {
                         }
                     }
                 }
+            ]
+        );
+    };
+
+    const handleRecalculatePRs = () => {
+        Alert.alert(
+            'Recalculate PRs',
+            'This will scan all your completed workouts in order and mark personal records. Run this once to back-fill PRs from before tracking was added.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Recalculate',
+                    onPress: async () => {
+                        if (!user?.id) return;
+                        setIsRecalculating(true);
+                        try {
+                            await recalculateAllPRs(user.id);
+                            Alert.alert('Done', 'PRs have been recalculated across all workouts.');
+                        } catch {
+                            Alert.alert('Error', 'Something went wrong. Please try again.');
+                        } finally {
+                            setIsRecalculating(false);
+                        }
+                    },
+                },
             ]
         );
     };
@@ -122,6 +149,28 @@ export default function Profile() {
                     <>
                         <AntDesign name="download" size={20} color="white" />
                         <Text className="text-white font-bold text-lg ml-2">Pull (Restore Backup)</Text>
+                    </>
+                )}
+            </TouchableOpacity>
+
+            {/* Recalculate PRs Button */}
+            <TouchableOpacity
+                onPress={handleRecalculatePRs}
+                disabled={isRecalculating}
+                className={`py-4 rounded-xl flex-row items-center justify-center mb-3 ${
+                    isRecalculating ? 'bg-surface_a30' : 'bg-surface_a10'
+                }`}
+                activeOpacity={0.8}
+            >
+                {isRecalculating ? (
+                    <>
+                        <ActivityIndicator size="small" color="white" />
+                        <Text className="text-white font-bold text-lg ml-2">Recalculating...</Text>
+                    </>
+                ) : (
+                    <>
+                        <AntDesign name="star" size={20} color="#f34023" />
+                        <Text className="text-white font-bold text-lg ml-2">Recalculate PRs</Text>
                     </>
                 )}
             </TouchableOpacity>

@@ -1,7 +1,7 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
 import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import {eq, and, isNull, sql, desc, ne, inArray} from 'drizzle-orm';
+import {eq, and, isNull, isNotNull, lt, sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
 import type {
     WorkoutExerciseSet,
@@ -285,5 +285,167 @@ export async function upsertWorkoutExerciseSetsFromRemote(setsData: WorkoutExerc
     } catch (error) {
         console.error('Failed to batch upsert workout exercise sets:', error);
         return false;
+    }
+}
+
+// Re-evaluates is_pr for every completed workout belonging to a user,
+// processing them in chronological order so historical PRs are correctly marked.
+// Run this once to back-fill PRs for workouts completed before PR tracking was added.
+export async function recalculateAllPRs(userId: string): Promise<void> {
+    const completedWorkouts = await db
+        .select({ id: workouts.id })
+        .from(workouts)
+        .where(
+            and(
+                eq(workouts.user_id, userId),
+                isNotNull(workouts.completed_at),
+                isNull(workouts.deleted_at),
+            )
+        )
+        .orderBy(workouts.completed_at); // oldest first — required for time-aware logic
+
+    for (const workout of completedWorkouts) {
+        await markPRsForWorkout(workout.id);
+    }
+}
+
+// Returns the historical max weight per rep count for an exercise from all completed workouts,
+// optionally excluding one workout (typically the current one being evaluated).
+// Returns a map of { [reps]: maxWeight } — empty object if no history.
+export async function getMaxWeightsByRepsForExercise(
+    exerciseId: string,
+    excludeWorkoutId?: string
+): Promise<Record<number, number>> {
+    const conditions = [
+        eq(workout_exercises.exercise_id, exerciseId),
+        isNotNull(workouts.completed_at),
+        isNull(workouts.deleted_at),
+        isNull(workout_exercise_sets.deleted_at),
+        isNull(workout_exercises.deleted_at),
+    ];
+
+    if (excludeWorkoutId) {
+        conditions.push(ne(workouts.id, excludeWorkoutId));
+    }
+
+    const rows = await db
+        .select({
+            reps: workout_exercise_sets.reps,
+            maxWeight: sql<number>`COALESCE(MAX(${workout_exercise_sets.weight}), 0)`,
+        })
+        .from(workout_exercise_sets)
+        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+        .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
+        .where(and(...conditions, isNotNull(workout_exercise_sets.weight)))
+        .groupBy(workout_exercise_sets.reps);
+
+    const result: Record<number, number> = {};
+    for (const row of rows) {
+        result[row.reps] = row.maxWeight;
+    }
+    return result;
+}
+
+// Evaluates every set in a workout and marks those that beat the max weight
+// for that exercise in all workouts completed BEFORE this one (time-aware).
+// Resets existing PR flags first so re-finishing a workout stays accurate.
+// A set is only a PR if there is prior history — the first-ever workout for
+// an exercise is treated as a baseline, not a PR.
+export async function markPRsForWorkout(workoutId: string): Promise<void> {
+    const ts = now();
+
+    // Fetch this workout's completed_at so we can do time-aware comparisons
+    const [thisWorkout] = await db
+        .select({ completedAt: workouts.completed_at })
+        .from(workouts)
+        .where(eq(workouts.id, workoutId))
+        .limit(1);
+
+    if (!thisWorkout?.completedAt) return; // not completed yet, nothing to mark
+    const completedAt = thisWorkout.completedAt;
+
+    // Reset any previously-marked PRs for this workout
+    await db
+        .update(workout_exercise_sets)
+        .set({ is_pr: 0, updated_at: ts, is_synced: 0 })
+        .where(
+            and(
+                eq(workout_exercise_sets.is_pr, 1),
+                isNull(workout_exercise_sets.deleted_at),
+                sql`${workout_exercise_sets.workout_exercise_id} IN (
+                    SELECT id FROM workout_exercises WHERE workout_id = ${workoutId}
+                )`
+            )
+        );
+
+    // Fetch all sets in this workout that have a weight recorded
+    const sets = await db
+        .select({
+            setId: workout_exercise_sets.id,
+            exerciseId: workout_exercises.exercise_id,
+            weight: workout_exercise_sets.weight,
+            reps: workout_exercise_sets.reps,
+        })
+        .from(workout_exercise_sets)
+        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+        .where(
+            and(
+                eq(workout_exercises.workout_id, workoutId),
+                isNotNull(workout_exercise_sets.weight),
+                isNull(workout_exercise_sets.deleted_at),
+                isNull(workout_exercises.deleted_at),
+            )
+        );
+
+    // Group sets by (exerciseId, reps) for reps-aware PR detection
+    const combos = new Map<string, { exerciseId: string; reps: number }>();
+    for (const s of sets) {
+        if (!s.exerciseId) continue;
+        const key = `${s.exerciseId}:${s.reps}`;
+        if (!combos.has(key)) {
+            combos.set(key, { exerciseId: s.exerciseId, reps: s.reps });
+        }
+    }
+
+    for (const { exerciseId, reps } of combos.values()) {
+        // Count prior sets with the same exercise + rep count, completed before this workout
+        const [{ priorCount, maxWeight }] = await db
+            .select({
+                priorCount: sql<number>`COUNT(*)`,
+                maxWeight: sql<number>`COALESCE(MAX(${workout_exercise_sets.weight}), 0)`,
+            })
+            .from(workout_exercise_sets)
+            .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+            .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
+            .where(
+                and(
+                    eq(workout_exercises.exercise_id, exerciseId),
+                    eq(workout_exercise_sets.reps, reps),
+                    lt(workouts.completed_at, completedAt),
+                    ne(workouts.id, workoutId),
+                    isNotNull(workouts.completed_at),
+                    isNotNull(workout_exercise_sets.weight),
+                    isNull(workouts.deleted_at),
+                    isNull(workout_exercise_sets.deleted_at),
+                    isNull(workout_exercises.deleted_at),
+                )
+            );
+
+        // Only mark PR if prior history exists at this rep count and this weight beats it
+        if (priorCount === 0) continue;
+
+        // Find the single best set (highest weight) in this workout for this combo.
+        // If multiple sets tie for the best weight, only the first one (by array order) is the PR.
+        const comboSets = sets.filter(s => s.exerciseId === exerciseId && s.reps === reps);
+        const bestWeight = Math.max(...comboSets.map(s => s.weight ?? 0));
+        if (bestWeight <= maxWeight) continue;
+
+        const bestSet = comboSets.find(s => (s.weight ?? 0) === bestWeight);
+        if (bestSet) {
+            await db
+                .update(workout_exercise_sets)
+                .set({ is_pr: 1, updated_at: ts, is_synced: 0 })
+                .where(eq(workout_exercise_sets.id, bestSet.setId));
+        }
     }
 }

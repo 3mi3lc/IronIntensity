@@ -329,7 +329,7 @@ export async function getExerciseVolumeByDay(
     }
 
     const labels = result.map(r => {
-        const date = new Date(r.date);
+        const date = new Date(r.date + 'T00:00:00');
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     });
 
@@ -375,7 +375,7 @@ export async function getExerciseMaxWeightByDay(
     }
 
     const labels = result.map(r => {
-        const date = new Date(r.date);
+        const date = new Date(r.date + 'T00:00:00');
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     });
 
@@ -396,10 +396,12 @@ interface PersonalRecord {
 
 export async function getRecentPRs(
     userId: string,
-    limit: number = 10
+    startDate: string,
+    endDate: string
 ): Promise<PersonalRecord[]> {
     const result = await db
         .select({
+            exerciseId: exercises.id,
             exerciseName: exercises.name,
             weight: workout_exercise_sets.weight,
             reps: workout_exercise_sets.reps,
@@ -418,14 +420,22 @@ export async function getRecentPRs(
                 eq(workouts.user_id, userId),
                 eq(workout_exercise_sets.is_pr, 1),
                 isNotNull(workouts.completed_at),
+                gte(workouts.completed_at, startDate),
+                lte(workouts.completed_at, endDate),
                 isNull(workouts.deleted_at),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
-        .orderBy(desc(workouts.completed_at))
-        .limit(limit);
+        // Most recent workout first; within the same workout, heaviest set first
+        .orderBy(desc(workouts.completed_at), desc(workout_exercise_sets.weight));
 
-    return result as PersonalRecord[];
+    // One entry per exercise — first row is the most recent PR (and heaviest within that workout)
+    const seen = new Set<string>();
+    return result.filter(row => {
+        if (seen.has(row.exerciseId)) return false;
+        seen.add(row.exerciseId);
+        return true;
+    }) as PersonalRecord[];
 }
 
 // ==================== COMPARISON DATA ====================

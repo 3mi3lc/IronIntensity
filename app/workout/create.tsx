@@ -36,6 +36,7 @@ function CreateWorkout() {
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        exerciseMaxWeights,
         showExerciseHistory,
         selectedExerciseForHistory,
         handleViewExerciseHistory,
@@ -126,6 +127,7 @@ function CreateWorkout() {
                 selectedExerciseForHistory={selectedExerciseForHistory}
                 onCloseExerciseHistory={handleCloseExerciseHistory}
                 onViewExerciseHistory={handleViewExerciseHistory}
+                exerciseMaxWeights={exerciseMaxWeights}
             />
 
             {/* Modals */}

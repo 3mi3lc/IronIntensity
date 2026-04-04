@@ -31,6 +31,7 @@ interface WorkoutScreenProps {
     onEditSet?: (workoutExerciseId: string, setId: string, updates: any) => void;
     onReorderExercises?: (data: ExerciseWithSets[]) => void;
     onViewExerciseHistory?: (exerciseId: string, exerciseName: string) => void;
+    exerciseMaxWeights?: Record<string, Record<number, number>>;
     // Exercise history props
     userId?: string;
     showExerciseHistory?: boolean;
@@ -61,6 +62,7 @@ export function WorkoutScreen({
                                   onEditSet,
                                   onReorderExercises,
                                   onViewExerciseHistory,
+                                  exerciseMaxWeights,
                                   // Exercise history props
                                   userId,
                                   showExerciseHistory,
@@ -91,6 +93,7 @@ export function WorkoutScreen({
                 >
                     <WorkoutExerciseListItem
                         exerciseItem={item}
+                        exerciseMaxWeights={exerciseMaxWeights}
                         onDeleteExercise={() => onDeleteExercise?.(item)}
                         onEditSet={(setId, updates) =>
                             onEditSet?.(item.workoutExerciseId, setId, updates)
@@ -105,7 +108,7 @@ export function WorkoutScreen({
                 </TouchableOpacity>
             );
         },
-        [isReadOnly, onDeleteExercise, onEditSet, onDeleteSet, onAddSet, onViewExerciseHistory]
+        [isReadOnly, exerciseMaxWeights, onDeleteExercise, onEditSet, onDeleteSet, onAddSet, onViewExerciseHistory]
     );
 
     if (loading) {

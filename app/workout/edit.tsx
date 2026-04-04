@@ -33,6 +33,7 @@ function EditWorkout() {
         handleDeleteWorkout,
         handleAddExercise,
         finishWorkoutWithData,
+        exerciseMaxWeights,
         // Exercise history from hook
         showExerciseHistory,
         selectedExerciseForHistory,
@@ -103,6 +104,7 @@ function EditWorkout() {
                 onEditSet={handleUpdateSet}
                 onReorderExercises={handleReorderExercises}
                 onViewExerciseHistory={handleViewExerciseHistory}
+                exerciseMaxWeights={exerciseMaxWeights}
                 // Exercise history props - passed to WorkoutScreen
                 userId={user?.id}
                 showExerciseHistory={showExerciseHistory}

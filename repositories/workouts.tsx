@@ -182,6 +182,7 @@ export async function getWorkoutWithExercisesAndSets(workoutId: string): Promise
                 setNumber: workout_exercise_sets.set_number,
                 reps: workout_exercise_sets.reps,
                 weight: workout_exercise_sets.weight,
+                isPr: workout_exercise_sets.is_pr,
             })
             .from(workout_exercise_sets)
             .where(

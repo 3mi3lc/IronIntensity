@@ -5,6 +5,7 @@ import { ExerciseWithSets } from '@/repositories/types';
 
 type Props = {
     exerciseItem: ExerciseWithSets;
+    exerciseMaxWeights?: Record<string, Record<number, number>>;
     onEditSet?: (setId: string, updates: { reps?: number; weight?: number; setNumber?: number }) => void;
     onDeleteSet?: (setId: string) => void;
     onAddSet?: (workoutExerciseId: string) => void;
@@ -15,6 +16,7 @@ type Props = {
 
 const WorkoutExerciseItem = ({
                                  exerciseItem,
+                                 exerciseMaxWeights,
                                  onEditSet,
                                  onDeleteSet,
                                  onAddSet,
@@ -22,6 +24,25 @@ const WorkoutExerciseItem = ({
                                  onViewHistory,
                                  viewOnly = false
                              }: Props) => {
+    const historicalMaxWeightByReps = exerciseMaxWeights?.[exerciseItem.exercise.id];
+
+    // For each rep count, find the single best set (highest weight) that beats the
+    // historical max. Only that one set gets the live PR badge.
+    const livePrSetIds = (() => {
+        if (viewOnly || !historicalMaxWeightByReps) return new Set<string>();
+        const best = new Map<number, { id: string; weight: number }>();
+        for (const set of exerciseItem.sets) {
+            const historicalMax = historicalMaxWeightByReps[set.reps] ?? 0;
+            const w = set.weight ?? 0;
+            if (historicalMax > 0 && w > historicalMax) {
+                const curr = best.get(set.reps);
+                if (!curr || w > curr.weight) {
+                    best.set(set.reps, { id: set.id, weight: w });
+                }
+            }
+        }
+        return new Set(Array.from(best.values()).map(v => v.id));
+    })();
     return (
         <View className="mb-6 bg-surface_a10 rounded-2xl overflow-hidden shadow-lg">
             {/* Exercise Header */}
@@ -92,6 +113,8 @@ const WorkoutExerciseItem = ({
                             setNumber={set.setNumber}
                             reps={set.reps}
                             weight={set.weight ?? 0}
+                            isPr={set.isPr === 1}
+                            showLivePr={livePrSetIds.has(set.id)}
                             onEdit={(updates) => onEditSet?.(set.id, updates)}
                             onDelete={() => onDeleteSet?.(set.id)}
                             viewOnly={viewOnly}

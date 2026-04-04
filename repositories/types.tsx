@@ -44,6 +44,7 @@ export type ExerciseWithSets = {
         setNumber: number;
         reps: number;
         weight: number | null;
+        isPr: number | null;
     }[];
 };
 

@@ -11,6 +11,8 @@ import {
 import {
     addSet,
     getHistoricalSetsForExercise,
+    getMaxWeightsByRepsForExercise,
+    markPRsForWorkout,
     softDeleteSet,
     updateSet
 } from '@/repositories/workoutExerciseSets';
@@ -28,6 +30,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [workoutNameInput, setWorkoutNameInput] = useState('');
     const [workoutDate, setWorkoutDate] = useState(new Date());
     const [exerciseHistoricalSets, setExerciseHistoricalSets] = useState<Record<string, Array<{ setNumber: number; reps: number; weight: number }>>>({});
+    const [exerciseMaxWeights, setExerciseMaxWeights] = useState<Record<string, Record<number, number>>>({});
 
     // Exercise history state
     const [showExerciseHistory, setShowExerciseHistory] = useState(false);
@@ -47,6 +50,15 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             ]);
             setWorkout(workoutResult);
             setExerciseData(exerciseResult);
+
+            // Load historical max weights per rep count for live PR detection
+            const maxWeights: Record<string, Record<number, number>> = {};
+            await Promise.all(
+                exerciseResult.map(async (ex) => {
+                    maxWeights[ex.exercise.id] = await getMaxWeightsByRepsForExercise(ex.exercise.id, workoutId);
+                })
+            );
+            setExerciseMaxWeights(maxWeights);
         } catch (err: any) {
             setError(err.message || 'Failed to load workout');
         } finally {
@@ -281,6 +293,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             }
 
             await updateWorkoutById(workout.id, updates);
+            await markPRsForWorkout(workout.id);
             return true;
         } catch (error) {
             console.error('Failed to finish workout:', error);
@@ -342,6 +355,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         handleAddExercise,
         finishWorkoutWithData,
         loadHistoricalSetsForExercise,
+        exerciseMaxWeights,
         // Exercise history
         showExerciseHistory,
         selectedExerciseForHistory,
