@@ -150,6 +150,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 setNumber: newSet.set_number,
                 reps: newSet.reps,
                 weight: newSet.weight,
+                isPr: newSet.is_pr ?? null,
             };
 
             setExerciseData((prev) =>
@@ -204,6 +205,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 setNumber: updatedSet.set_number,
                 reps: updatedSet.reps,
                 weight: updatedSet.weight,
+                isPr: updatedSet.is_pr ?? null,
             };
 
             setExerciseData((prev) =>

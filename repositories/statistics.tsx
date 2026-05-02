@@ -579,6 +579,7 @@ interface ExerciseHistoryWorkout {
     workoutId: string;
     workoutName: string;
     completedAt: string;
+    workoutCreatedAt: string;
     sets: ExerciseHistorySet[];
 }
 
@@ -592,6 +593,7 @@ export async function getExerciseHistory(
             workoutId: workouts.id,
             workoutName: workouts.name,
             completedAt: workouts.completed_at,
+            workoutCreatedAt: workouts.created_at,
             setId: workout_exercise_sets.id,
             setNumber: workout_exercise_sets.set_number,
             reps: workout_exercise_sets.reps,
@@ -615,7 +617,6 @@ export async function getExerciseHistory(
             )
         )
         .orderBy(desc(workouts.completed_at), workout_exercise_sets.set_number)
-        .limit(limit * 10); // Fetch more to account for multiple sets per workout
 
     // Group by workout
     const workoutMap = new Map<string, ExerciseHistoryWorkout>();
@@ -626,6 +627,7 @@ export async function getExerciseHistory(
                 workoutId: row.workoutId,
                 workoutName: row.workoutName,
                 completedAt: row.completedAt!,
+                workoutCreatedAt: row.workoutCreatedAt!,
                 sets: [],
             });
         }
@@ -641,9 +643,9 @@ export async function getExerciseHistory(
         });
     });
 
-    // Convert to array and limit
     return Array.from(workoutMap.values())
-        .slice(0, limit)
+        .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+        .slice(0, limit) //  limit workouts, not rows
         .map(workout => ({
             ...workout,
             sets: workout.sets.sort((a, b) => a.setNumber - b.setNumber)

@@ -1,7 +1,7 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
 import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import {eq, and, isNull, isNotNull, lt, sql, desc, ne, inArray} from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, lt, sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
 import type {
     WorkoutExerciseSet,
@@ -346,25 +346,19 @@ export async function getMaxWeightsByRepsForExercise(
     return result;
 }
 
-// Evaluates every set in a workout and marks those that beat the max weight
-// for that exercise in all workouts completed BEFORE this one (time-aware).
-// Resets existing PR flags first so re-finishing a workout stays accurate.
-// A set is only a PR if there is prior history — the first-ever workout for
-// an exercise is treated as a baseline, not a PR.
 export async function markPRsForWorkout(workoutId: string): Promise<void> {
     const ts = now();
 
-    // Fetch this workout's completed_at so we can do time-aware comparisons
     const [thisWorkout] = await db
         .select({ completedAt: workouts.completed_at })
         .from(workouts)
         .where(eq(workouts.id, workoutId))
         .limit(1);
 
-    if (!thisWorkout?.completedAt) return; // not completed yet, nothing to mark
+    if (!thisWorkout?.completedAt) return;
     const completedAt = thisWorkout.completedAt;
 
-    // Reset any previously-marked PRs for this workout
+    // Reset PRs for this workout
     await db
         .update(workout_exercise_sets)
         .set({ is_pr: 0, updated_at: ts, is_synced: 0 })
@@ -378,7 +372,7 @@ export async function markPRsForWorkout(workoutId: string): Promise<void> {
             )
         );
 
-    // Fetch all sets in this workout that have a weight recorded
+    // Fetch all sets in this workout ordered by set_number
     const sets = await db
         .select({
             setId: workout_exercise_sets.id,
@@ -395,24 +389,20 @@ export async function markPRsForWorkout(workoutId: string): Promise<void> {
                 isNull(workout_exercise_sets.deleted_at),
                 isNull(workout_exercises.deleted_at),
             )
-        );
+        )
+        .orderBy(workout_exercise_sets.set_number);
 
-    // Group sets by (exerciseId, reps) for reps-aware PR detection
-    const combos = new Map<string, { exerciseId: string; reps: number }>();
-    for (const s of sets) {
-        if (!s.exerciseId) continue;
-        const key = `${s.exerciseId}:${s.reps}`;
-        if (!combos.has(key)) {
-            combos.set(key, { exerciseId: s.exerciseId, reps: s.reps });
-        }
-    }
+    // Get unique exercise IDs
+    const exerciseIds = [...new Set(sets.map(s => s.exerciseId).filter((id): id is string => id !== null))];
 
-    for (const { exerciseId, reps } of combos.values()) {
-        // Count prior sets with the same exercise + rep count, completed before this workout
-        const [{ priorCount, maxWeight }] = await db
+    // For each exercise, fetch all historical sets from prior workouts
+    const historicalSets = new Map<string, Array<{ weight: number; reps: number }>>();
+
+    for (const exerciseId of exerciseIds) {
+        const rows = await db
             .select({
-                priorCount: sql<number>`COUNT(*)`,
-                maxWeight: sql<number>`COALESCE(MAX(${workout_exercise_sets.weight}), 0)`,
+                weight: workout_exercise_sets.weight,
+                reps: workout_exercise_sets.reps,
             })
             .from(workout_exercise_sets)
             .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
@@ -420,7 +410,6 @@ export async function markPRsForWorkout(workoutId: string): Promise<void> {
             .where(
                 and(
                     eq(workout_exercises.exercise_id, exerciseId),
-                    eq(workout_exercise_sets.reps, reps),
                     lt(workouts.completed_at, completedAt),
                     ne(workouts.id, workoutId),
                     isNotNull(workouts.completed_at),
@@ -431,21 +420,59 @@ export async function markPRsForWorkout(workoutId: string): Promise<void> {
                 )
             );
 
-        // Only mark PR if prior history exists at this rep count and this weight beats it
-        if (priorCount === 0) continue;
+        historicalSets.set(exerciseId, rows.map(r => ({ weight: r.weight!, reps: r.reps })));
+    }
 
-        // Find the single best set (highest weight) in this workout for this combo.
-        // If multiple sets tie for the best weight, only the first one (by array order) is the PR.
-        const comboSets = sets.filter(s => s.exerciseId === exerciseId && s.reps === reps);
-        const bestWeight = Math.max(...comboSets.map(s => s.weight ?? 0));
-        if (bestWeight <= maxWeight) continue;
+    // Helper to pick the better of two sets
+    const isBetter = (a: { weight: number; reps: number }, b: { weight: number; reps: number }) =>
+        a.weight > b.weight || (a.weight === b.weight && a.reps > b.reps);
 
-        const bestSet = comboSets.find(s => (s.weight ?? 0) === bestWeight);
-        if (bestSet) {
+    const getBest = (sets: Array<{ weight: number; reps: number }>): { weight: number; reps: number } | null => {
+        if (sets.length === 0) return null;
+        return sets.reduce((best, s) => isBetter(s, best) ? s : best, sets[0]);
+    };
+
+    // Process each set incrementally, tracking running best per exercise
+    const runningBest = new Map<string, { weight: number; reps: number } | null>();
+
+    for (const set of sets) {
+        if (!set.exerciseId || !set.weight) continue;
+
+        const history = historicalSets.get(set.exerciseId) ?? [];
+        const historicalBest = getBest(history);
+        const currentRunning = runningBest.get(set.exerciseId) ?? null;
+
+        // Pick the better of historical and running best
+        let best: { weight: number; reps: number } | null;
+        if (!historicalBest && !currentRunning) {
+            best = null;
+        } else if (!historicalBest) {
+            best = currentRunning;
+        } else if (!currentRunning) {
+            best = historicalBest;
+        } else {
+            best = isBetter(currentRunning, historicalBest) ? currentRunning : historicalBest;
+        }
+
+        // No prior history at all — this is a baseline, not a PR
+        if (!best) {
+            runningBest.set(set.exerciseId, { weight: set.weight, reps: set.reps });
+            continue;
+        }
+
+        const isPR =
+            set.weight > best.weight ||
+            (set.weight === best.weight && set.reps > best.reps);
+
+        // Update running best if this set is better
+        if (isPR) {
+            runningBest.set(set.exerciseId, { weight: set.weight, reps: set.reps });
             await db
                 .update(workout_exercise_sets)
                 .set({ is_pr: 1, updated_at: ts, is_synced: 0 })
-                .where(eq(workout_exercise_sets.id, bestSet.setId));
+                .where(eq(workout_exercise_sets.id, set.setId));
+        } else {
+            runningBest.set(set.exerciseId, best);
         }
     }
 }

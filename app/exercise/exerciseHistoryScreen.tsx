@@ -19,6 +19,7 @@ interface ExerciseHistoryWorkout {
     workoutId: string;
     workoutName: string;
     completedAt: string;
+    workoutCreatedAt: string;
     sets: ExerciseHistorySet[];
 }
 
@@ -39,6 +40,16 @@ export function ExerciseHistoryScreen({
     const [history, setHistory] = useState<ExerciseHistoryWorkout[]>([]);
     const [error, setError] = useState<string | null>(null);
 
+    const parseDate = (dateStr: string | null | undefined) => {
+        if (!dateStr) return new Date();
+        const date = new Date(dateStr); // ISO strings with +00:00 parse natively just fine
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date:', dateStr);
+            return new Date();
+        }
+        return date;
+    };
+
     useEffect(() => {
         loadHistory();
     }, [userId, exerciseId]);
@@ -48,6 +59,7 @@ export function ExerciseHistoryScreen({
         setError(null);
         try {
             const data = await getExerciseHistory(userId, exerciseId, 20);
+            console.log('History dates:', data.map(w => w.completedAt));
             setHistory(data);
         } catch (err) {
             console.error('Error loading exercise history:', err);
@@ -131,12 +143,14 @@ export function ExerciseHistoryScreen({
                                                 {workout.workoutName}
                                             </Text>
                                             <Text className="text-primary_a10 text-sm mt-1">
-                                                {format(new Date(workout.completedAt), 'EEEE, MMMM d, yyyy')}
+                                                {workout.completedAt
+                                                    ? format(parseDate(workout.workoutCreatedAt), 'EEEE, MMMM d, yyyy')
+                                                    : 'Unknown date'}
                                             </Text>
                                             <Text className="text-primary_a10 text-xs">
-                                                {formatDistanceToNow(new Date(workout.completedAt), {
-                                                    addSuffix: true,
-                                                })}
+                                                {workout.completedAt
+                                                    ? formatDistanceToNow(parseDate(workout.workoutCreatedAt), { addSuffix: true })
+                                                    : ''}
                                             </Text>
                                         </View>
                                     </View>
