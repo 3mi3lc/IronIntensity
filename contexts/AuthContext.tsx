@@ -19,29 +19,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         let mounted = true;
 
-        // Get initial session
         const initSession = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data: { session: cachedSession } } = await supabase.auth.getSession();
 
                 if (!mounted) return;
 
-                if (error) {
-                    console.error('AuthContext: Session error:', error.message);
-                    if (error.message.includes('Refresh Token Not Found') ||
-                        error.message.includes('Invalid Refresh Token')) {
-                        await supabase.auth.signOut({ scope: 'local' });
-                        setSession(null);
-                        setSupabaseUser(null);
-                    }
-                    setIsLoading(false);
-                    return;
-                }
+                if (cachedSession) {
+                    // Check if token is expired
+                    const expiresAt = cachedSession.expires_at; // unix timestamp in seconds
+                    const now = Math.floor(Date.now() / 1000);
+                    const isExpired = expiresAt ? now >= expiresAt : false;
 
-                initialSessionHandled.current = true;
-                setSession(session);
-                setSupabaseUser(session?.user || null);
-                setIsLoading(false);
+                    if (isExpired) {
+                        console.log('AuthContext: Token expired, attempting refresh...');
+                        // Try to refresh — will fail offline
+                        const { data, error } = await supabase.auth.refreshSession();
+                        if (error || !data.session) {
+                            console.log('AuthContext: Refresh failed (offline?), using expired session for local access');
+                            // Still let the user in — they can use local data
+                            setSession(cachedSession);
+                            setSupabaseUser(cachedSession.user);
+                        } else {
+                            setSession(data.session);
+                            setSupabaseUser(data.session.user);
+                        }
+                    } else {
+                        console.log('AuthContext: Valid cached session found');
+                        setSession(cachedSession);
+                        setSupabaseUser(cachedSession.user);
+
+                        // Background refresh
+                        supabase.auth.refreshSession().then(({ data, error }) => {
+                            if (!mounted) return;
+                            if (!error && data.session) {
+                                setSession(data.session);
+                                setSupabaseUser(data.session.user);
+                            }
+                        });
+                    }
+
+                    initialSessionHandled.current = true;
+                    setIsLoading(false);
+                } else {
+                    console.log('AuthContext: No cached session found');
+                    setSession(null);
+                    setSupabaseUser(null);
+                    setIsLoading(false);
+                }
             } catch (error) {
                 console.error('AuthContext: Init session error:', error);
                 if (mounted) {
@@ -52,27 +77,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         };
 
+
         initSession();
 
-        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
 
             console.log('AuthContext: Auth state change:', event);
 
-            // Skip duplicate INITIAL_SESSION
             if (event === 'INITIAL_SESSION' && initialSessionHandled.current) {
                 return;
             }
 
-            // Just update session for token refresh
             if (event === 'TOKEN_REFRESHED') {
                 setSession(session);
                 setSupabaseUser(session?.user || null);
                 return;
             }
 
-            // Handle sign out - ensure complete cleanup
             if (event === 'SIGNED_OUT') {
                 console.log('AuthContext: Signing out - clearing all state');
                 setSession(null);
@@ -82,7 +104,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            // Handle sign in
             if (event === 'SIGNED_IN') {
                 console.log('AuthContext: Signed in');
                 setSession(session);
@@ -91,7 +112,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            // Default - update session
             setSession(session);
             setSupabaseUser(session?.user || null);
             setIsLoading(false);

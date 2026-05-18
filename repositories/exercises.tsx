@@ -1,7 +1,7 @@
 // src/repositories/exercises.ts
 import {db} from '@/db/client';
 import {exercise_body_parts, exercises} from '@/db/schema';
-import {and, eq, inArray, isNull} from 'drizzle-orm';
+import {and, eq, inArray, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {BodypartWithExercises, Exercise, NewExercise} from './types';
 import {getAllBodyParts} from "@/repositories/bodyParts";
@@ -189,12 +189,28 @@ export async function upsertExerciseFromRemote(exercise: Exercise): Promise<bool
 // Batch upsert exercises from remote
 export async function upsertExercisesFromRemote(exercisesData: Exercise[]): Promise<boolean> {
     if (exercisesData.length === 0) return true;
-
     try {
-        for (const exercise of exercisesData) {
-            const success = await upsertExerciseFromRemote(exercise);
-            if (!success) return false;
-        }
+        await db.insert(exercises)
+            .values(exercisesData.map(e => ({
+                id: e.id,
+                user_id: e.user_id,
+                name: e.name,
+                description: e.description,
+                created_at: e.created_at,
+                updated_at: e.updated_at,
+                deleted_at: e.deleted_at,
+                is_synced: 1,
+            })))
+            .onConflictDoUpdate({
+                target: exercises.id,
+                set: {
+                    name: sql`excluded.name`,
+                    description: sql`excluded.description`,
+                    updated_at: sql`excluded.updated_at`,
+                    deleted_at: sql`excluded.deleted_at`,
+                    is_synced: 1,
+                }
+            });
         return true;
     } catch (error) {
         console.error('Failed to batch upsert exercises:', error);

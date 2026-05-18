@@ -15,14 +15,26 @@ import { useAutoSync } from '@/hooks/useAutoSync';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import './globals.css';
+import { useUnfinishedWorkoutCheck } from '@/hooks/useUnfinishedWorkoutCheck';
+import UnfinishedWorkoutModal from '@/components/unfinishedWorkoutModal';
 
 function RootLayoutNav() {
     const { user, isLoading } = useAuth();
     const segments = useSegments();
     const router = useRouter();
 
-    // Auto-sync when user logs in
+    const { isSyncing } = useAutoSync();
+
+
     useAutoSync();
+
+    const {
+        unfinishedWorkout,
+        modalVisible,
+        handleContinue,
+        handleSave,
+        handleDiscard,
+    } = useUnfinishedWorkoutCheck(user?.id);
 
     useEffect(() => {
         if (isLoading) return;
@@ -36,11 +48,9 @@ function RootLayoutNav() {
         });
 
         if (!user && !inAuthGroup) {
-            // User is not logged in and not on auth screen
             console.log('Layout: Redirecting to login...');
             router.replace('/auth/login');
         } else if (user && inAuthGroup) {
-            // User is logged in but still on auth screen
             console.log('Layout: Redirecting to app...');
             router.replace('/(tabs)/logging');
         }
@@ -55,7 +65,53 @@ function RootLayoutNav() {
         );
     }
 
-    return <Stack screenOptions={{ headerShown: false }} />;
+    return (
+        <>
+            <Stack screenOptions={{ headerShown: false }} />
+
+            {isSyncing && (
+                <View
+                    style={{
+                        position: 'absolute',
+                        top: 50,
+                        right: 16,
+                        backgroundColor: '#282828',
+                        borderRadius: 20,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        zIndex: 999,
+                        elevation: 999,
+                    }}
+                >
+                    <ActivityIndicator size="small" color="#f34023" />
+                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
+                        Syncing...
+                    </Text>
+                </View>
+            )}
+
+
+
+            {unfinishedWorkout && (
+                <UnfinishedWorkoutModal
+                    visible={modalVisible}
+                    workoutName={unfinishedWorkout.name}
+                    workoutDate={new Date(unfinishedWorkout.created_at!).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    })}
+                    onContinue={handleContinue}
+                    onSave={handleSave}
+                    onDiscard={handleDiscard}
+                />
+            )}
+        </>
+    );
 }
 
 export default function RootLayout() {

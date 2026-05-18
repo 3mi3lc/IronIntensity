@@ -1,5 +1,5 @@
 // hooks/useWorkoutLogic.ts
-import { useState, useCallback } from 'react';
+import {useState, useCallback, useRef} from 'react';
 import { Alert } from 'react-native';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@/repositories/workouts';
 import {
     addSet,
+    checkAndMarkSetAsPR,
     getHistoricalSetsForExercise,
     getMaxWeightsByRepsForExercise,
     markPRsForWorkout,
@@ -31,6 +32,14 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [workoutDate, setWorkoutDate] = useState(new Date());
     const [exerciseHistoricalSets, setExerciseHistoricalSets] = useState<Record<string, Array<{ setNumber: number; reps: number; weight: number }>>>({});
     const [exerciseMaxWeights, setExerciseMaxWeights] = useState<Record<string, Record<number, number>>>({});
+    const updateTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+    const [prToast, setPrToast] = useState<{ visible: boolean; weight: number; reps: number }>({
+        visible: false,
+        weight: 0,
+        reps: 0,
+    });
+
 
     // Exercise history state
     const [showExerciseHistory, setShowExerciseHistory] = useState(false);
@@ -51,7 +60,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             setWorkout(workoutResult);
             setExerciseData(exerciseResult);
 
-            // Load historical max weights per rep count for live PR detection
             const maxWeights: Record<string, Record<number, number>> = {};
             await Promise.all(
                 exerciseResult.map(async (ex) => {
@@ -67,7 +75,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     }, [workoutId]);
 
     const loadHistoricalSetsForExercise = useCallback(async (exerciseId: string) => {
-        // Check if we already loaded this exercise's history
         if (exerciseHistoricalSets[exerciseId]) {
             return exerciseHistoricalSets[exerciseId];
         }
@@ -87,7 +94,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         return null;
     }, [exerciseHistoricalSets, workout?.id]);
 
-    // Exercise history handlers
     const handleViewExerciseHistory = useCallback((exerciseId: string, exerciseName: string) => {
         setSelectedExerciseForHistory({ id: exerciseId, name: exerciseName });
         setShowExerciseHistory(true);
@@ -114,7 +120,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             let defaultReps = 10;
             let defaultWeight = 0;
 
-            // Load historical sets once (will use cache if already loaded)
             const historicalSets = await loadHistoricalSetsForExercise(exercise.exercise.id);
 
             if (historicalSets && historicalSets.length > 0) {
@@ -145,21 +150,8 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
             if (!newSet || typeof newSet === 'boolean') return;
 
-            const formattedSet = {
-                id: newSet.id,
-                setNumber: newSet.set_number,
-                reps: newSet.reps,
-                weight: newSet.weight,
-                isPr: newSet.is_pr ?? null,
-            };
-
-            setExerciseData((prev) =>
-                prev.map((exerciseItem) =>
-                    exerciseItem.workoutExerciseId === workoutExerciseId
-                        ? { ...exerciseItem, sets: [...exerciseItem.sets, formattedSet] }
-                        : exerciseItem
-                )
-            );
+            // Reload to get updated isPr flags
+            await loadWorkoutData();
         } catch (err) {
             console.error('Failed to add set:', err);
         }
@@ -196,34 +188,39 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     ) => {
         if (isReadOnly) return;
 
-        try {
-            const updatedSet = await updateSet(setId, updates, { returnData: true });
-            if (!updatedSet || typeof updatedSet === 'boolean') return;
-
-            const formattedSet = {
-                id: updatedSet.id,
-                setNumber: updatedSet.set_number,
-                reps: updatedSet.reps,
-                weight: updatedSet.weight,
-                isPr: updatedSet.is_pr ?? null,
-            };
-
-            setExerciseData((prev) =>
-                prev.map((exerciseItem) =>
-                    exerciseItem.workoutExerciseId === workoutExerciseId
-                        ? {
-                            ...exerciseItem,
-                            sets: exerciseItem.sets.map((set) =>
-                                set.id === setId ? formattedSet : set
-                            ),
-                        }
-                        : exerciseItem
-                )
-            );
-        } catch (err) {
-            console.error('Failed to update set:', err);
+        if (updateTimers.current[setId]) {
+            clearTimeout(updateTimers.current[setId]);
         }
+
+        updateTimers.current[setId] = setTimeout(async () => {
+            try {
+                const updatedSet = await updateSet(setId, updates, { returnData: true });
+                if (!updatedSet || typeof updatedSet === 'boolean') return;
+
+                if (updatedSet.weight && workoutId) {
+                    const exercise = exerciseData.find(ex => ex.workoutExerciseId === workoutExerciseId);
+                    if (exercise) {
+                        const newlyPR = await checkAndMarkSetAsPR(
+                            updatedSet.id,
+                            exercise.exercise.id,
+                            updatedSet.weight,
+                            updatedSet.reps,
+                            workoutId
+                        );
+
+                        if (newlyPR) {
+                            setPrToast({ visible: true, weight: updatedSet.weight, reps: updatedSet.reps });
+                        }
+                    }
+                }
+
+                await loadWorkoutData();
+            } catch (err) {
+                console.error('Failed to update set:', err);
+            }
+        }, 500);
     };
+
 
     const handleDeleteExercise = async () => {
         if (!exerciseToDelete || !workout?.id || isReadOnly) return;
@@ -276,7 +273,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 created_at: newWorkoutDate,
             };
 
-            // If workout is already completed and user is changing the date
             if (workout.completed_at && workout.created_at) {
                 const originalCreatedAt = new Date(workout.created_at);
                 const originalCompletedAt = new Date(workout.completed_at);
@@ -285,10 +281,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 const newCompletedAt = new Date(date.getTime() + timeDifferenceMs);
                 updates.completed_at = newCompletedAt.toISOString();
 
-                // Calculate how much the date shifted
                 const dateShiftMs = date.getTime() - originalCreatedAt.getTime();
-
-                // Update all workout_exercises and sets with the shifted timestamps
                 await updateWorkoutTimestamps(workout.id, dateShiftMs);
             } else {
                 updates.completed_at = new Date().toISOString();
@@ -358,10 +351,11 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         finishWorkoutWithData,
         loadHistoricalSetsForExercise,
         exerciseMaxWeights,
-        // Exercise history
         showExerciseHistory,
         selectedExerciseForHistory,
         handleViewExerciseHistory,
         handleCloseExerciseHistory,
+        prToast,
+        hidePrToast: () => setPrToast(prev => ({ ...prev, visible: false })),
     };
 }

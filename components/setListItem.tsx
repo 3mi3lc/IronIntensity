@@ -20,7 +20,6 @@ export default function SetListItem({
                                         reps: initialReps,
                                         weight: initialWeight,
                                         isPr = false,
-                                        showLivePr = false,
                                         onEdit,
                                         onDelete,
                                         viewOnly = false,
@@ -31,7 +30,7 @@ export default function SetListItem({
     );
 
     // View mode: show stored PR flag. Edit/create mode: parent computes which single set wins.
-    const showPR = viewOnly ? isPr : showLivePr;
+    const showPR = isPr;
     const [menuVisible, setMenuVisible] = useState(false);
     const [editModalVisible, setEditModalVisible] = useState(false);
 

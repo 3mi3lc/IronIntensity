@@ -164,12 +164,27 @@ export async function upsertWorkoutExerciseFromRemote(workoutExercise: WorkoutEx
 // Batch upsert workout exercises from remote
 export async function upsertWorkoutExercisesFromRemote(workoutExercisesData: WorkoutExercise[]): Promise<boolean> {
     if (workoutExercisesData.length === 0) return true;
-
     try {
-        for (const workoutExercise of workoutExercisesData) {
-            const success = await upsertWorkoutExerciseFromRemote(workoutExercise);
-            if (!success) return false;
-        }
+        await db.insert(workout_exercises)
+            .values(workoutExercisesData.map(we => ({
+                id: we.id,
+                workout_id: we.workout_id,
+                exercise_id: we.exercise_id,
+                order_index: we.order_index,
+                created_at: we.created_at,
+                updated_at: we.updated_at,
+                deleted_at: we.deleted_at,
+                is_synced: 1,
+            })))
+            .onConflictDoUpdate({
+                target: workout_exercises.id,
+                set: {
+                    order_index: sql`excluded.order_index`,
+                    updated_at: sql`excluded.updated_at`,
+                    deleted_at: sql`excluded.deleted_at`,
+                    is_synced: 1,
+                }
+            });
         return true;
     } catch (error) {
         console.error('Failed to batch upsert workout exercises:', error);

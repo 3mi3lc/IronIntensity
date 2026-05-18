@@ -39,6 +39,9 @@ function EditWorkout() {
         selectedExerciseForHistory,
         handleViewExerciseHistory,
         handleCloseExerciseHistory,
+        prToast,
+        hidePrToast,
+
     } = useWorkoutLogic(id, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -110,6 +113,9 @@ function EditWorkout() {
                 showExerciseHistory={showExerciseHistory}
                 selectedExerciseForHistory={selectedExerciseForHistory}
                 onCloseExerciseHistory={handleCloseExerciseHistory}
+                prToast={prToast}
+                onHidePrToast={hidePrToast}
+
             />
 
             {/* Modals */}

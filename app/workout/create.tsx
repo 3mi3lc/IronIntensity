@@ -41,6 +41,8 @@ function CreateWorkout() {
         selectedExerciseForHistory,
         handleViewExerciseHistory,
         handleCloseExerciseHistory,
+        prToast,
+        hidePrToast,
     } = useWorkoutLogic(workoutId, false);
 
     const [finishModalVisible, setFinishModalVisible] = useState(false);
@@ -128,6 +130,9 @@ function CreateWorkout() {
                 onCloseExerciseHistory={handleCloseExerciseHistory}
                 onViewExerciseHistory={handleViewExerciseHistory}
                 exerciseMaxWeights={exerciseMaxWeights}
+                prToast={prToast}
+                onHidePrToast={hidePrToast}
+
             />
 
             {/* Modals */}

@@ -2,6 +2,12 @@ import { useContext, useCallback } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 import { UserContext } from '@/contexts/UserContext';
 import { SyncService } from '@/db/sync';
+import { getFailedSyncs } from '@/repositories/syncMetadata';
+
+export type SyncResult = {
+    success: boolean;
+    failures: Array<{ entity: string; error: string }>;
+}
 
 export const useSync = () => {
     const auth = useContext(AuthContext);
@@ -11,62 +17,46 @@ export const useSync = () => {
         throw new Error('useSync must be used within AuthProvider and UserProvider');
     }
 
-    const pushData = useCallback(async () => {
+    const pushData = useCallback(async (): Promise<SyncResult> => {
         if (!userContext.user || !auth.session) {
-            console.warn('No user or session available for sync');
-            return false;
+            return { success: false, failures: [{ entity: 'auth', error: 'No user or session available' }] };
         }
 
         const syncService = new SyncService(userContext.user.id, auth.session);
         const success = await syncService.pushAll();
+        const failures = await getFailedSyncs();
 
-        if (success) {
-            userContext.triggerRefresh();
-        }
-
-        return success;
+        if (success) userContext.triggerRefresh();
+        return { success, failures };
     }, [userContext.user, auth.session]);
 
-    const pullData = useCallback(async () => {
+    const pullData = useCallback(async (): Promise<SyncResult> => {
         if (!userContext.user || !auth.session) {
-            console.warn('No user or session available for pull');
-            return false;
+            return { success: false, failures: [{ entity: 'auth', error: 'No user or session available' }] };
         }
 
         const syncService = new SyncService(userContext.user.id, auth.session);
         const success = await syncService.pullAll();
+        const failures = await getFailedSyncs();
 
-        if (success) {
-            userContext.triggerRefresh();
-        }
-
-        return success;
+        if (success) userContext.triggerRefresh();
+        return { success, failures };
     }, [userContext.user, auth.session]);
 
-    const fullSync = useCallback(async () => {
+    const fullSync = useCallback(async (): Promise<SyncResult> => {
         if (!userContext.user || !auth.session) {
-            console.warn('No user or session available for full sync');
-            return false;
+            return { success: false, failures: [{ entity: 'auth', error: 'No user or session available' }] };
         }
 
         const syncService = new SyncService(userContext.user.id, auth.session);
-
-        // Pull body parts (static data)
         await syncService.pullBodyParts();
-
-        // Sync local changes first
         await syncService.pushAll();
-
-        // Then pull server updates
         await syncService.pullAll();
 
+        const failures = await getFailedSyncs();
         userContext.triggerRefresh();
-        return true;
+        return { success: failures.length === 0, failures };
     }, [userContext.user, auth.session]);
 
-    return {
-        pushData,
-        pullData,
-        fullSync,
-    };
+    return { pushData, pullData, fullSync };
 };

@@ -1,8 +1,8 @@
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import {  useState } from 'react';
+import { useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
-import {useSync} from "@/hooks/useSync";
-import {useAuth} from "@/hooks/useAuth";
+import { useSync, SyncResult } from "@/hooks/useSync";
+import { useAuth } from "@/hooks/useAuth";
 import { recalculateAllPRs } from '@/repositories/workoutExerciseSets';
 
 export default function Profile() {
@@ -12,23 +12,36 @@ export default function Profile() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [isPulling, setIsPulling] = useState(false);
     const [isRecalculating, setIsRecalculating] = useState(false);
+    const [syncErrors, setSyncErrors] = useState<Array<{ entity: string; error: string }>>([]);
+
+    const showSyncResult = (result: SyncResult, action: 'sync' | 'pull') => {
+        if (result.success) {
+            setSyncErrors([]);
+            Alert.alert('Success', action === 'sync' ? 'Data synced successfully!' : 'Cloud data restored successfully.');
+        } else {
+            setSyncErrors(result.failures);
+            const errorList = result.failures
+                .map(f => `• ${f.entity}: ${f.error}`)
+                .join('\n');
+            Alert.alert(
+                'Sync Failed',
+                `The following failed:\n\n${errorList}\n\nTap sync again to retry.`
+            );
+        }
+    };
 
     const handleSync = async () => {
-        if (!pushData) return;
-
+        setSyncErrors([]);
         setIsSyncing(true);
         try {
-            const success = await pushData();
-            Alert.alert(success ? "Success" : "Failed",
-                success ? "Data synced successfully!" : "Failed to sync. Try again.");
+            const result = await pushData();
+            showSyncResult(result, 'sync');
         } finally {
             setIsSyncing(false);
         }
     };
 
     const handlePull = async () => {
-        if (!pullData) return;
-
         Alert.alert(
             "Restore Data",
             "This will overwrite local data with your cloud backup. Continue?",
@@ -40,12 +53,8 @@ export default function Profile() {
                     onPress: async () => {
                         setIsPulling(true);
                         try {
-                            const ok = await pullData();
-                            Alert.alert(
-                                ok ? "Restored" : "Restore Failed",
-                                ok ? "Cloud data has been restored locally." :
-                                    "An error occurred while restoring."
-                            );
+                            const result = await pullData();
+                            showSyncResult(result, 'pull');
                         } finally {
                             setIsPulling(false);
                         }
@@ -58,7 +67,7 @@ export default function Profile() {
     const handleRecalculatePRs = () => {
         Alert.alert(
             'Recalculate PRs',
-            'This will scan all your completed workouts in order and mark personal records. Run this once to back-fill PRs from before tracking was added.',
+            'This will scan all your completed workouts in order and mark personal records.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -104,10 +113,19 @@ export default function Profile() {
             <View className="bg-surface_a10 p-6 rounded-2xl mb-4">
                 <Text className="text-surface_a50 text-sm mb-2">Email</Text>
                 <Text className="text-white text-lg mb-4">{user?.email || 'Not logged in'}</Text>
-
                 <Text className="text-surface_a50 text-sm mb-2">Username</Text>
                 <Text className="text-white text-lg">{user?.username || 'Not logged in'}</Text>
             </View>
+
+            {/* Sync errors banner */}
+            {syncErrors.length > 0 && (
+                <View className="bg-primary_a0/20 border border-primary_a0 rounded-xl p-4 mb-4">
+                    <Text className="text-primary_a0 font-bold mb-2">Last sync had errors:</Text>
+                    {syncErrors.map((e, i) => (
+                        <Text key={i} className="text-primary_a30 text-sm">• {e.entity}: {e.error}</Text>
+                    ))}
+                </View>
+            )}
 
             {/* Sync Button */}
             <TouchableOpacity

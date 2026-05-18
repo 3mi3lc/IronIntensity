@@ -55,6 +55,72 @@ export async function getTotalVolume(
     return Math.round(result[0]?.totalVolume || 0);
 }
 
+export async function getWorkoutStreak(userId: string): Promise<{ current: number; longest: number }> {
+    const result = await db
+        .select({
+            week: sql<string>`strftime('%Y-%W', ${workouts.completed_at})`,
+        })
+        .from(workouts)
+        .where(
+            and(
+                eq(workouts.user_id, userId),
+                isNotNull(workouts.completed_at),
+                isNull(workouts.deleted_at)
+            )
+        )
+        .groupBy(sql`strftime('%Y-%W', ${workouts.completed_at})`)
+        .orderBy(sql`strftime('%Y-%W', ${workouts.completed_at})`);
+
+    if (result.length === 0) return { current: 0, longest: 0 };
+
+    // Parse each week into a number of weeks since a fixed point
+    const toWeekNumber = (weekStr: string): number => {
+        const [year, week] = weekStr.split('-').map(Number);
+        return year * 53 + week; // 53 weeks per year max
+    };
+
+    const weeks = result.map(r => toWeekNumber(r.week));
+
+    // Calculate longest streak
+    let longest = 1;
+    let streak = 1;
+    for (let i = 1; i < weeks.length; i++) {
+        if (weeks[i] - weeks[i - 1] === 1) {
+            streak++;
+            longest = Math.max(longest, streak);
+        } else {
+            streak = 1;
+        }
+    }
+    longest = Math.max(longest, streak);
+
+    // Check if streak is still active (workout this week or last week)
+    const now = new Date();
+    const thisWeekStr = `${now.getFullYear()}-${String(
+        Math.ceil((((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000)
+            + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)
+    ).padStart(2, '0')}`;
+    const thisWeekNum = toWeekNumber(thisWeekStr);
+    const lastWeekNum = thisWeekNum - 1;
+    const lastWorkoutWeek = weeks[weeks.length - 1];
+
+    if (lastWorkoutWeek !== thisWeekNum && lastWorkoutWeek !== lastWeekNum) {
+        return { current: 0, longest };
+    }
+
+    // Count back current streak
+    let current = 1;
+    for (let i = weeks.length - 1; i > 0; i--) {
+        if (weeks[i] - weeks[i - 1] === 1) {
+            current++;
+        } else {
+            break;
+        }
+    }
+
+    return { current, longest };
+}
+
 // ==================== VOLUME BY TIME PERIOD ====================
 
 interface VolumeDataPoint {
@@ -583,10 +649,40 @@ interface ExerciseHistoryWorkout {
     sets: ExerciseHistorySet[];
 }
 
+export async function getCumulativeWorkoutsByMonth(
+    userId: string,
+    startDate: string,
+    endDate: string
+): Promise<WorkoutDataPoint[]> {
+    const result = await db
+        .select({
+            date: sql<string>`strftime('%Y-%m', ${workouts.completed_at})`,
+            count: sql<number>`COUNT(*)`
+        })
+        .from(workouts)
+        .where(
+            and(
+                eq(workouts.user_id, userId),
+                isNotNull(workouts.completed_at),
+                gte(workouts.completed_at, startDate),
+                lte(workouts.completed_at, endDate),
+                isNull(workouts.deleted_at)
+            )
+        )
+        .groupBy(sql`strftime('%Y-%m', ${workouts.completed_at})`)
+        .orderBy(sql`strftime('%Y-%m', ${workouts.completed_at})`);
+
+    let cumulative = 0;
+    return result.map(point => {
+        cumulative += point.count;
+        return { date: point.date, count: cumulative };
+    });
+}
+
+
 export async function getExerciseHistory(
     userId: string,
     exerciseId: string,
-    limit: number = 20
 ): Promise<ExerciseHistoryWorkout[]> {
     const result = await db
         .select({
@@ -645,7 +741,7 @@ export async function getExerciseHistory(
 
     return Array.from(workoutMap.values())
         .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
-        .slice(0, limit) //  limit workouts, not rows
+        .slice(0) //  limit workouts, not rows
         .map(workout => ({
             ...workout,
             sets: workout.sets.sort((a, b) => a.setNumber - b.setNumber)

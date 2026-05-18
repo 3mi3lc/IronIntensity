@@ -1,7 +1,7 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
 import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import { eq, and, isNull, isNotNull, lt, sql, desc, ne, inArray} from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, lt , sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
 import type {
     WorkoutExerciseSet,
@@ -275,12 +275,32 @@ export async function upsertWorkoutExerciseSetFromRemote(set: WorkoutExerciseSet
 // Batch upsert workout exercise sets from remote
 export async function upsertWorkoutExerciseSetsFromRemote(setsData: WorkoutExerciseSet[]): Promise<boolean> {
     if (setsData.length === 0) return true;
-
     try {
-        for (const set of setsData) {
-            const success = await upsertWorkoutExerciseSetFromRemote(set);
-            if (!success) return false;
-        }
+        await db.insert(workout_exercise_sets)
+            .values(setsData.map(s => ({
+                id: s.id,
+                workout_exercise_id: s.workout_exercise_id,
+                set_number: s.set_number,
+                reps: s.reps,
+                weight: s.weight,
+                is_pr: s.is_pr,
+                created_at: s.created_at,
+                updated_at: s.updated_at,
+                deleted_at: s.deleted_at,
+                is_synced: 1,
+            })))
+            .onConflictDoUpdate({
+                target: workout_exercise_sets.id,
+                set: {
+                    set_number: sql`excluded.set_number`,
+                    reps: sql`excluded.reps`,
+                    weight: sql`excluded.weight`,
+                    is_pr: sql`excluded.is_pr`,
+                    updated_at: sql`excluded.updated_at`,
+                    deleted_at: sql`excluded.deleted_at`,
+                    is_synced: 1,
+                }
+            });
         return true;
     } catch (error) {
         console.error('Failed to batch upsert workout exercise sets:', error);
@@ -344,6 +364,80 @@ export async function getMaxWeightsByRepsForExercise(
         result[row.reps] = row.maxWeight;
     }
     return result;
+}
+
+export async function checkAndMarkSetAsPR(
+    setId: string,
+    exerciseId: string,
+    weight: number,
+    reps: number,
+): Promise<boolean> {
+    try {
+        const ts = now();
+
+        // Get previous values before updating
+        const [currentSet] = await db
+            .select({
+                isPr: workout_exercise_sets.is_pr,
+                weight: workout_exercise_sets.weight,
+                reps: workout_exercise_sets.reps,
+            })
+            .from(workout_exercise_sets)
+            .where(eq(workout_exercise_sets.id, setId))
+            .limit(1);
+
+        const wasAlreadyPr = currentSet?.isPr === 1;
+        const previousWeight = currentSet?.weight ?? 0;
+        const previousReps = currentSet?.reps ?? 0;
+
+        const allPriorSets = await db
+            .select({
+                weight: workout_exercise_sets.weight,
+                reps: workout_exercise_sets.reps,
+            })
+            .from(workout_exercise_sets)
+            .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+            .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
+            .where(
+                and(
+                    eq(workout_exercises.exercise_id, exerciseId),
+                    ne(workout_exercise_sets.id, setId),
+                    isNotNull(workout_exercise_sets.weight),
+                    isNull(workout_exercise_sets.deleted_at),
+                    isNull(workout_exercises.deleted_at),
+                    isNull(workouts.deleted_at),
+                )
+            );
+
+        if (allPriorSets.length === 0) {
+            await db.update(workout_exercise_sets)
+                .set({ is_pr: 0, updated_at: ts, is_synced: 0 })
+                .where(eq(workout_exercise_sets.id, setId));
+            return false;
+        }
+
+        const best = allPriorSets.reduce((best, s) => {
+            if (s.weight! > best.weight! || (s.weight === best.weight && s.reps > best.reps)) return s;
+            return best;
+        }, allPriorSets[0]);
+
+        const isPr = weight > best.weight! || (weight === best.weight && reps > best.reps);
+
+        await db.update(workout_exercise_sets)
+            .set({ is_pr: isPr ? 1 : 0, updated_at: ts, is_synced: 0 })
+            .where(eq(workout_exercise_sets.id, setId));
+
+        // Show toast if it newly became a PR, or was already a PR but values improved
+        const valuesImproved = isPr && wasAlreadyPr && (
+            weight > previousWeight ||
+            (weight === previousWeight && reps > previousReps)
+        );
+
+        return isPr && (!wasAlreadyPr || valuesImproved);
+    } catch (err) {
+        console.error('checkAndMarkSetAsPR error:', err);
+        return false;
+    }
 }
 
 export async function markPRsForWorkout(workoutId: string): Promise<void> {

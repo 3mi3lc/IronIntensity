@@ -58,7 +58,7 @@ export function ExerciseHistoryScreen({
         setLoading(true);
         setError(null);
         try {
-            const data = await getExerciseHistory(userId, exerciseId, 20);
+            const data = await getExerciseHistory(userId, exerciseId);
             console.log('History dates:', data.map(w => w.completedAt));
             setHistory(data);
         } catch (err) {

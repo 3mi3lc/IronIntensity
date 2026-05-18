@@ -94,6 +94,7 @@ export const sync_metadata = sqliteTable('sync_metadata', {
     last_sync: text('last_sync').notNull(),
     sync_count: integer('sync_count').notNull().default(0),
     last_error: text('last_error'),
+    status: text('status').notNull().default('success'),
 });
 
 export const body_weight_entries = sqliteTable('body_weight_entries', {

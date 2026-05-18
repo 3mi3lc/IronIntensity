@@ -1,7 +1,7 @@
 // src/repositories/workouts.ts
 import {db} from '@/db/client';
 import {exercises, workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
-import {and, desc, eq, inArray, isNull} from 'drizzle-orm';
+import {and, desc, eq, inArray, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
 import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 
@@ -357,31 +357,28 @@ export async function markWorkoutsAsSynced(workoutIds: string[]): Promise<boolea
 
 export async function upsertWorkoutsFromRemote(workoutsData: Workout[]): Promise<boolean> {
     if (workoutsData.length === 0) return true;
-
     try {
-        for (const workout of workoutsData) {
-            await db.insert(workouts)
-                .values({
-                    id: workout.id,
-                    user_id: workout.user_id,
-                    name: workout.name,
-                    completed_at: workout.completed_at, // ADD THIS
-                    created_at: workout.created_at,
-                    updated_at: workout.updated_at,
-                    deleted_at: workout.deleted_at,
+        await db.insert(workouts)
+            .values(workoutsData.map(w => ({
+                id: w.id,
+                user_id: w.user_id,
+                name: w.name,
+                completed_at: w.completed_at,
+                created_at: w.created_at,
+                updated_at: w.updated_at,
+                deleted_at: w.deleted_at,
+                is_synced: 1,
+            })))
+            .onConflictDoUpdate({
+                target: workouts.id,
+                set: {
+                    name: sql`excluded.name`,
+                    completed_at: sql`excluded.completed_at`,
+                    updated_at: sql`excluded.updated_at`,
+                    deleted_at: sql`excluded.deleted_at`,
                     is_synced: 1,
-                })
-                .onConflictDoUpdate({
-                    target: workouts.id,
-                    set: {
-                        name: workout.name,
-                        completed_at: workout.completed_at, // ADD THIS
-                        updated_at: workout.updated_at,
-                        deleted_at: workout.deleted_at,
-                        is_synced: 1,
-                    },
-                });
-        }
+                }
+            });
         return true;
     } catch (error) {
         console.error('Failed to batch upsert workouts:', error);
