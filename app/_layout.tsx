@@ -17,6 +17,9 @@ import { StatusBar } from 'expo-status-bar';
 import './globals.css';
 import { useUnfinishedWorkoutCheck } from '@/hooks/useUnfinishedWorkoutCheck';
 import UnfinishedWorkoutModal from '@/components/unfinishedWorkoutModal';
+import Toast from 'react-native-toast-message';
+import { toastConfig } from '@/components/toastConfig';
+
 
 function RootLayoutNav() {
     const { user, isLoading } = useAuth();
@@ -24,9 +27,6 @@ function RootLayoutNav() {
     const router = useRouter();
 
     const { isSyncing } = useAutoSync();
-
-
-    useAutoSync();
 
     const {
         unfinishedWorkout,
@@ -110,6 +110,7 @@ function RootLayoutNav() {
                     onDiscard={handleDiscard}
                 />
             )}
+            <Toast config={toastConfig} />
         </>
     );
 }
@@ -149,11 +150,11 @@ export default function RootLayout() {
                         databaseName={DATABASE_NAME}
                         options={{ enableChangeListener: true }}
                         useSuspense>
-                        <AuthProvider>
-                            <UserProvider>
-                                <RootLayoutNav />
-                            </UserProvider>
-                        </AuthProvider>
+                            <AuthProvider>
+                                <UserProvider>
+                                    <RootLayoutNav />
+                                </UserProvider>
+                            </AuthProvider>
                     </SQLiteProvider>
                 </Suspense>
             </GestureHandlerRootView>

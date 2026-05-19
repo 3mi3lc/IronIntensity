@@ -7,7 +7,6 @@ import { ExerciseWithSets } from '@/repositories/types';
 import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
 import { ExerciseHistoryScreen } from '@/app/exercise/exerciseHistoryScreen';
 import { AntDesign } from '@expo/vector-icons';
-import {PRToast} from "@/components/prToast";
 
 interface WorkoutScreenProps {
     title: string;
@@ -38,8 +37,6 @@ interface WorkoutScreenProps {
     showExerciseHistory?: boolean;
     selectedExerciseForHistory?: { id: string; name: string } | null;
     onCloseExerciseHistory?: () => void;
-    prToast?: { visible: boolean; weight: number; reps: number };
-    onHidePrToast?: () => void;
 
 }
 
@@ -72,8 +69,6 @@ export function WorkoutScreen({
                                   showExerciseHistory,
                                   selectedExerciseForHistory,
                                   onCloseExerciseHistory,
-                                  prToast,
-                                  onHidePrToast,
                               }: WorkoutScreenProps) {
 
     // If showing exercise history, render that instead
@@ -265,14 +260,6 @@ export function WorkoutScreen({
                         <AntDesign name="plus" size={28} color="white" />
                     </TouchableOpacity>
                 </View>
-            )}
-            {prToast && onHidePrToast && (
-                <PRToast
-                    visible={prToast.visible}
-                    weight={prToast.weight}
-                    reps={prToast.reps}
-                    onHide={onHidePrToast}
-                />
             )}
         </SafeAreaView>
     );

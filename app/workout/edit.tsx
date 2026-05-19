@@ -39,8 +39,6 @@ function EditWorkout() {
         selectedExerciseForHistory,
         handleViewExerciseHistory,
         handleCloseExerciseHistory,
-        prToast,
-        hidePrToast,
 
     } = useWorkoutLogic(id, false);
 
@@ -113,8 +111,7 @@ function EditWorkout() {
                 showExerciseHistory={showExerciseHistory}
                 selectedExerciseForHistory={selectedExerciseForHistory}
                 onCloseExerciseHistory={handleCloseExerciseHistory}
-                prToast={prToast}
-                onHidePrToast={hidePrToast}
+
 
             />
 

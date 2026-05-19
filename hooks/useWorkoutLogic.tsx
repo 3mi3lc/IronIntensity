@@ -1,4 +1,3 @@
-// hooks/useWorkoutLogic.ts
 import {useState, useCallback, useRef} from 'react';
 import { Alert } from 'react-native';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
@@ -20,6 +19,9 @@ import {
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
 import { router } from "expo-router";
 import {useAuth} from "@/hooks/useAuth";
+import {checkAchievements} from "@/repositories/achievements";
+import {getTotalVolume, getTotalWorkouts, getWorkoutStreak} from "@/repositories/statistics";
+import Toast from "react-native-toast-message";
 
 export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false) {
     const { user } = useAuth();
@@ -34,14 +36,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
     const [exerciseMaxWeights, setExerciseMaxWeights] = useState<Record<string, Record<number, number>>>({});
     const updateTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-    const [prToast, setPrToast] = useState<{ visible: boolean; weight: number; reps: number }>({
-        visible: false,
-        weight: 0,
-        reps: 0,
-    });
-
-
-    // Exercise history state
     const [showExerciseHistory, setShowExerciseHistory] = useState(false);
     const [selectedExerciseForHistory, setSelectedExerciseForHistory] = useState<{
         id: string;
@@ -150,7 +144,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
             if (!newSet || typeof newSet === 'boolean') return;
 
-            // Reload to get updated isPr flags
             await loadWorkoutData();
         } catch (err) {
             console.error('Failed to add set:', err);
@@ -192,6 +185,13 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             clearTimeout(updateTimers.current[setId]);
         }
 
+        // Capture current set values BEFORE debounce delay
+        const currentExercise = exerciseData.find(ex => ex.workoutExerciseId === workoutExerciseId);
+        const currentSet = currentExercise?.sets.find(s => s.id === setId);
+        const wasAlreadyPr = currentSet?.isPr === 1;
+        const previousWeight = currentSet?.weight ?? 0;
+        const previousReps = currentSet?.reps ?? 0;
+
         updateTimers.current[setId] = setTimeout(async () => {
             try {
                 const updatedSet = await updateSet(setId, updates, { returnData: true });
@@ -200,16 +200,26 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 if (updatedSet.weight && workoutId) {
                     const exercise = exerciseData.find(ex => ex.workoutExerciseId === workoutExerciseId);
                     if (exercise) {
-                        const newlyPR = await checkAndMarkSetAsPR(
+                        const isNewPr = await checkAndMarkSetAsPR(
                             updatedSet.id,
                             exercise.exercise.id,
                             updatedSet.weight,
                             updatedSet.reps,
-                            workoutId
                         );
 
-                        if (newlyPR) {
-                            setPrToast({ visible: true, weight: updatedSet.weight, reps: updatedSet.reps });
+                        const valuesImproved = wasAlreadyPr && (
+                            updatedSet.weight > previousWeight ||
+                            (updatedSet.weight === previousWeight && updatedSet.reps > previousReps)
+                        );
+
+                        if (isNewPr || valuesImproved) {
+                            Toast.show({
+                                type: 'pr',
+                                text1: 'New Personal Record! 🏆',
+                                text2: `${updatedSet.weight}kg × ${updatedSet.reps} reps`,
+                                visibilityTime: 2500,
+                                position: 'top',
+                            });
                         }
                     }
                 }
@@ -220,7 +230,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             }
         }, 500);
     };
-
 
     const handleDeleteExercise = async () => {
         if (!exerciseToDelete || !workout?.id || isReadOnly) return;
@@ -267,7 +276,6 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
         try {
             const newWorkoutDate = date.toISOString();
-
             const updates: Record<string, any> = {
                 name: name.trim() || 'Completed Workout',
                 created_at: newWorkoutDate,
@@ -277,10 +285,8 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 const originalCreatedAt = new Date(workout.created_at);
                 const originalCompletedAt = new Date(workout.completed_at);
                 const timeDifferenceMs = originalCompletedAt.getTime() - originalCreatedAt.getTime();
-
                 const newCompletedAt = new Date(date.getTime() + timeDifferenceMs);
                 updates.completed_at = newCompletedAt.toISOString();
-
                 const dateShiftMs = date.getTime() - originalCreatedAt.getTime();
                 await updateWorkoutTimestamps(workout.id, dateShiftMs);
             } else {
@@ -296,6 +302,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             return false;
         }
     };
+
 
     const handleDeleteWorkout = async () => {
         if (!workout?.id) return false;
@@ -318,14 +325,59 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
     const finishWorkoutWithData = useCallback(
         async (name = workoutNameInput, date = workoutDate) => {
-            const success = await handleFinishWorkout(name, date);
-            if (success) {
-                router.push({ pathname: '/logging' });
+            if (!workout || !user) return false;
+
+            try {
+                // Capture stats BEFORE any DB writes
+                const allTime = { startDate: '2000-01-01', endDate: new Date().toISOString() };
+                const [prevVolume, prevWorkoutCount, { current: prevStreak, longest: prevLongest }] = await Promise.all([
+                    getTotalVolume(user.id, allTime.startDate, allTime.endDate),
+                    getTotalWorkouts(user.id, allTime.startDate, allTime.endDate),
+                    getWorkoutStreak(user.id),
+                ]);
+
+                const success = await handleFinishWorkout(name, date);
+
+                if (success) {
+                    // Navigate immediately
+                    router.push({ pathname: '/logging' });
+
+                    setTimeout(async () => {
+                        const { current: newStreak, longest: newLongest } = await getWorkoutStreak(user.id);
+                        const newlyUnlocked = await checkAchievements(
+                            user.id,
+                            newStreak,
+                            prevWorkoutCount,
+                            prevVolume,
+                            prevStreak,
+                            newLongest,
+                        );
+
+                        // Show one toast per achievement, staggered
+                        newlyUnlocked.forEach((achievement, index) => {
+                            setTimeout(() => {
+                                Toast.show({
+                                    type: 'achievement',
+                                    text1: achievement.title,
+                                    text2: achievement.icon,
+                                    visibilityTime: 3000,
+                                    position: 'top',
+                                });
+                            }, index * 3500);
+                        });
+                    }, 500);
+
+                }
+
+                return success;
+            } catch (error) {
+                console.error('Failed to finish workout:', error);
+                return false;
             }
-            return success;
         },
-        [handleFinishWorkout, workoutNameInput, workoutDate]
+        [handleFinishWorkout, workoutNameInput, workoutDate, user]
     );
+
 
     return {
         user,
@@ -355,7 +407,5 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
         selectedExerciseForHistory,
         handleViewExerciseHistory,
         handleCloseExerciseHistory,
-        prToast,
-        hidePrToast: () => setPrToast(prev => ({ ...prev, visible: false })),
     };
 }
