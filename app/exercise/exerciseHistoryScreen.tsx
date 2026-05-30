@@ -253,3 +253,5 @@ export function ExerciseHistoryScreen({
         </SafeAreaView>
     );
 }
+
+export default ExerciseHistoryScreen;

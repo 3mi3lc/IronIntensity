@@ -73,10 +73,22 @@ export async function getWorkoutStreak(userId: string): Promise<{ current: numbe
 
     if (result.length === 0) return { current: 0, longest: 0 };
 
-    // Parse each week into a number of weeks since a fixed point
+    // Parse "YYYY-WW" into a number of weeks since a fixed point
     const toWeekNumber = (weekStr: string): number => {
         const [year, week] = weekStr.split('-').map(Number);
-        return year * 53 + week; // 53 weeks per year max
+        return year * 53 + week;
+    };
+
+    // Calculate current week using same algorithm as SQLite's %W
+    // %W = "week of year (00-53), where week 01 is the week containing the first Monday"
+    const getCurrentWeekString = (date: Date): string => {
+        const year = date.getFullYear();
+        const jan1 = new Date(year, 0, 1);
+        const dayOfYear = Math.floor((date.getTime() - jan1.getTime()) / 86400000);
+        const jan1Day = jan1.getDay(); // 0=Sun, 1=Mon, ...
+        const daysToFirstMonday = jan1Day === 0 ? 1 : (8 - jan1Day) % 7;
+        const weekNum = Math.floor((dayOfYear - daysToFirstMonday + 7) / 7);
+        return `${year}-${String(weekNum).padStart(2, '0')}`;
     };
 
     const weeks = result.map(r => toWeekNumber(r.week));
@@ -95,11 +107,7 @@ export async function getWorkoutStreak(userId: string): Promise<{ current: numbe
     longest = Math.max(longest, streak);
 
     // Check if streak is still active (workout this week or last week)
-    const now = new Date();
-    const thisWeekStr = `${now.getFullYear()}-${String(
-        Math.ceil((((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000)
-            + new Date(now.getFullYear(), 0, 1).getDay() + 1) / 7)
-    ).padStart(2, '0')}`;
+    const thisWeekStr = getCurrentWeekString(new Date());
     const thisWeekNum = toWeekNumber(thisWeekStr);
     const lastWeekNum = thisWeekNum - 1;
     const lastWorkoutWeek = weeks[weeks.length - 1];
