@@ -77,7 +77,19 @@ configured & running, test infra loads (assertion repair deferred to Phase 5).
 
 ---
 
-## Phase 1 — Collapse the sync layer (highest leverage)
+## Phase 1 — Collapse the sync layer (highest leverage) — ✅ DONE (2026-07-05)
+
+**Result: `db/sync.tsx` 728 → 402 lines (−45%).** The 14 copy-paste push/pull
+methods now delegate to two generic engines — `pushTable(cfg)` / `pullTable(cfg)` —
+with a thin per-table config each. Error handling, empty-checks, cascade re-fetch,
+and last-sync bookkeeping live once. The public API (all `push*`/`pull*` methods,
+`pushAll`, `pullAll`, `pullBodyParts`) is unchanged, so `useSync`/`useAutoSync`
+needed no edits. Guarded by the Phase 5b sync tests — all green after the rewrite.
+`pushUser` kept bespoke (single-record, different shape). The remaining length is
+the explicit remote column projections, which are the sync contract and are
+deliberately not abstracted away.
+
+Design notes (as-built) below.
 
 Goal: turn `db/sync.tsx` from 14 copy-paste methods into a descriptor-driven engine.
 
@@ -111,7 +123,7 @@ sequential blocks. The two cascade-delete special cases (`pushWorkoutExercises`,
 - Keep the public `SyncService` surface (`fullSync`, `pushAll`, `pullAll`) unchanged
   so `hooks/useSync` / `useAutoSync` need no edits.
 
-_Expected: ~728 → ~180 lines._
+_Expected ~180; actual 402 — the column projections are irreducible contract._
 
 ---
 
@@ -222,8 +234,8 @@ exercise-body-parts) if those areas get refactored.
 Phase 0  → hygiene + baseline              ✅ DONE
 Phase 5a → harness + PR/statistics tests   ✅ DONE (regression anchor)
 Phase 5b → sync round-trip tests           ✅ DONE
-Phase 1  → sync layer collapse             (guarded by 5b sync tests)  ← NEXT
-Phase 2  → repository helpers + return types
+Phase 1  → sync layer collapse             ✅ DONE (728→402 lines)
+Phase 2  → repository helpers + return types   ← NEXT
 Phase 3  → hook decomposition              (guarded by 5a PR tests)
 Phase 4  → conventions, logger, dead code, any + migration-chain fix
 ```
