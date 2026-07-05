@@ -244,7 +244,7 @@ export function ExerciseHistoryScreen({
                                 No History Yet
                             </Text>
                             <Text className="text-surface_a50 text-center">
-                                This exercise hasn't been performed yet
+                                This exercise hasn&apos;t been performed yet
                             </Text>
                         </View>
                     </View>

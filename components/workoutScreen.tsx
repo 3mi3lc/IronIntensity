@@ -71,18 +71,6 @@ export function WorkoutScreen({
                                   onCloseExerciseHistory,
                               }: WorkoutScreenProps) {
 
-    // If showing exercise history, render that instead
-    if (showExerciseHistory && selectedExerciseForHistory && userId) {
-        return (
-            <ExerciseHistoryScreen
-                userId={userId}
-                exerciseId={selectedExerciseForHistory.id}
-                exerciseName={selectedExerciseForHistory.name}
-                onBack={onCloseExerciseHistory || (() => {})}
-            />
-        );
-    }
-
     const renderItem = useCallback(
         ({ item, drag, isActive }: RenderItemParams<ExerciseWithSets>) => {
             return (
@@ -111,6 +99,18 @@ export function WorkoutScreen({
         },
         [isReadOnly, exerciseMaxWeights, onDeleteExercise, onEditSet, onDeleteSet, onAddSet, onViewExerciseHistory]
     );
+
+    // If showing exercise history, render that instead (after hooks — keeps hook order stable)
+    if (showExerciseHistory && selectedExerciseForHistory && userId) {
+        return (
+            <ExerciseHistoryScreen
+                userId={userId}
+                exerciseId={selectedExerciseForHistory.id}
+                exerciseName={selectedExerciseForHistory.name}
+                onBack={onCloseExerciseHistory || (() => {})}
+            />
+        );
+    }
 
     if (loading) {
         return (

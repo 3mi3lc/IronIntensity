@@ -182,14 +182,32 @@ This makes the PR/achievement logic unit-testable without a UI.
 
 ## Phase 4 — Conventions & polish
 
+### Quick wins — ✅ DONE (2026-07-05)
+
+- **All 5 lint errors fixed** → lint now reports 0 errors (8 warnings remain:
+  mostly intentional `react-hooks/exhaustive-deps`).
+  - **Real bug:** `components/workoutScreen.tsx` called `useCallback` *after* an
+    early `return` (rules-of-hooks) — the exercise-history early return now runs
+    after the hook, keeping hook order stable across renders.
+  - `react/no-unescaped-entities` in `deleteWorkoutModal`, `workoutOptionsModal`,
+    `exerciseHistoryScreen` escaped.
+- **Dead code removed:** `profile.tsx` commented `handlePull` /
+  `handleRecalculatePRs` blocks and their commented buttons, plus the now-unused
+  `recalculateAllPRs` import, `pullData` binding, and unused `View` import in
+  `workoutListItem.tsx`.
+
+### Remaining Phase 4 work
+
 1. **Rename logic `.tsx` → `.ts`** for files with no JSX: all `repositories/*`,
    `db/client|schema|sync|cleanup`, `utils/id`, and non-JSX hooks. Update imports
    (path aliases via `@/` make this low-risk; do it with `git mv`).
 2. **Add a `utils/logger.ts`** with levels; replace the 157 `console.*` calls so
    production logging can be silenced/scoped. Sync errors already go through
    `recordSyncError` — keep that.
-3. **Delete dead commented code** (`profile.tsx` 52–98, 217–259, and similar).
-4. **Tighten `any`** (~10 sites: `Record<string, any>`, `err: any`).
+3. **Tighten `any`** (~10 sites: `Record<string, any>`, `err: any`).
+4. **Fix the migration chain** (see Phase 5a bug note) — filed as its own task.
+5. Pre-existing typecheck gap: `constants/icons.ts` can't resolve `*.png` imports
+   (missing image-module type declaration — add `declare module '*.png'`).
 
 ---
 

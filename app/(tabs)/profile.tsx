@@ -4,19 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { useSync, SyncResult } from "@/hooks/useSync";
 import { useAuth } from "@/hooks/useAuth";
-import { recalculateAllPRs } from '@/repositories/workoutExerciseSets';
 import { getAllAchievementsWithStatus, Achievement } from '@/repositories/achievements';
 import { useStreak } from '@/hooks/useStreak';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 export default function Profile() {
-    const { pushData, pullData } = useSync();
+    const { pushData } = useSync();
     const { user, signOut } = useAuth();
     const { currentStreak, longestStreak  } = useStreak(user?.id);
     const tabBarHeight = useBottomTabBarHeight();
 
     const [isSyncing, setIsSyncing] = useState(false);
-    const [syncErrors, setSyncErrors] = useState<Array<{ entity: string; error: string }>>([]);
+    const [syncErrors, setSyncErrors] = useState<{ entity: string; error: string }[]>([]);
     const [achievements, setAchievements] = useState<Achievement[]>([]);
 
     useEffect(() => {
@@ -48,54 +47,6 @@ export default function Profile() {
             setIsSyncing(false);
         }
     };
-
-    // const handlePull = async () => {
-    //     Alert.alert(
-    //         "Restore Data",
-    //         "This will overwrite local data with your cloud backup. Continue?",
-    //         [
-    //             { text: "Cancel", style: "cancel" },
-    //             {
-    //                 text: "Restore",
-    //                 style: "destructive",
-    //                 onPress: async () => {
-    //                     setIsPulling(true);
-    //                     try {
-    //                         const result = await pullData();
-    //                         showSyncResult(result, 'pull');
-    //                     } finally {
-    //                         setIsPulling(false);
-    //                     }
-    //                 }
-    //             }
-    //         ]
-    //     );
-    // };
-
-    // const handleRecalculatePRs = () => {
-    //     Alert.alert(
-    //         'Recalculate PRs',
-    //         'This will scan all your completed workouts in order and mark personal records.',
-    //         [
-    //             { text: 'Cancel', style: 'cancel' },
-    //             {
-    //                 text: 'Recalculate',
-    //                 onPress: async () => {
-    //                     if (!user?.id) return;
-    //                     setIsRecalculating(true);
-    //                     try {
-    //                         await recalculateAllPRs(user.id);
-    //                         Alert.alert('Done', 'PRs have been recalculated across all workouts.');
-    //                     } catch {
-    //                         Alert.alert('Error', 'Something went wrong. Please try again.');
-    //                     } finally {
-    //                         setIsRecalculating(false);
-    //                     }
-    //                 },
-    //             },
-    //         ]
-    //     );
-    // };
 
     const handleLogout = () => {
         Alert.alert(
@@ -213,50 +164,6 @@ export default function Profile() {
                         </View>
                     ))}
                 </View>
-
-                {/* Pull Button — commented out for now */}
-                {/* <TouchableOpacity
-                    onPress={handlePull}
-                    disabled={isPulling}
-                    className={`py-4 rounded-xl flex-row items-center justify-center mb-3 ${
-                        isPulling ? 'bg-surface_a30' : 'bg-primary_a10'
-                    }`}
-                    activeOpacity={0.8}
-                >
-                    {isPulling ? (
-                        <>
-                            <ActivityIndicator size="small" color="white" />
-                            <Text className="text-white font-bold text-lg ml-2">Restoring...</Text>
-                        </>
-                    ) : (
-                        <>
-                            <AntDesign name="download" size={20} color="white" />
-                            <Text className="text-white font-bold text-lg ml-2">Pull (Restore Backup)</Text>
-                        </>
-                    )}
-                </TouchableOpacity> */}
-
-                {/* Recalculate PRs — commented out for now */}
-                {/* <TouchableOpacity
-                    onPress={handleRecalculatePRs}
-                    disabled={isRecalculating}
-                    className={`py-4 rounded-xl flex-row items-center justify-center mb-3 ${
-                        isRecalculating ? 'bg-surface_a30' : 'bg-surface_a10'
-                    }`}
-                    activeOpacity={0.8}
-                >
-                    {isRecalculating ? (
-                        <>
-                            <ActivityIndicator size="small" color="white" />
-                            <Text className="text-white font-bold text-lg ml-2">Recalculating...</Text>
-                        </>
-                    ) : (
-                        <>
-                            <AntDesign name="star" size={20} color="#f34023" />
-                            <Text className="text-white font-bold text-lg ml-2">Recalculate PRs</Text>
-                        </>
-                    )}
-                </TouchableOpacity> */}
 
                 {/* Logout Button */}
                 <TouchableOpacity
