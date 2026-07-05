@@ -3,6 +3,7 @@ import {db} from '@/db/client';
 import {workout_exercise_sets, workout_exercises} from '@/db/schema';
 import {and, eq, isNull, sql, inArray} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
+import {softDeleteFields, touch} from './_helpers';
 import type {WorkoutExercise } from './types';
 
 export async function addExerciseToWorkoutById(
@@ -49,7 +50,7 @@ export async function reorderWorkoutExercises(
         for (let i = 0; i < orderedIds.length; i++) {
             await tx
                 .update(workout_exercises)
-                .set({ order_index: i + 1, updated_at: ts, is_synced: 0 })
+                .set({ order_index: i + 1, ...touch(ts) })
                 .where(
                     and(
                         eq(workout_exercises.id, orderedIds[i]),
@@ -70,7 +71,7 @@ export async function softDeleteWorkoutExerciseById(
         // 1. Cascade delete to all sets first
         await db
             .update(workout_exercise_sets)
-            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .set(softDeleteFields(deletedAt))
             .where(
                 and(
                     eq(workout_exercise_sets.workout_exercise_id, id),
@@ -81,7 +82,7 @@ export async function softDeleteWorkoutExerciseById(
         // 2. Then delete the workout_exercise itself
         const query = db
             .update(workout_exercises)
-            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .set(softDeleteFields(deletedAt))
             .where(and(eq(workout_exercises.id, id), isNull(workout_exercises.deleted_at)));
 
         if (options?.returnData) {

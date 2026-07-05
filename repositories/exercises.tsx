@@ -3,6 +3,7 @@ import {db} from '@/db/client';
 import {exercise_body_parts, exercises} from '@/db/schema';
 import {and, eq, inArray, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
+import {softDeleteFields, touch} from './_helpers';
 import type {BodypartWithExercises, Exercise, NewExercise} from './types';
 import {getAllBodyParts} from "@/repositories/bodyParts";
 
@@ -37,7 +38,7 @@ export async function updateExerciseById(
 ): Promise<Exercise | boolean> {
     const query = db
         .update(exercises)
-        .set({ ...patch, updated_at: now(), is_synced: 0 })
+        .set({ ...patch, ...touch() })
         .where(eq(exercises.id, id));
 
     if (options?.returnData) {
@@ -59,7 +60,7 @@ export async function softDeleteExerciseById(
         // Mark exercise_body_parts junction records as deleted
         await db
             .update(exercise_body_parts)
-            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .set(softDeleteFields(deletedAt))
             .where(
                 and(
                     eq(exercise_body_parts.exercise_id, id),
@@ -70,7 +71,7 @@ export async function softDeleteExerciseById(
         // Mark exercise as deleted
         const query = db
             .update(exercises)
-            .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+            .set(softDeleteFields(deletedAt))
             .where(and(eq(exercises.id, id), isNull(exercises.deleted_at)));
 
         if (options?.returnData) {

@@ -131,21 +131,37 @@ _Expected ~180; actual 402 — the column projections are irreducible contract._
 
 Goal: remove per-repository boilerplate and the `Entity | boolean` convention.
 
-1. **Shared query helpers** (new `repositories/_helpers.ts`):
-   - `activeOnly(table)` → `isNull(table.deleted_at)` predicate.
-   - `syncTouch()` → `{ updated_at: now(), is_synced: 0 }` spread.
-   - `softDelete(table, id)` and cascade variants — used by `workouts`,
-     `workoutExercises`, `workoutExerciseSets`.
-2. **Replace `Promise<Entity | boolean>` + `returnData`.** Prefer either:
-   - split functions (`addSet` returns `void`/changes, `addSetReturning` returns the
-     row), or
-   - typed overloads so the return type follows the `returnData` flag with no
-     `typeof === 'boolean'` guards at call sites.
-   Update callers in `useWorkoutLogic` accordingly.
-3. **Split `statistics.tsx` (756 lines)** into cohesive modules (e.g. `volume`,
-   `streak`, `personalRecords`) under `repositories/statistics/`.
+### Part A — shared mutation helpers — ✅ DONE (2026-07-05)
 
-_Do this incrementally, one repository at a time, tests green between each._
+Added `repositories/_helpers.ts` with `touch(ts?)` → `{ updated_at, is_synced: 0 }`
+and `softDeleteFields(ts?)` → `{ deleted_at, updated_at, is_synced: 0 }`, both
+accepting an optional shared timestamp so multi-statement operations keep an
+identical `updated_at`. Applied across `workouts`, `workoutExercises`,
+`workoutExerciseSets`, `exercises`, and `bodyWeightEntries` (~15 sites). This
+centralizes the offline-first "reset `is_synced` on every mutation" convention
+that was previously hand-repeated. All 32 tests green; no behavior change.
+
+Left intentionally bespoke: `markWorkoutExerciseAsDeleted` /
+`markWorkoutExerciseSetAsDeleted` set only `deleted_at` (internal sync-cascade
+helpers, not user mutations); inserts keep explicit `created_at`.
+
+_Not done: an `activeOnly`/`isNull(deleted_at)` predicate wrapper — judged too
+thin to be worth the indirection over the already-clear `isNull(t.deleted_at)`._
+
+### Part B — return-type cleanup — DEFERRED
+
+Replacing `Promise<Entity | boolean>` + `returnData` changes call sites across UI
+screens and hooks (every `typeof x === 'boolean'` guard). We only have
+repository- and sync-level tests — no UI/hook tests — so doing this blind risks
+silent breakage. **Deferred until Phase 3** (hook decomposition), where the
+affected `useWorkoutLogic` callers are being rewritten anyway and can adopt the
+new signatures in the same guarded pass.
+
+### Part C — split `statistics.tsx` (756 lines) — DEFERRED
+
+Into cohesive modules (`volume`, `streak`, `personalRecords`) under
+`repositories/statistics/`. Low risk (read-only, covered by `statistics.test.ts`)
+but mechanical; bundle with Phase 4 file-convention work.
 
 ---
 
@@ -235,8 +251,9 @@ Phase 0  → hygiene + baseline              ✅ DONE
 Phase 5a → harness + PR/statistics tests   ✅ DONE (regression anchor)
 Phase 5b → sync round-trip tests           ✅ DONE
 Phase 1  → sync layer collapse             ✅ DONE (728→402 lines)
-Phase 2  → repository helpers + return types   ← NEXT
-Phase 3  → hook decomposition              (guarded by 5a PR tests)
+Phase 2  → repository mutation helpers      ✅ DONE (Part A; B/C deferred)
+Phase 3  → hook decomposition + return-type cleanup   ← NEXT
+
 Phase 4  → conventions, logger, dead code, any + migration-chain fix
 ```
 

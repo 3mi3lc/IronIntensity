@@ -4,6 +4,7 @@ import { db } from '@/db/client';
 import { body_weight_entries } from '@/db/schema';
 import { and, eq, inArray, isNull, gte, lte, desc } from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
+import { softDeleteFields } from './_helpers';
 import type { BodyWeightEntry, NewBodyWeightEntry } from './types';
 
 export async function createBodyWeightEntry(
@@ -124,11 +125,7 @@ export async function softDeleteBodyWeightEntry(id: string): Promise<boolean> {
 
     const result = await db
         .update(body_weight_entries)
-        .set({
-            deleted_at: deletedAt,
-            updated_at: deletedAt,
-            is_synced: 0
-        })
+        .set(softDeleteFields(deletedAt))
         .where(
             and(
                 eq(body_weight_entries.id, id),

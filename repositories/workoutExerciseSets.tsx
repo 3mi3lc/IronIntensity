@@ -3,6 +3,7 @@ import { db } from '@/db/client';
 import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
 import { eq, and, isNull, isNotNull, lt , sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
+import { softDeleteFields, touch } from './_helpers';
 import type {
     WorkoutExerciseSet,
     NewWorkoutExerciseSet,
@@ -52,7 +53,7 @@ export async function updateSet(
 
     const query = db
         .update(workout_exercise_sets)
-        .set({ ...patch, updated_at: now(), is_synced: 0 })
+        .set({ ...patch, ...touch() })
         .where(eq(workout_exercise_sets.id, id));
 
     if (options?.returnData) {
@@ -85,7 +86,7 @@ export async function softDeleteSet(
     // Soft delete the set by updating deleted_at, updated_at, and is_synced
     const query = db
         .update(workout_exercise_sets)
-        .set({ deleted_at: ts, updated_at: ts, is_synced: 0 })
+        .set(softDeleteFields(ts))
         .where(eq(workout_exercise_sets.id, id));
 
     let deletedSet: WorkoutExerciseSet | null = null;
@@ -411,7 +412,7 @@ export async function checkAndMarkSetAsPR(
 
         if (allPriorSets.length === 0) {
             await db.update(workout_exercise_sets)
-                .set({ is_pr: 0, updated_at: ts, is_synced: 0 })
+                .set({ is_pr: 0, ...touch(ts) })
                 .where(eq(workout_exercise_sets.id, setId));
             return false;
         }
@@ -424,7 +425,7 @@ export async function checkAndMarkSetAsPR(
         const isPr = weight > best.weight! || (weight === best.weight && reps > best.reps);
 
         await db.update(workout_exercise_sets)
-            .set({ is_pr: isPr ? 1 : 0, updated_at: ts, is_synced: 0 })
+            .set({ is_pr: isPr ? 1 : 0, ...touch(ts) })
             .where(eq(workout_exercise_sets.id, setId));
 
         // Show toast if it newly became a PR, or was already a PR but values improved
@@ -563,7 +564,7 @@ export async function markPRsForWorkout(workoutId: string): Promise<void> {
             runningBest.set(set.exerciseId, { weight: set.weight, reps: set.reps });
             await db
                 .update(workout_exercise_sets)
-                .set({ is_pr: 1, updated_at: ts, is_synced: 0 })
+                .set({ is_pr: 1, ...touch(ts) })
                 .where(eq(workout_exercise_sets.id, set.setId));
         } else {
             runningBest.set(set.exerciseId, best);

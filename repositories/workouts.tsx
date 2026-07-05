@@ -3,6 +3,7 @@ import {db} from '@/db/client';
 import {exercises, workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
 import {and, desc, eq, inArray, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
+import {softDeleteFields, touch} from './_helpers';
 import type {ExerciseWithSets, NewWorkout, Workout} from './types';
 
 interface UpdateWorkoutInput {
@@ -66,7 +67,7 @@ export async function updateWorkoutNameById(
 
     const query = db
         .update(workouts)
-        .set({name, updated_at: now(), is_synced: 0})
+        .set({name, ...touch()})
         .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
     if(options?.returnData) {
@@ -101,13 +102,13 @@ export async function softDeleteWorkoutById(
             // Mark workout_exercise as deleted
             await db
                 .update(workout_exercises)
-                .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+                .set(softDeleteFields(deletedAt))
                 .where(eq(workout_exercises.id, we.id));
 
             // Mark all sets for this workout_exercise as deleted
             await db
                 .update(workout_exercise_sets)
-                .set({ deleted_at: deletedAt, updated_at: deletedAt, is_synced: 0 })
+                .set(softDeleteFields(deletedAt))
                 .where(
                     and(
                         eq(workout_exercise_sets.workout_exercise_id, we.id),
@@ -218,8 +219,7 @@ export async function updateWorkoutById(
         .update(workouts)
         .set({
             ...patch,
-            updated_at: now(),
-            is_synced: 0
+            ...touch()
         })
         .where(and(eq(workouts.id, id), isNull(workouts.deleted_at)));
 
@@ -408,8 +408,7 @@ export async function updateWorkoutTimestamps(
                 .update(workout_exercises)
                 .set({
                     created_at: newCreatedAt.toISOString(),
-                    updated_at: now(),
-                    is_synced: 0
+                    ...touch()
                 })
                 .where(eq(workout_exercises.id, we.id));
 
@@ -430,8 +429,7 @@ export async function updateWorkoutTimestamps(
                     .update(workout_exercise_sets)
                     .set({
                         created_at: newSetCreatedAt.toISOString(),
-                        updated_at: now(),
-                        is_synced: 0
+                        ...touch()
                     })
                     .where(eq(workout_exercise_sets.id, set.id));
             }
