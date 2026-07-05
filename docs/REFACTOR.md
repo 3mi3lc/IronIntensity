@@ -196,12 +196,23 @@ Suites (24 tests, all green):
 > created_at`). Existing installs survive because they were migrated incrementally.
 > Also: `0005` re-runs `0004`'s `completed_at` backfill (harmless duplicate).
 
-### Phase 5b — remaining
+### Phase 5b — DONE (2026-07-05)
 
-3. **Sync round-trip** — push maps → remote columns; pull cleans nested joins;
-   cascade-delete of orphaned `workout_exercises` / sets. Anchors Phase 1
-   (needs a mocked/faked Supabase client).
-4. Broaden soft-delete invariants across the other repositories.
+Added `test-utils/fakeSupabase.ts` (records upsert payloads, serves preset select
+data) and `__tests__/sync.test.ts` (8 tests). Anchors Phase 1 by pinning:
+- **Exact push column projections** (e.g. `pushExercises`, `pushWorkouts` incl.
+  `completed_at`) — the contract the descriptor refactor must preserve.
+- **Mark-synced only on success**: a failed remote upsert returns `false`, leaves
+  `is_synced = 0`, and records a `failed` row in `sync_metadata`.
+- **Parent cascades**: `pushSets` / `pushWorkoutExercises` soft-delete children of
+  a deleted parent before pushing.
+- **Pull path**: remote rows land locally as `is_synced = 1`, last-sync recorded,
+  nested join objects tolerated.
+
+### Phase 5c — remaining (optional)
+
+Broaden soft-delete invariants across the other repositories (body weight,
+exercise-body-parts) if those areas get refactored.
 
 ---
 
@@ -210,8 +221,8 @@ Suites (24 tests, all green):
 ```
 Phase 0  → hygiene + baseline              ✅ DONE
 Phase 5a → harness + PR/statistics tests   ✅ DONE (regression anchor)
-Phase 5b → sync round-trip tests           (before Phase 1)
-Phase 1  → sync layer collapse             (guarded by 5b sync tests)
+Phase 5b → sync round-trip tests           ✅ DONE
+Phase 1  → sync layer collapse             (guarded by 5b sync tests)  ← NEXT
 Phase 2  → repository helpers + return types
 Phase 3  → hook decomposition              (guarded by 5a PR tests)
 Phase 4  → conventions, logger, dead code, any + migration-chain fix
