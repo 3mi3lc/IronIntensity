@@ -277,7 +277,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
         try {
             const newWorkoutDate = date.toISOString();
-            const updates: Record<string, any> = {
+            const updates: Record<string, string> = {
                 name: name.trim() || 'Completed Workout',
                 created_at: newWorkoutDate,
             };

@@ -1,5 +1,6 @@
 // app/index.tsx
 import { Redirect } from 'expo-router';
+import { logger } from '@/utils/logger';
 import { useContext, useEffect } from 'react';
 import { UserContext } from '@/contexts/UserContext';
 import { View, ActivityIndicator, Text } from 'react-native';
@@ -12,7 +13,7 @@ export default function Index() {
     };
 
     useEffect(() => {
-        console.log('Index: User state changed:', {
+        logger.debug('Index: User state changed:', {
             user: user?.email,
             isLoading,
             isOffline
@@ -33,7 +34,7 @@ export default function Index() {
         );
     }
 
-    console.log('Index: Redirecting...', user ? 'to app' : 'to login');
+    logger.debug('Index: Redirecting...', user ? 'to app' : 'to login');
 
     // Redirect based on auth state
     if (!user) {

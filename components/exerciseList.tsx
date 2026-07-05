@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '@/utils/logger';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
@@ -40,7 +41,7 @@ export const ExerciseList = ({ exercises, userId, startDate, endDate, onViewHist
             setExerciseVolumeData(vol);
             setExerciseMaxWeightData(weight);
         } catch (error) {
-            console.error('Error loading exercise details:', error);
+            logger.error('Error loading exercise details:', error);
         }
     };
 

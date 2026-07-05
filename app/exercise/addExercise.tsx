@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { logger } from '@/utils/logger';
 import React, {  useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
@@ -36,7 +37,7 @@ function AddExercise() {
 
             setBodyPartSections(sectionsWithExpanded);
         } catch (err) {
-            console.error('Failed to load exercises with body parts', err);
+            logger.error('Failed to load exercises with body parts', err);
         } finally {
             setLoading(false);
         }
@@ -71,7 +72,7 @@ function AddExercise() {
             // Navigate back to the workout screen
             router.back();
         } catch (err) {
-            console.error('Failed to add exercise to workout:', err);
+            logger.error('Failed to add exercise to workout:', err);
             Alert.alert('Error', 'Failed to add exercise to workout');
         } finally {
             setAddingExercise(false);

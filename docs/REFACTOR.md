@@ -198,22 +198,23 @@ This makes the PR/achievement logic unit-testable without a UI.
 
 ### Remaining Phase 4 work
 
-2. **Logger — ✅ PARTIALLY DONE (2026-07-05).** Added `utils/logger.ts`
-   (`debug`/`info` dev-only via `__DEV__`, muted under Jest; `warn`/`error` always
-   surface). Migrated all non-UI layers off raw `console.*`: `db/` and
-   `repositories/` (65 calls) and `contexts/` + `hooks/` (37 calls). **Remaining:
-   ~21 calls in `app/` + `components/`** (UI error logging) — lower priority
-   follow-up.
+2. **Logger — ✅ DONE (2026-07-05).** Added `utils/logger.ts` (`debug`/`info`
+   dev-only via `__DEV__`, muted under Jest; `warn`/`error` always surface).
+   Migrated **every** raw `console.*` in `db/`, `repositories/`, `contexts/`,
+   `hooks/`, `app/`, and `components/` to it — 0 remain outside `logger.ts`.
 5. **Asset typecheck gap — ✅ DONE.** Added `global.d.ts` with `declare module
-   '*.png'` (+ jpg/jpeg/svg/ttf); `constants/icons.ts` now type-checks.
+   '*.png'` (+ jpg/jpeg/svg/ttf). **Project now type-checks with 0 `tsc` errors.**
+3. **Tighten `any` — ✅ PARTIAL.** Tightened the pure-type sites with no runtime
+   change (`useStreak` trigger → `unknown`, `useWorkoutLogic` updates →
+   `Record<string, string>`, `workoutScreen` `onEditSet` updates typed). Left the
+   justified/pragmatic ones (Supabase query-builder interop in `db/sync.tsx`,
+   icon-name casts, `catch (e: any)` blocks).
 
 Still open:
-1. **Rename logic `.tsx` → `.ts`** for files with no JSX: all `repositories/*`,
-   `db/client|schema|sync|cleanup`, `utils/id`, and non-JSX hooks. Update imports
-   (path aliases via `@/` make this low-risk; do it with `git mv`).
-3. **Tighten `any`** (~10 sites: `Record<string, any>`, `err: any`).
-4. **Fix the migration chain** (see Phase 5a bug note) — filed as its own task.
-6. **Migrate remaining `console.*`** in `app/` + `components/` to the logger.
+1. **Rename logic `.tsx` → `.ts`** for files with no JSX (mechanical; `git mv`,
+   imports are extension-less so low-risk).
+4. **Fix the migration chain** (see Phase 5a bug note) — filed as its own task;
+   deferred here to avoid risking existing installs' migration history.
 
 ---
 

@@ -1,5 +1,6 @@
 // app/_layout.tsx
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { logger } from '@/utils/logger';
 import { Suspense, useEffect } from 'react';
 import { ActivityIndicator, View, Text } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
@@ -41,17 +42,17 @@ function RootLayoutNav() {
 
         const inAuthGroup = segments[0] === 'auth';
 
-        console.log('Layout: Auth state changed', {
+        logger.debug('Layout: Auth state changed', {
             user: user?.email,
             inAuthGroup,
             currentPath: segments.join('/')
         });
 
         if (!user && !inAuthGroup) {
-            console.log('Layout: Redirecting to login...');
+            logger.debug('Layout: Redirecting to login...');
             router.replace('/auth/login');
         } else if (user && inAuthGroup) {
-            console.log('Layout: Redirecting to app...');
+            logger.debug('Layout: Redirecting to app...');
             router.replace('/(tabs)/logging');
         }
     }, [user, isLoading, segments]);

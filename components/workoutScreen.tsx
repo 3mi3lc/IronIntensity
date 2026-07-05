@@ -28,7 +28,7 @@ interface WorkoutScreenProps {
     onDeleteExercise?: (exercise: ExerciseWithSets) => void;
     onAddSet?: (workoutExerciseId: string) => void;
     onDeleteSet?: (workoutExerciseId: string, setId: string) => void;
-    onEditSet?: (workoutExerciseId: string, setId: string, updates: any) => void;
+    onEditSet?: (workoutExerciseId: string, setId: string, updates: { reps?: number; weight?: number; setNumber?: number }) => void;
     onReorderExercises?: (data: ExerciseWithSets[]) => void;
     onViewExerciseHistory?: (exerciseId: string, exerciseName: string) => void;
     exerciseMaxWeights?: Record<string, Record<number, number>>;
