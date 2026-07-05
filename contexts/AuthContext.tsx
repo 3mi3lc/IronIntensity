@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode, useRef } from 'react';
+import { logger } from '@/utils/logger';
 import { supabase } from '@/utils/supabase';
 import { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -32,11 +33,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const isExpired = expiresAt ? now >= expiresAt : false;
 
                     if (isExpired) {
-                        console.log('AuthContext: Token expired, attempting refresh...');
+                        logger.debug('AuthContext: Token expired, attempting refresh...');
                         // Try to refresh — will fail offline
                         const { data, error } = await supabase.auth.refreshSession();
                         if (error || !data.session) {
-                            console.log('AuthContext: Refresh failed (offline?), using expired session for local access');
+                            logger.debug('AuthContext: Refresh failed (offline?), using expired session for local access');
                             // Still let the user in — they can use local data
                             setSession(cachedSession);
                             setSupabaseUser(cachedSession.user);
@@ -45,7 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             setSupabaseUser(data.session.user);
                         }
                     } else {
-                        console.log('AuthContext: Valid cached session found');
+                        logger.debug('AuthContext: Valid cached session found');
                         setSession(cachedSession);
                         setSupabaseUser(cachedSession.user);
 
@@ -62,13 +63,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     initialSessionHandled.current = true;
                     setIsLoading(false);
                 } else {
-                    console.log('AuthContext: No cached session found');
+                    logger.debug('AuthContext: No cached session found');
                     setSession(null);
                     setSupabaseUser(null);
                     setIsLoading(false);
                 }
             } catch (error) {
-                console.error('AuthContext: Init session error:', error);
+                logger.error('AuthContext: Init session error:', error);
                 if (mounted) {
                     setSession(null);
                     setSupabaseUser(null);
@@ -83,7 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!mounted) return;
 
-            console.log('AuthContext: Auth state change:', event);
+            logger.debug('AuthContext: Auth state change:', event);
 
             if (event === 'INITIAL_SESSION' && initialSessionHandled.current) {
                 return;
@@ -96,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
             if (event === 'SIGNED_OUT') {
-                console.log('AuthContext: Signing out - clearing all state');
+                logger.debug('AuthContext: Signing out - clearing all state');
                 setSession(null);
                 setSupabaseUser(null);
                 initialSessionHandled.current = false;
@@ -105,7 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
 
             if (event === 'SIGNED_IN') {
-                console.log('AuthContext: Signed in');
+                logger.debug('AuthContext: Signed in');
                 setSession(session);
                 setSupabaseUser(session?.user || null);
                 setIsLoading(false);

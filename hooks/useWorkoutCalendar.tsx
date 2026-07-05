@@ -1,5 +1,6 @@
 // hooks/useWorkoutCalendar.ts
 import { useState, useCallback,  useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import { Workout } from '@/repositories/types';
 import { getWorkoutsForCalendar } from '@/repositories/workouts';
 import { useFocusEffect } from 'expo-router';
@@ -19,7 +20,7 @@ export const useWorkoutCalendar = () => {
             const all = await getWorkoutsForCalendar(userId);
             setWorkouts(all);
         } catch (err) {
-            console.error('Failed to load workouts:', err);
+            logger.error('Failed to load workouts:', err);
         }
     }, [userId]); // Removed selectedDate from dependencies
 

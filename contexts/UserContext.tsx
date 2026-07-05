@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
+import { logger } from '@/utils/logger';
 import { AuthContext } from './AuthContext';
 import { createOrUpdateUser, getLastLocalUser } from '@/repositories/users';
 import type { User } from '@/repositories/types';
@@ -50,7 +51,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         const loadUser = async () => {
             // If offline, immediately try to load local user
             if (isOffline) {
-                console.log('Offline detected - loading from local database');
+                logger.debug('Offline detected - loading from local database');
                 await checkLocalUser();
                 return;
             }
@@ -61,7 +62,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
                 // Set a timeout to proceed anyway after 5 seconds
                 timeoutId = setTimeout(() => {
-                    console.log('Auth loading timeout - checking local database');
+                    logger.debug('Auth loading timeout - checking local database');
                     checkLocalUser();
                 }, AUTH_TIMEOUT);
 
@@ -73,14 +74,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
             // If no Supabase user, check if we have a local user (offline mode)
             if (!auth.supabaseUser) {
-                console.log('No Supabase user - checking local database');
+                logger.debug('No Supabase user - checking local database');
                 await checkLocalUser();
                 return;
             }
 
             // We have a Supabase user, create/update local user
             try {
-                console.log('Creating/updating user from Supabase:', auth.supabaseUser.email);
+                logger.debug('Creating/updating user from Supabase:', auth.supabaseUser.email);
                 const localUser = await createOrUpdateUser({
                     id: auth.supabaseUser.id,
                     email: auth.supabaseUser.email!,
@@ -91,7 +92,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 setUser(localUser);
                 setIsLoading(false);
             } catch (error) {
-                console.error('Failed to load/create user:', error);
+                logger.error('Failed to load/create user:', error);
                 // Fall back to checking local database
                 await checkLocalUser();
             }
@@ -103,14 +104,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
                 const localUser = await getLastLocalUser();
 
                 if (localUser) {
-                    console.log('Loaded user from local database (offline mode):', localUser.email);
+                    logger.debug('Loaded user from local database (offline mode):', localUser.email);
                     setUser(localUser);
                 } else {
-                    console.log('No local user found');
+                    logger.debug('No local user found');
                     setUser(null);
                 }
             } catch (error) {
-                console.error('Failed to check local user:', error);
+                logger.error('Failed to check local user:', error);
                 setUser(null);
             } finally {
                 setIsLoading(false);

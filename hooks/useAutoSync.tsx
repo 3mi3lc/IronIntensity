@@ -1,4 +1,5 @@
 import {useContext, useEffect, useRef, useState} from 'react';
+import { logger } from '@/utils/logger';
 import { UserContext } from '@/contexts/UserContext';
 import {useAuth} from "@/hooks/useAuth";
 import {AuthContext} from "@/contexts/AuthContext";
@@ -20,18 +21,18 @@ export const useAutoSync = () => {
     useEffect(() => {
         // Skip sync if offline
         if (userContext?.isOffline) {
-            console.log('Auto-sync: Skipping — device is offline');
+            logger.debug('Auto-sync: Skipping — device is offline');
             return;
         }
 
         if (user && auth?.session && !hasAutoSynced.current) {
-            console.log('Auto-sync: Starting for user:', user.id);
+            logger.debug('Auto-sync: Starting for user:', user.id);
             hasAutoSynced.current = true;
 
             setIsSyncing(true);
             fullSyncRef.current()
-                .then(() => console.log('Auto-sync: Completed'))
-                .catch(error => console.error('Auto-sync: Failed', error))
+                .then(() => logger.debug('Auto-sync: Completed'))
+                .catch(error => logger.error('Auto-sync: Failed', error))
                 .finally(() => setIsSyncing(false));
         }
 

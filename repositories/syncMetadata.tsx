@@ -1,4 +1,5 @@
 import {db} from "@/db/client";
+import { logger } from '@/utils/logger';
 import {sync_metadata} from "@/db/schema";
 import {eq, sql} from "drizzle-orm";
 
@@ -11,7 +12,7 @@ export async function getLastSyncTime(entity: string): Promise<string | null> {
             .where(eq(sync_metadata.key, key));
         return result?.last_sync || null;
     } catch (error) {
-        console.error('Failed to get last sync time:', error);
+        logger.error('Failed to get last sync time:', error);
         return null;
     }
 }
@@ -39,7 +40,7 @@ export async function setLastSyncTime(entity: string, error?: string) {
             });
         }
     } catch (err) {
-        console.error('Failed to set last sync time:', err);
+        logger.error('Failed to set last sync time:', err);
     }
 }
 
@@ -63,7 +64,7 @@ export async function recordSyncError(entity: string, error: string) {
             });
         }
     } catch (err) {
-        console.error('Failed to record sync error:', err);
+        logger.error('Failed to record sync error:', err);
     }
 }
 
@@ -79,7 +80,7 @@ export async function getFailedSyncs(): Promise<Array<{ entity: string; error: s
             error: r.last_error || 'Unknown error',
         }));
     } catch (error) {
-        console.error('Failed to get failed syncs:', error);
+        logger.error('Failed to get failed syncs:', error);
         return [];
     }
 }
@@ -88,7 +89,7 @@ export async function getSyncStats() {
     try {
         return await db.select().from(sync_metadata);
     } catch (error) {
-        console.error('Failed to get sync stats:', error);
+        logger.error('Failed to get sync stats:', error);
         return [];
     }
 }
@@ -96,8 +97,8 @@ export async function getSyncStats() {
 export async function resetSyncHistory() {
     try {
         await db.delete(sync_metadata);
-        console.log('Sync history cleared - next pull will fetch everything');
+        logger.debug('Sync history cleared - next pull will fetch everything');
     } catch (error) {
-        console.error('Failed to reset sync history:', error);
+        logger.error('Failed to reset sync history:', error);
     }
 }

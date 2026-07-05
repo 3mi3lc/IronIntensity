@@ -1,4 +1,5 @@
 import {BodyPart} from "@/repositories/types";
+import { logger } from '@/utils/logger';
 import {db} from "@/db/client";
 import {body_parts} from "@/db/schema";
 
@@ -23,7 +24,7 @@ export async function upsertBodyPartFromRemote(bodyPart: BodyPart): Promise<bool
             });
         return true;
     } catch (error) {
-        console.error('Failed to upsert body part:', error);
+        logger.error('Failed to upsert body part:', error);
         return false;
     }
 }
@@ -39,7 +40,7 @@ export async function upsertBodyPartsFromRemote(bodyPartsData: BodyPart[]): Prom
         }
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert body parts:', error);
+        logger.error('Failed to batch upsert body parts:', error);
         return false;
     }
 }

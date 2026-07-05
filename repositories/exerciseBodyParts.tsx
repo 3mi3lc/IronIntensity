@@ -1,4 +1,5 @@
 import {db} from '@/db/client';
+import { logger } from '@/utils/logger';
 import { exercise_body_parts} from '@/db/schema';
 import {and, eq} from 'drizzle-orm';
 import { ExerciseBodyPart} from "@/repositories/types";
@@ -81,7 +82,7 @@ export async function upsertExerciseBodyPartFromRemote(exerciseBodyPart: Exercis
             });
         return true;
     } catch (error) {
-        console.error('Failed to upsert exercise body part:', error);
+        logger.error('Failed to upsert exercise body part:', error);
         return false;
     }
 }
@@ -97,7 +98,7 @@ export async function upsertExerciseBodyPartsFromRemote(exerciseBodyPartsData: E
         }
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert exercise body parts:', error);
+        logger.error('Failed to batch upsert exercise body parts:', error);
         return false;
     }
 }

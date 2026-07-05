@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { logger } from '@/utils/logger';
 import { format } from 'date-fns';
 import { getBodyWeightEntries } from '@/repositories/bodyWeightEntries';
 import {
@@ -154,7 +155,7 @@ export function useStatistics(userId: string | undefined) {
                 loadChartDataForMetric(startDate, endDate),
             ]);
         } catch (error) {
-            console.error('Error loading statistics:', error);
+            logger.error('Error loading statistics:', error);
         } finally {
             setLoading(false);
         }

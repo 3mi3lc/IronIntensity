@@ -1,4 +1,5 @@
 import {useState, useCallback, useRef} from 'react';
+import { logger } from '@/utils/logger';
 import { Alert } from 'react-native';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
 import {
@@ -83,7 +84,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 return historicalSets;
             }
         } catch (error) {
-            console.log('Could not load historical sets:', error);
+            logger.debug('Could not load historical sets:', error);
         }
         return null;
     }, [exerciseHistoricalSets, workout?.id]);
@@ -146,7 +147,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
             await loadWorkoutData();
         } catch (err) {
-            console.error('Failed to add set:', err);
+            logger.error('Failed to add set:', err);
         }
     };
 
@@ -170,7 +171,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 )
             );
         } catch (err) {
-            console.error('Failed to delete set:', err);
+            logger.error('Failed to delete set:', err);
         }
     };
 
@@ -226,7 +227,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
                 await loadWorkoutData();
             } catch (err) {
-                console.error('Failed to update set:', err);
+                logger.error('Failed to update set:', err);
             }
         }, 500);
     };
@@ -245,7 +246,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             await reorderWorkoutExercises(workout.id, orderedIds);
             await loadWorkoutData();
         } catch (err) {
-            console.error('Failed to delete exercise:', err);
+            logger.error('Failed to delete exercise:', err);
         } finally {
             setExerciseToDelete(null);
         }
@@ -267,7 +268,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
                 updatedData.map((ex) => ex.workoutExerciseId)
             );
         } catch (error) {
-            console.error('Failed to reorder exercises:', error);
+            logger.error('Failed to reorder exercises:', error);
         }
     };
 
@@ -297,7 +298,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             await markPRsForWorkout(workout.id);
             return true;
         } catch (error) {
-            console.error('Failed to finish workout:', error);
+            logger.error('Failed to finish workout:', error);
             Alert.alert('Error', 'Failed to save workout. Please try again.');
             return false;
         }
@@ -311,7 +312,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
             await softDeleteWorkoutById(workout.id);
             return true;
         } catch (err) {
-            console.error('Failed to delete workout:', err);
+            logger.error('Failed to delete workout:', err);
             return false;
         }
     };
@@ -371,7 +372,7 @@ export function useWorkoutLogic(workoutId?: string, isReadOnly: boolean = false)
 
                 return success;
             } catch (error) {
-                console.error('Failed to finish workout:', error);
+                logger.error('Failed to finish workout:', error);
                 return false;
             }
         },

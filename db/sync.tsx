@@ -34,6 +34,7 @@ import {
     markBodyWeightEntriesAsSynced,
     upsertBodyWeightEntriesFromRemote
 } from "@/repositories/bodyWeightEntries";
+import {logger} from "@/utils/logger";
 
 const unknownError = (e: unknown) => (e instanceof Error ? e.message : 'Unknown error');
 
@@ -88,7 +89,7 @@ export class SyncService {
             }
 
             await cfg.markSynced(rows);
-            console.log(`Synced ${rows.length} ${cfg.entity}`);
+            logger.debug(`Synced ${rows.length} ${cfg.entity}`);
             return true;
         } catch (e) {
             await recordSyncError(cfg.entity, unknownError(e));
@@ -119,7 +120,7 @@ export class SyncService {
             }
 
             if (cfg.recordLastSync ?? true) await setLastSyncTime(cfg.entity);
-            console.log(`Pulled ${data?.length || 0} ${cfg.entity}`);
+            logger.debug(`Pulled ${data?.length || 0} ${cfg.entity}`);
             return true;
         } catch (e) {
             await recordSyncError(cfg.entity, unknownError(e));
@@ -261,37 +262,37 @@ export class SyncService {
     }
 
     async pushAll(): Promise<boolean> {
-        console.log('Starting full push...');
+        logger.debug('Starting full push...');
 
         if (!await this.pushUser()) {
-            console.error('User push failed');
+            logger.error('User push failed');
             return false;
         }
         if (!await this.pushExercises()) {
-            console.error('Exercises push failed');
+            logger.error('Exercises push failed');
             return false;
         }
         if (!await this.pushExerciseBodyParts()) {
-            console.warn('Exercise body parts push had issues, continuing...');
+            logger.warn('Exercise body parts push had issues, continuing...');
         }
         if (!await this.pushWorkouts()) {
-            console.error('Workouts push failed');
+            logger.error('Workouts push failed');
             return false;
         }
         if (!await this.pushWorkoutExercises()) {
-            console.error('Workout exercises push failed');
+            logger.error('Workout exercises push failed');
             return false;
         }
         if (!await this.pushSets()) {
-            console.error('Sets push failed');
+            logger.error('Sets push failed');
             return false;
         }
         if (!await this.pushBodyWeightEntries()) {
-            console.error('Body weight entries push failed');
+            logger.error('Body weight entries push failed');
             return false;
         }
 
-        console.log('✅ Full push completed successfully');
+        logger.debug('✅ Full push completed successfully');
         return true;
     }
 
@@ -365,38 +366,38 @@ export class SyncService {
     }
 
     async pullAll(): Promise<boolean> {
-        console.log('Starting full pull...');
+        logger.debug('Starting full pull...');
 
         if (!await this.pullBodyParts()) {
-            console.error('Body parts pull failed');
+            logger.error('Body parts pull failed');
             return false;
         }
         if (!await this.pullExercises()) {
-            console.error('Exercises pull failed');
+            logger.error('Exercises pull failed');
             return false;
         }
         if (!await this.pullWorkouts()) {
-            console.error('Workouts pull failed');
+            logger.error('Workouts pull failed');
             return false;
         }
         if (!await this.pullWorkoutExercises()) {
-            console.error('Workout exercises pull failed');
+            logger.error('Workout exercises pull failed');
             return false;
         }
         if (!await this.pullSets()) {
-            console.error('Sets pull failed');
+            logger.error('Sets pull failed');
             return false;
         }
         if (!await this.pullExerciseBodyParts()) {
-            console.error('Exercise body parts pull failed');
+            logger.error('Exercise body parts pull failed');
             return false;
         }
         if (!await this.pullBodyWeightEntries()) {
-            console.error('Body weight entries pull failed');
+            logger.error('Body weight entries pull failed');
             return false;
         }
 
-        console.log('✅ Full pull completed successfully');
+        logger.debug('✅ Full pull completed successfully');
         return true;
     }
 }

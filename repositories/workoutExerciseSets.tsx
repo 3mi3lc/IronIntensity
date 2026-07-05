@@ -1,5 +1,6 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
+import { logger } from '@/utils/logger';
 import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
 import { eq, and, isNull, isNotNull, lt , sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
@@ -132,7 +133,7 @@ export async function getHistoricalSetsForExercise(
     excludeWorkoutId?: string
 ): Promise<Array<{ setNumber: number; reps: number; weight: number }> | null> {
     try {
-        console.log('Step 1: Looking for most recent workout with exercise:', exerciseId, 'excluding:', excludeWorkoutId);
+        logger.debug('Step 1: Looking for most recent workout with exercise:', exerciseId, 'excluding:', excludeWorkoutId);
 
         // Build the where conditions
         const whereConditions = [
@@ -162,15 +163,15 @@ export async function getHistoricalSetsForExercise(
             .orderBy(desc(workouts.created_at))
             .limit(5);
 
-        console.log('Recent workouts found:', recentWorkouts);
+        logger.debug('Recent workouts found:', recentWorkouts);
 
         if (recentWorkouts.length === 0) {
-            console.log('No workouts found for this exercise');
+            logger.debug('No workouts found for this exercise');
             return null;
         }
 
         const mostRecentWorkout = recentWorkouts[0];
-        console.log('Using most recent workout:', mostRecentWorkout);
+        logger.debug('Using most recent workout:', mostRecentWorkout);
 
         // Get all sets from that workout for this exercise
         const sets = await db
@@ -195,10 +196,10 @@ export async function getHistoricalSetsForExercise(
             )
             .orderBy(workout_exercise_sets.set_number);
 
-        console.log('Sets found for workout:', sets);
+        logger.debug('Sets found for workout:', sets);
 
         if (sets.length === 0) {
-            console.log('No sets found in most recent workout');
+            logger.debug('No sets found in most recent workout');
             return null;
         }
 
@@ -208,7 +209,7 @@ export async function getHistoricalSetsForExercise(
             weight: s.weight ?? 0,
         }));
     } catch (error) {
-        console.error('Error fetching historical sets for exercise:', error);
+        logger.error('Error fetching historical sets for exercise:', error);
         return null;
     }
 }
@@ -268,7 +269,7 @@ export async function upsertWorkoutExerciseSetFromRemote(set: WorkoutExerciseSet
             });
         return true;
     } catch (error) {
-        console.error('Failed to upsert workout exercise set:', error);
+        logger.error('Failed to upsert workout exercise set:', error);
         return false;
     }
 }
@@ -304,7 +305,7 @@ export async function upsertWorkoutExerciseSetsFromRemote(setsData: WorkoutExerc
             });
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert workout exercise sets:', error);
+        logger.error('Failed to batch upsert workout exercise sets:', error);
         return false;
     }
 }
@@ -436,7 +437,7 @@ export async function checkAndMarkSetAsPR(
 
         return isPr && (!wasAlreadyPr || valuesImproved);
     } catch (err) {
-        console.error('checkAndMarkSetAsPR error:', err);
+        logger.error('checkAndMarkSetAsPR error:', err);
         return false;
     }
 }

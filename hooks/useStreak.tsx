@@ -1,5 +1,6 @@
 // hooks/useStreak.ts
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { getWorkoutStreak } from '@/repositories/statistics';
 
 export function useStreak(userId: string | undefined, refreshTrigger?: any) {
@@ -18,7 +19,7 @@ export function useStreak(userId: string | undefined, refreshTrigger?: any) {
                 setCurrentStreak(current);
                 setLongestStreak(longest);
             })
-            .catch(err => console.error('Failed to load streak:', err))
+            .catch(err => logger.error('Failed to load streak:', err))
             .finally(() => setLoading(false));
     }, [userId, refreshTrigger]);
 

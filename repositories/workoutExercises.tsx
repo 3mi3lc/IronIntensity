@@ -1,5 +1,6 @@
 // src/repositories/workoutExercises.ts
 import {db} from '@/db/client';
+import { logger } from '@/utils/logger';
 import {workout_exercise_sets, workout_exercises} from '@/db/schema';
 import {and, eq, isNull, sql, inArray} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
@@ -93,7 +94,7 @@ export async function softDeleteWorkoutExerciseById(
         const result = await query;
         return result.changes > 0;
     } catch (error) {
-        console.error('Failed to soft delete workout_exercise with cascade:', error);
+        logger.error('Failed to soft delete workout_exercise with cascade:', error);
         return false;
     }
 }
@@ -157,7 +158,7 @@ export async function upsertWorkoutExerciseFromRemote(workoutExercise: WorkoutEx
             });
         return true;
     } catch (error) {
-        console.error('Failed to upsert workout exercise:', error);
+        logger.error('Failed to upsert workout exercise:', error);
         return false;
     }
 }
@@ -188,7 +189,7 @@ export async function upsertWorkoutExercisesFromRemote(workoutExercisesData: Wor
             });
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert workout exercises:', error);
+        logger.error('Failed to batch upsert workout exercises:', error);
         return false;
     }
 }

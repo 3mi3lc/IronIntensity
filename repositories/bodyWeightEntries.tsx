@@ -1,6 +1,7 @@
 // repositories/bodyWeightEntries.ts
 
 import { db } from '@/db/client';
+import { logger } from '@/utils/logger';
 import { body_weight_entries } from '@/db/schema';
 import { and, eq, inArray, isNull, gte, lte, desc } from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
@@ -115,7 +116,7 @@ export async function upsertBodyWeightEntriesFromRemote(entries: BodyWeightEntry
         }
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert body weight entries:', error);
+        logger.error('Failed to batch upsert body weight entries:', error);
         return false;
     }
 }

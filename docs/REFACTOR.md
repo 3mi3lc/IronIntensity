@@ -198,16 +198,22 @@ This makes the PR/achievement logic unit-testable without a UI.
 
 ### Remaining Phase 4 work
 
+2. **Logger — ✅ PARTIALLY DONE (2026-07-05).** Added `utils/logger.ts`
+   (`debug`/`info` dev-only via `__DEV__`, muted under Jest; `warn`/`error` always
+   surface). Migrated all non-UI layers off raw `console.*`: `db/` and
+   `repositories/` (65 calls) and `contexts/` + `hooks/` (37 calls). **Remaining:
+   ~21 calls in `app/` + `components/`** (UI error logging) — lower priority
+   follow-up.
+5. **Asset typecheck gap — ✅ DONE.** Added `global.d.ts` with `declare module
+   '*.png'` (+ jpg/jpeg/svg/ttf); `constants/icons.ts` now type-checks.
+
+Still open:
 1. **Rename logic `.tsx` → `.ts`** for files with no JSX: all `repositories/*`,
    `db/client|schema|sync|cleanup`, `utils/id`, and non-JSX hooks. Update imports
    (path aliases via `@/` make this low-risk; do it with `git mv`).
-2. **Add a `utils/logger.ts`** with levels; replace the 157 `console.*` calls so
-   production logging can be silenced/scoped. Sync errors already go through
-   `recordSyncError` — keep that.
 3. **Tighten `any`** (~10 sites: `Record<string, any>`, `err: any`).
 4. **Fix the migration chain** (see Phase 5a bug note) — filed as its own task.
-5. Pre-existing typecheck gap: `constants/icons.ts` can't resolve `*.png` imports
-   (missing image-module type declaration — add `declare module '*.png'`).
+6. **Migrate remaining `console.*`** in `app/` + `components/` to the logger.
 
 ---
 

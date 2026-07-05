@@ -1,5 +1,6 @@
 // src/repositories/workouts.ts
 import {db} from '@/db/client';
+import { logger } from '@/utils/logger';
 import {exercises, workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
 import {and, desc, eq, inArray, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
@@ -131,7 +132,7 @@ export async function softDeleteWorkoutById(
         const result = await query;
         return result.changes > 0;
     } catch (error) {
-        console.error('Failed to soft delete workout with cascade:', error);
+        logger.error('Failed to soft delete workout with cascade:', error);
         return false;
     }
 }
@@ -326,13 +327,13 @@ export async function duplicateWorkout(
         }
 
         if (options?.returnData) {
-            console.log("duplicated workout with id: ", newWorkoutId, " old id: ", workoutId);
+            logger.debug("duplicated workout with id: ", newWorkoutId, " old id: ", workoutId);
             return newWorkout!;
         }
 
         return true;
     } catch (error) {
-        console.error('Failed to duplicate workout:', error);
+        logger.error('Failed to duplicate workout:', error);
         throw error;
     }
 }
@@ -381,7 +382,7 @@ export async function upsertWorkoutsFromRemote(workoutsData: Workout[]): Promise
             });
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert workouts:', error);
+        logger.error('Failed to batch upsert workouts:', error);
         return false;
     }
 }
@@ -437,7 +438,7 @@ export async function updateWorkoutTimestamps(
 
         return true;
     } catch (error) {
-        console.error('Failed to update workout timestamps:', error);
+        logger.error('Failed to update workout timestamps:', error);
         return false;
     }
 }

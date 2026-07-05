@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { logger } from '@/utils/logger';
 import { Alert } from 'react-native';
 import { supabase } from '@/utils/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
@@ -105,7 +106,7 @@ export const useAuth = () => {
             // Force navigate to login
             router.replace('/auth/login');
         } catch (error) {
-            console.error('Failed to sign out:', error);
+            logger.error('Failed to sign out:', error);
 
             // Even if something fails, try to clear critical data and redirect
             try {
@@ -114,7 +115,7 @@ export const useAuth = () => {
                 // Still try to clear local Supabase session
                 await supabase.auth.signOut({ scope: 'local' });
             } catch (cleanupError) {
-                console.error('Failed to cleanup:', cleanupError);
+                logger.error('Failed to cleanup:', cleanupError);
             }
 
             router.replace('/auth/login');

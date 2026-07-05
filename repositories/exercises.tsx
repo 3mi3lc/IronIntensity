@@ -1,5 +1,6 @@
 // src/repositories/exercises.ts
 import {db} from '@/db/client';
+import { logger } from '@/utils/logger';
 import {exercise_body_parts, exercises} from '@/db/schema';
 import {and, eq, inArray, isNull, sql} from 'drizzle-orm';
 import {newId, now} from '@/utils/id';
@@ -82,7 +83,7 @@ export async function softDeleteExerciseById(
         const result = await query;
         return result.changes > 0;
     } catch (error) {
-        console.error('Failed to soft delete exercise with cascade:', error);
+        logger.error('Failed to soft delete exercise with cascade:', error);
         return false;
     }
 }
@@ -182,7 +183,7 @@ export async function upsertExerciseFromRemote(exercise: Exercise): Promise<bool
             });
         return true;
     } catch (error) {
-        console.error('Failed to upsert exercise:', error);
+        logger.error('Failed to upsert exercise:', error);
         return false;
     }
 }
@@ -214,7 +215,7 @@ export async function upsertExercisesFromRemote(exercisesData: Exercise[]): Prom
             });
         return true;
     } catch (error) {
-        console.error('Failed to batch upsert exercises:', error);
+        logger.error('Failed to batch upsert exercises:', error);
         return false;
     }
 }

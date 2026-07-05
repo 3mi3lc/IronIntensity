@@ -1,5 +1,6 @@
 // src/repositories/users.ts
 import { db } from '@/db/client';
+import { logger } from '@/utils/logger';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import type { User } from './types';
@@ -34,7 +35,7 @@ export async function getLastLocalUser(): Promise<User | null> {
 
         return await getUserById(lastUserId);
     } catch (error) {
-        console.error('Failed to get last local user:', error);
+        logger.error('Failed to get last local user:', error);
         return null;
     }
 }

@@ -1,4 +1,5 @@
 import {useEffect, useState, useCallback, useRef} from 'react';
+import { logger } from '@/utils/logger';
 import { router } from 'expo-router';
 import { db } from '@/db/client';
 import { workouts } from '@/db/schema';
@@ -35,7 +36,7 @@ export function useUnfinishedWorkoutCheck(userId: string | null | undefined) {
             setUnfinishedWorkout(unfinished[0] as Workout);
             setModalVisible(true);
         } catch (err) {
-            console.error('Failed to check for unfinished workouts:', err);
+            logger.error('Failed to check for unfinished workouts:', err);
         }
     }, [userId]);
 
@@ -72,7 +73,7 @@ export function useUnfinishedWorkoutCheck(userId: string | null | undefined) {
             });
             await markPRsForWorkout(unfinishedWorkout.id);
         } catch (err) {
-            console.error('Failed to save workout:', err);
+            logger.error('Failed to save workout:', err);
         }
         checkForUnfinishedWorkouts(); // check for more
     };
@@ -83,7 +84,7 @@ export function useUnfinishedWorkoutCheck(userId: string | null | undefined) {
         try {
             await softDeleteWorkoutById(unfinishedWorkout.id);
         } catch (err) {
-            console.error('Failed to discard workout:', err);
+            logger.error('Failed to discard workout:', err);
         }
         checkForUnfinishedWorkouts(); // check for more
     };
