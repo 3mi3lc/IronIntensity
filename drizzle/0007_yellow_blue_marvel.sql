@@ -1,0 +1,1 @@
+ALTER TABLE `sync_metadata` ADD `status` text DEFAULT 'success' NOT NULL;
