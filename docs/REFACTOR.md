@@ -169,26 +169,52 @@ This makes the PR/achievement logic unit-testable without a UI.
 
 Goal: lock behavior before/while refactoring the risky bits.
 
-Priority order (highest logic complexity, currently untested):
-1. **PR calculation** — `checkAndMarkSetAsPR`, `markPRsForWorkout`, `recalculateAllPRs`.
-2. **Statistics** — total volume, workout count, `getWorkoutStreak`.
-3. **Sync round-trip** — push maps → remote columns; pull cleans nested joins;
-   cascade-delete of orphaned `workout_exercises` / sets. Anchors Phase 1.
-4. **Soft-delete invariants** — every read filters `isNull(deleted_at)`.
+### Phase 5a — DONE (2026-07-05)
 
-Uses the existing `__mocks__/expo-sqlite.tsx` harness (same as `workoutRepository.test.tsx`).
+Replaced the call-shape mocks with a **real in-memory SQLite harness**
+(`test-utils/db.ts` on `better-sqlite3`), which runs the actual Drizzle schema so
+tests exercise genuine query behavior (soft-delete filtering, cascades, PR logic).
+Wired into repositories via `jest.mock('@/db/client', () => require('@/test-utils/db'))`.
+Fixtures in `test-utils/fixtures.ts`. Run with `npm run test:ci`.
+
+Suites (24 tests, all green):
+- `workoutRepository.test.tsx` — CRUD, soft-delete **cascade**, read filtering.
+- `personalRecords.test.ts` — `markPRsForWorkout` (baseline vs PR, running best,
+  cross-workout history, weight/rep ties, stale-flag reset) + `checkAndMarkSetAsPR`.
+- `statistics.test.ts` — `getTotalWorkouts`, `getTotalVolume` (deleted-set exclusion),
+  `getWorkoutStreak` (longest run, same-week collapse).
+
+> **Harness note:** the schema is built from `test-utils/schema.sql` (mirrors
+> `db/schema.tsx`), **not** by replaying migrations — see the migration bug below.
+> Keep `schema.sql` in sync with `db/schema.tsx` on schema changes.
+
+> 🐞 **Migration bug found (needs its own fix):** the migration chain is **not
+> clean-installable**. `0000` creates `exercise_body_parts` without
+> `created_at/updated_at/deleted_at/is_synced`, but `0002` rebuilds that table with
+> `INSERT ... SELECT created_at, ... FROM exercise_body_parts` — columns that don't
+> exist yet. A fresh install crashes at migration `0002` (`no such column:
+> created_at`). Existing installs survive because they were migrated incrementally.
+> Also: `0005` re-runs `0004`'s `completed_at` backfill (harmless duplicate).
+
+### Phase 5b — remaining
+
+3. **Sync round-trip** — push maps → remote columns; pull cleans nested joins;
+   cascade-delete of orphaned `workout_exercises` / sets. Anchors Phase 1
+   (needs a mocked/faked Supabase client).
+4. Broaden soft-delete invariants across the other repositories.
 
 ---
 
 ## Suggested execution order
 
 ```
-Phase 0  → hygiene + green baseline        (independent, immediate)
-Phase 5a → PR + statistics + sync tests    (before refactoring those areas)
-Phase 1  → sync layer collapse             (guarded by 5a sync tests)
+Phase 0  → hygiene + baseline              ✅ DONE
+Phase 5a → harness + PR/statistics tests   ✅ DONE (regression anchor)
+Phase 5b → sync round-trip tests           (before Phase 1)
+Phase 1  → sync layer collapse             (guarded by 5b sync tests)
 Phase 2  → repository helpers + return types
 Phase 3  → hook decomposition              (guarded by 5a PR tests)
-Phase 4  → conventions, logger, dead code, any
+Phase 4  → conventions, logger, dead code, any + migration-chain fix
 ```
 
 Each phase = its own branch + PR, conventional-commit messages, lint + tests green
