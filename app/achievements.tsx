@@ -17,8 +17,12 @@ const CATEGORY_ORDER: { key: AchievementCategory; label: string }[] = [
     { key: 'milestone', label: 'Getting Started' },
     { key: 'workouts', label: 'Workouts' },
     { key: 'streak', label: 'Streaks' },
+    { key: 'strength', label: 'Strength' },
     { key: 'volume', label: 'Volume' },
+    { key: 'reps', label: 'Reps' },
     { key: 'pr', label: 'Personal Records' },
+    { key: 'variety', label: 'Exercise Variety' },
+    { key: 'muscles', label: 'Muscle Coverage' },
     { key: 'bodyweight', label: 'Bodyweight' },
 ];
 

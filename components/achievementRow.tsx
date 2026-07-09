@@ -8,6 +8,10 @@ const UNIT: Record<AchievementCategory, string> = {
     streak: 'wks',
     pr: 'PRs',
     bodyweight: 'logs',
+    variety: 'exercises',
+    strength: 'kg',
+    reps: 'reps',
+    muscles: 'muscle groups',
     milestone: '',
 };
 
