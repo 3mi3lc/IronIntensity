@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getAllAchievementsWithStatus, Achievement } from '@/repositories/achievements';
 import { useStreak } from '@/hooks/useStreak';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { router } from 'expo-router';
 
 export default function Profile() {
     const { pushData } = useSync();
@@ -25,6 +26,10 @@ export default function Profile() {
     }, [user?.id, currentStreak, longestStreak]);
 
     const unlockedCount = achievements.filter(a => a.unlocked).length;
+    const overallPercent = achievements.length ? Math.round((unlockedCount / achievements.length) * 100) : 0;
+    const nextUp = achievements
+        .filter(a => !a.unlocked)
+        .sort((a, b) => b.progressPercent - a.progressPercent)[0] ?? null;
 
     const showSyncResult = (result: SyncResult, action: 'sync' | 'pull') => {
         if (result.success) {
@@ -63,14 +68,6 @@ export default function Profile() {
                 },
             ]
         );
-    };
-
-    const categoryLabel = (category: Achievement['category']) => {
-        switch (category) {
-            case 'volume': return 'Volume';
-            case 'workouts': return 'Workouts';
-            case 'streak': return 'Streak';
-        }
     };
 
     return (
@@ -122,48 +119,40 @@ export default function Profile() {
                     </View>
                 )}
 
-                {/* Achievements Section */}
-                <View className="mb-6">
-                    <View className="flex-row items-center justify-between mb-4">
+                {/* Achievements summary → full screen */}
+                <TouchableOpacity
+                    onPress={() => router.push('/achievements')}
+                    className="bg-surface_a10 p-5 rounded-2xl mb-6"
+                    activeOpacity={0.85}
+                >
+                    <View className="flex-row items-center justify-between mb-3">
                         <Text className="text-white text-xl font-bold">Achievements</Text>
-                        <Text className="text-surface_a50 text-sm">
-                            {unlockedCount}/{achievements.length} unlocked
-                        </Text>
+                        <View className="flex-row items-center">
+                            <Text className="text-surface_a50 text-sm mr-1">{unlockedCount}/{achievements.length}</Text>
+                            <AntDesign name="right" size={14} color="#7a7a7a" />
+                        </View>
                     </View>
 
-                    {(['volume', 'workouts', 'streak'] as Achievement['category'][]).map(category => (
-                        <View key={category} className="mb-4">
-                            <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2">
-                                {categoryLabel(category)}
-                            </Text>
-                            <View className="bg-surface_a10 rounded-2xl overflow-hidden">
-                                {achievements
-                                    .filter(a => a.category === category)
-                                    .map((achievement, index, arr) => (
-                                        <View
-                                            key={achievement.id}
-                                            className={`flex-row items-center p-4 ${
-                                                index < arr.length - 1 ? 'border-b border-surface_a20' : ''
-                                            } ${achievement.unlocked ? '' : 'opacity-40'}`}
-                                        >
-                                            <Text style={{ fontSize: 28 }}>{achievement.icon}</Text>
-                                            <View className="flex-1 ml-3">
-                                                <Text className={`font-bold text-base ${achievement.unlocked ? 'text-white' : 'text-surface_a50'}`}>
-                                                    {achievement.title}
-                                                </Text>
-                                                <Text className="text-surface_a50 text-xs mt-0.5">
-                                                    {achievement.description}
-                                                </Text>
-                                            </View>
-                                            {achievement.unlocked && (
-                                                <AntDesign name="check-circle" size={20} color="#f34023" />
-                                            )}
-                                        </View>
-                                    ))}
+                    <View className="h-2 bg-surface_a20 rounded-full overflow-hidden mb-4">
+                        <View
+                            className="h-full bg-primary_a0 rounded-full"
+                            style={{ width: `${overallPercent}%` }}
+                        />
+                    </View>
+
+                    {nextUp ? (
+                        <View className="flex-row items-center">
+                            <Text style={{ fontSize: 24, opacity: 0.5 }}>{nextUp.icon}</Text>
+                            <View className="flex-1 ml-3">
+                                <Text className="text-surface_a50 text-xs">Next up</Text>
+                                <Text className="text-white text-sm font-semibold">{nextUp.title}</Text>
                             </View>
+                            <Text className="text-surface_a50 text-xs">{Math.round(nextUp.progressPercent * 100)}%</Text>
                         </View>
-                    ))}
-                </View>
+                    ) : (
+                        <Text className="text-surface_a50 text-sm">Every badge unlocked. Legend. 👑</Text>
+                    )}
+                </TouchableOpacity>
 
                 {/* Logout Button */}
                 <TouchableOpacity
