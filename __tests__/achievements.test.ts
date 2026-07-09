@@ -87,13 +87,12 @@ describe('new categories (variety / strength / reps / muscles)', () => {
 
         const list = await getAllAchievementsWithStatus(userId, 0, 0);
 
-        // 3 distinct exercises
-        expect(byId(list, 'variety_3').unlocked).toBe(true);
-        expect(byId(list, 'variety_3').progress).toBe(3);
+        // 3 distinct exercises → variety_5 (threshold 5) still locked
+        expect(byId(list, 'variety_5').progress).toBe(3);
         expect(byId(list, 'variety_5').unlocked).toBe(false);
 
-        // heaviest single set = 120 kg
-        expect(byId(list, 'strength_100').unlocked).toBe(true);
+        // heaviest single set = 120 kg → strength_120 unlocked, strength_140 locked
+        expect(byId(list, 'strength_120').unlocked).toBe(true);
         expect(byId(list, 'strength_140').unlocked).toBe(false);
 
         // total reps = 10 + 5 + 8 = 23

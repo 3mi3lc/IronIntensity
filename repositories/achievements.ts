@@ -88,21 +88,29 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     { id: 'bw_150', title: 'Weigh Warrior', description: 'Log your bodyweight 150 times', icon: '👑', category: 'bodyweight', threshold: 150 },
 
     // Exercise variety (distinct exercises performed)
-    { id: 'variety_3', title: 'Mixing It Up', description: 'Perform 3 different exercises', icon: '🔀', category: 'variety', threshold: 3 },
     { id: 'variety_5', title: 'Explorer', description: 'Perform 5 different exercises', icon: '🧭', category: 'variety', threshold: 5 },
     { id: 'variety_10', title: 'Well Rounded', description: 'Perform 10 different exercises', icon: '🎨', category: 'variety', threshold: 10 },
     { id: 'variety_15', title: 'Versatile', description: 'Perform 15 different exercises', icon: '🤹', category: 'variety', threshold: 15 },
+    { id: 'variety_20', title: 'Broad Horizons', description: 'Perform 20 different exercises', icon: '🌐', category: 'variety', threshold: 20 },
     { id: 'variety_25', title: 'Jack of All Lifts', description: 'Perform 25 different exercises', icon: '🃏', category: 'variety', threshold: 25 },
+    { id: 'variety_30', title: 'Movement Collector', description: 'Perform 30 different exercises', icon: '🎪', category: 'variety', threshold: 30 },
     { id: 'variety_40', title: 'Exercise Encyclopedia', description: 'Perform 40 different exercises', icon: '📚', category: 'variety', threshold: 40 },
+    { id: 'variety_50', title: 'Master of Movements', description: 'Perform 50 different exercises', icon: '🎓', category: 'variety', threshold: 50 },
+    { id: 'variety_75', title: 'Living Exercise Library', description: 'Perform 75 different exercises', icon: '🏛️', category: 'variety', threshold: 75 },
 
     // Strength (heaviest single set, kg)
-    { id: 'strength_20', title: 'Lift Off', description: 'Lift 20 kg in a single set', icon: '🪶', category: 'strength', threshold: 20 },
-    { id: 'strength_40', title: 'Warmed Up', description: 'Lift 40 kg in a single set', icon: '💪', category: 'strength', threshold: 40 },
-    { id: 'strength_60', title: 'Strong', description: 'Lift 60 kg in a single set', icon: '🏋️', category: 'strength', threshold: 60 },
-    { id: 'strength_80', title: 'Powerful', description: 'Lift 80 kg in a single set', icon: '⚡', category: 'strength', threshold: 80 },
+    { id: 'strength_40', title: 'Lift Off', description: 'Lift 40 kg in a single set', icon: '🪶', category: 'strength', threshold: 40 },
+    { id: 'strength_60', title: 'Warmed Up', description: 'Lift 60 kg in a single set', icon: '💪', category: 'strength', threshold: 60 },
+    { id: 'strength_80', title: 'Strong', description: 'Lift 80 kg in a single set', icon: '🏋️', category: 'strength', threshold: 80 },
     { id: 'strength_100', title: 'Triple Digits', description: 'Lift 100 kg in a single set', icon: '💯', category: 'strength', threshold: 100 },
+    { id: 'strength_120', title: 'Powerful', description: 'Lift 120 kg in a single set', icon: '⚡', category: 'strength', threshold: 120 },
     { id: 'strength_140', title: 'Beast Mode', description: 'Lift 140 kg in a single set', icon: '🦍', category: 'strength', threshold: 140 },
+    { id: 'strength_160', title: 'Powerlifter', description: 'Lift 160 kg in a single set', icon: '🏆', category: 'strength', threshold: 160 },
     { id: 'strength_180', title: 'Superhuman', description: 'Lift 180 kg in a single set', icon: '🦸', category: 'strength', threshold: 180 },
+    { id: 'strength_200', title: 'Iron Titan', description: 'Lift 200 kg in a single set', icon: '🗿', category: 'strength', threshold: 200 },
+    { id: 'strength_225', title: 'Crushing It', description: 'Lift 225 kg in a single set', icon: '💥', category: 'strength', threshold: 225 },
+    { id: 'strength_250', title: 'Unreal', description: 'Lift 250 kg in a single set', icon: '🌟', category: 'strength', threshold: 250 },
+    { id: 'strength_300', title: 'Godlike', description: 'Lift 300 kg in a single set', icon: '👑', category: 'strength', threshold: 300 },
 
     // Total reps (cumulative)
     { id: 'reps_500', title: 'Rep Rookie', description: 'Complete 500 total reps', icon: '🔢', category: 'reps', threshold: 500 },
