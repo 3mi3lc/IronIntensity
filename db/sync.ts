@@ -1,4 +1,4 @@
-// db/sync.tsx
+// db/sync.ts
 import {supabase} from '@/utils/supabase';
 import {Session} from '@supabase/supabase-js';
 import {getLastSyncTime, setLastSyncTime, recordSyncError} from "@/repositories/syncMetadata";

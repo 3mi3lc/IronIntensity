@@ -210,11 +210,20 @@ This makes the PR/achievement logic unit-testable without a UI.
    justified/pragmatic ones (Supabase query-builder interop in `db/sync.tsx`,
    icon-name casts, `catch (e: any)` blocks).
 
+1. **Rename logic `.tsx` → `.ts` — ✅ DONE (2026-07-05).** Renamed 26 no-JSX files
+   across `db/`, `repositories/`, `utils/`, `hooks/` via `git mv` (content
+   unchanged). Verified no explicit-extension imports first; also fixed
+   `drizzle.config.ts` which hard-coded `./db/schema.tsx`. 0 tsc errors, 32 tests
+   green. (`contexts/` kept `.tsx` — they render Providers.)
+
 Still open:
-1. **Rename logic `.tsx` → `.ts`** for files with no JSX (mechanical; `git mv`,
-   imports are extension-less so low-risk).
 4. **Fix the migration chain** (see Phase 5a bug note) — filed as its own task;
    deferred here to avoid risking existing installs' migration history.
+7. **Split `statistics.tsx`** (Part C) — deferred. It has ~22 functions (only 3
+   test-covered) with cross-dependencies (comparison→totals, cumulative→by-period);
+   a physical split is pure code-movement whose only payoff is a smaller file, and
+   the transcription risk over mostly-untested code isn't justified without a
+   reason to touch it. Best done alongside future work in that area.
 
 ---
 
