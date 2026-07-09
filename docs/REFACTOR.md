@@ -157,11 +157,23 @@ silent breakage. **Deferred until Phase 3** (hook decomposition), where the
 affected `useWorkoutLogic` callers are being rewritten anyway and can adopt the
 new signatures in the same guarded pass.
 
-### Part C — split `statistics.tsx` (756 lines) — DEFERRED
+### Part C — de-duplicate `statistics.ts` — ✅ DONE (2026-07-05)
 
-Into cohesive modules (`volume`, `streak`, `personalRecords`) under
-`repositories/statistics/`. Low risk (read-only, covered by `statistics.test.ts`)
-but mechanical; bundle with Phase 4 file-convention work.
+Chose **de-duplication over a file split** (the split was pure cosmetics). Added
+three internal helpers and applied them across the 21 functions:
+- `workoutInRange(userId, start, end)` — the "completed, non-deleted workout in a
+  date range" filter, previously copy-pasted in **14** places, now defined once.
+- `volumeSum()` — the `COALESCE(SUM(weight*reps), 0)` expression (was repeated 6×).
+- `accumulate(points, key)` — collapsed the **6** near-identical cumulative wrappers
+  into one-liners.
+
+756 → 674 lines. The fluent `sets→exercises→workouts` join chain (9×) was left
+alone — abstracting drizzle's builder hurts readability more than it helps.
+
+De-risked by first adding **5 characterization tests** (`getVolumeByDay`,
+`getWorkoutsByDay`, `getCumulativeVolumeByDay`, `getTopExercisesByVolume`,
+`getRecentPRs`) that passed against the original code, then stayed green through
+the refactor. Suite: 41 tests.
 
 ---
 
