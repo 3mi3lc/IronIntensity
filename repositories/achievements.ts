@@ -1,18 +1,31 @@
 import { db } from '@/db/client';
-import { workout_exercise_sets, workout_exercises, workouts } from '@/db/schema';
+import { body_weight_entries, workout_exercise_sets, workout_exercises, workouts } from '@/db/schema';
 import { and, eq, isNull, isNotNull, sql } from 'drizzle-orm';
+import { getUnlockedAchievementIds, unlockAchievements } from '@/repositories/userAchievements';
 
-export interface Achievement {
+export type AchievementCategory = 'volume' | 'workouts' | 'streak' | 'pr' | 'bodyweight' | 'milestone';
+
+export interface AchievementDef {
     id: string;
     title: string;
     description: string;
     icon: string;
-    category: 'volume' | 'workouts' | 'streak';
+    category: AchievementCategory;
     threshold: number;
-    unlocked: boolean;
 }
 
-export const ACHIEVEMENTS: Omit<Achievement, 'unlocked'>[] = [
+export interface Achievement extends AchievementDef {
+    unlocked: boolean;
+    /** Current value of this achievement's metric (e.g. workouts completed). */
+    progress: number;
+    /** progress toward the threshold, clamped to 0..1 (1 once unlocked). */
+    progressPercent: number;
+}
+
+export const ACHIEVEMENTS: AchievementDef[] = [
+    // Getting started (always unlocked — the board never reads 0%)
+    { id: 'welcome', title: 'Welcome Aboard', description: 'Created your account', icon: '🎉', category: 'milestone', threshold: 0 },
+
     // Volume
     { id: 'volume_1k', title: 'First Steps', description: 'Lift 1,000 kg total', icon: '🥉', category: 'volume', threshold: 1000 },
     { id: 'volume_10k', title: 'Getting Serious', description: 'Lift 10,000 kg total', icon: '🥈', category: 'volume', threshold: 10000 },
@@ -35,82 +48,133 @@ export const ACHIEVEMENTS: Omit<Achievement, 'unlocked'>[] = [
     { id: 'streak_12', title: 'Quarter Year', description: '12 week streak', icon: '⚡', category: 'streak', threshold: 12 },
     { id: 'streak_26', title: 'Half Year Strong', description: '26 week streak', icon: '💪', category: 'streak', threshold: 26 },
     { id: 'streak_52', title: 'Full Year Grind', description: '52 week streak', icon: '👑', category: 'streak', threshold: 52 },
+
+    // Personal records (metric = number of PR sets)
+    { id: 'pr_1', title: 'First PR', description: 'Set your first personal record', icon: '🎯', category: 'pr', threshold: 1 },
+    { id: 'pr_5', title: 'Getting Stronger', description: 'Set 5 personal records', icon: '💪', category: 'pr', threshold: 5 },
+    { id: 'pr_10', title: 'Record Breaker', description: 'Set 10 personal records', icon: '🏅', category: 'pr', threshold: 10 },
+    { id: 'pr_25', title: 'PR Machine', description: 'Set 25 personal records', icon: '🔥', category: 'pr', threshold: 25 },
+    { id: 'pr_50', title: 'Peak Performer', description: 'Set 50 personal records', icon: '💥', category: 'pr', threshold: 50 },
+    { id: 'pr_100', title: 'Record Hunter', description: 'Set 100 personal records', icon: '🏆', category: 'pr', threshold: 100 },
+    { id: 'pr_200', title: 'Limitless', description: 'Set 200 personal records', icon: '👑', category: 'pr', threshold: 200 },
+
+    // Bodyweight tracking (metric = number of bodyweight entries)
+    { id: 'bw_1', title: 'Step on the Scale', description: 'Log your bodyweight for the first time', icon: '⚖️', category: 'bodyweight', threshold: 1 },
+    { id: 'bw_5', title: 'Checking In', description: 'Log your bodyweight 5 times', icon: '📋', category: 'bodyweight', threshold: 5 },
+    { id: 'bw_10', title: 'Tracking Progress', description: 'Log your bodyweight 10 times', icon: '📊', category: 'bodyweight', threshold: 10 },
+    { id: 'bw_25', title: 'Data Driven', description: 'Log your bodyweight 25 times', icon: '📈', category: 'bodyweight', threshold: 25 },
+    { id: 'bw_50', title: 'Consistency Counts', description: 'Log your bodyweight 50 times', icon: '🎯', category: 'bodyweight', threshold: 50 },
+    { id: 'bw_100', title: 'Scale Master', description: 'Log your bodyweight 100 times', icon: '🏆', category: 'bodyweight', threshold: 100 },
 ];
 
+type Metrics = Record<AchievementCategory, number>;
+
+/** Current value of every achievement metric for a user. */
+async function getMetrics(userId: string, longestStreak: number): Promise<Metrics> {
+    const [volumeRow] = await db
+        .select({ total: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)` })
+        .from(workout_exercise_sets)
+        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+        .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
+        .where(and(
+            eq(workouts.user_id, userId),
+            isNotNull(workouts.completed_at),
+            isNull(workouts.deleted_at),
+            isNull(workout_exercise_sets.deleted_at),
+            isNotNull(workout_exercise_sets.weight),
+        ));
+
+    const [workoutRow] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(workouts)
+        .where(and(
+            eq(workouts.user_id, userId),
+            isNotNull(workouts.completed_at),
+            isNull(workouts.deleted_at),
+        ));
+
+    const [prRow] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(workout_exercise_sets)
+        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+        .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
+        .where(and(
+            eq(workouts.user_id, userId),
+            eq(workout_exercise_sets.is_pr, 1),
+            isNotNull(workouts.completed_at),
+            isNull(workouts.deleted_at),
+            isNull(workout_exercise_sets.deleted_at),
+        ));
+
+    const [bodyweightRow] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(body_weight_entries)
+        .where(and(
+            eq(body_weight_entries.user_id, userId),
+            isNull(body_weight_entries.deleted_at),
+        ));
+
+    return {
+        volume: volumeRow?.total ?? 0,
+        workouts: workoutRow?.count ?? 0,
+        streak: longestStreak,
+        pr: prRow?.count ?? 0,
+        bodyweight: bodyweightRow?.count ?? 0,
+        milestone: 1, // the seed metric is always satisfied
+    };
+}
+
+function toAchievement(def: AchievementDef, value: number, persisted: boolean): Achievement {
+    const unlocked = persisted || value >= def.threshold;
+    const denom = def.threshold <= 0 ? 1 : def.threshold;
+    return {
+        ...def,
+        unlocked,
+        progress: value,
+        progressPercent: unlocked ? 1 : Math.min(value / denom, 1),
+    };
+}
+
+/**
+ * Every achievement with its unlocked state (persisted OR currently met) and
+ * live progress toward its threshold.
+ */
 export async function getAllAchievementsWithStatus(
     userId: string,
     currentStreak: number,
     longestStreak: number
 ): Promise<Achievement[]> {
-    // Get total volume
-    const [volumeResult] = await db
-        .select({
-            total: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`,
-        })
-        .from(workout_exercise_sets)
-        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
-        .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
-        .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                isNull(workouts.deleted_at),
-                isNull(workout_exercise_sets.deleted_at),
-                isNotNull(workout_exercise_sets.weight),
-            )
-        );
+    const [metrics, unlockedIds] = await Promise.all([
+        getMetrics(userId, longestStreak),
+        getUnlockedAchievementIds(userId),
+    ]);
 
-    const totalVolume = volumeResult?.total ?? 0;
-
-    // Get total workout count
-    const [countResult] = await db
-        .select({ count: sql<number>`COUNT(*)` })
-        .from(workouts)
-        .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                isNull(workouts.deleted_at),
-            )
-        );
-
-    const totalWorkouts = countResult?.count ?? 0;
-
-    return ACHIEVEMENTS.map(achievement => {
-        let unlocked = false;
-
-        if (achievement.category === 'volume') {
-            unlocked = totalVolume >= achievement.threshold;
-        } else if (achievement.category === 'workouts') {
-            unlocked = totalWorkouts >= achievement.threshold;
-        } else if (achievement.category === 'streak') {
-            unlocked = longestStreak >= achievement.threshold; // ✅ use longestStreak
-        }
-
-        return { ...achievement, unlocked };
-    });
-
+    return ACHIEVEMENTS.map(def =>
+        toAchievement(def, metrics[def.category], unlockedIds.has(def.id))
+    );
 }
 
-export async function checkAchievements(
+/**
+ * Persist any achievements that are now met but not yet recorded, and return the
+ * newly-unlocked ones (for toasts). Replaces the old previous-vs-current diff.
+ */
+export async function syncUnlockedAchievements(
     userId: string,
     currentStreak: number,
-    previousWorkoutCount: number,
-    previousVolume: number,
-    previousStreak: number,
     longestStreak: number
 ): Promise<Achievement[]> {
-    const all = await getAllAchievementsWithStatus(userId, currentStreak, longestStreak);
+    const [metrics, unlockedIds] = await Promise.all([
+        getMetrics(userId, longestStreak),
+        getUnlockedAchievementIds(userId),
+    ]);
 
-    // Return only achievements that are newly unlocked
-    // i.e. unlocked now but wouldn't have been before this workout
-    return all.filter(a => {
-        if (!a.unlocked) return false;
+    const newlyUnlocked = ACHIEVEMENTS.filter(
+        def => !unlockedIds.has(def.id) && metrics[def.category] >= def.threshold
+    );
 
-        if (a.category === 'volume') return previousVolume < a.threshold;
-        if (a.category === 'workouts') return previousWorkoutCount < a.threshold;
-        if (a.category === 'streak') return previousStreak < a.threshold;
+    if (newlyUnlocked.length > 0) {
+        await unlockAchievements(userId, newlyUnlocked.map(a => a.id));
+    }
 
-        return false;
-    });
+    return newlyUnlocked.map(def => toAchievement(def, metrics[def.category], true));
 }
