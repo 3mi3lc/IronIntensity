@@ -92,6 +92,17 @@ CREATE TABLE `body_weight_entries` (
     `is_synced` integer NOT NULL DEFAULT 0
 );
 
+CREATE TABLE `user_achievements` (
+    `user_id` text NOT NULL REFERENCES `users`(`id`),
+    `achievement_id` text NOT NULL,
+    `unlocked_at` text NOT NULL,
+    `created_at` text NOT NULL DEFAULT (datetime('now')),
+    `updated_at` text NOT NULL DEFAULT (datetime('now')),
+    `deleted_at` text,
+    `is_synced` integer NOT NULL DEFAULT 0,
+    PRIMARY KEY (`user_id`, `achievement_id`)
+);
+
 -- Seed body parts (mirrors migration 0001).
 INSERT INTO body_parts (id, name) VALUES
     ('shoulders', 'Shoulders'), ('biceps', 'Biceps'), ('triceps', 'Triceps'),
