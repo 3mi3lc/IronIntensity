@@ -92,7 +92,7 @@ const WorkoutOptionsModal = ({
                     <View className="mt-4 bg-surface_a20 p-3 rounded-xl">
                         <Text className="text-surface_a50 text-xs text-center">
                             <Text className="font-bold">Perform Again:</Text> Creates a new workout with the same exercises{'\n'}
-                            <Text className="font-bold">Edit:</Text> Modify this workout's details{'\n'}
+                            <Text className="font-bold">Edit:</Text> Modify this workout&apos;s details{'\n'}
                             <Text className="font-bold">View:</Text> See workout in read-only mode
                         </Text>
                     </View>

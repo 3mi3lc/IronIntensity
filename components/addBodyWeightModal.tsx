@@ -1,5 +1,6 @@
 // components/AddBodyWeightModal.tsx
 import React, { useState } from 'react';
+import { logger } from '@/utils/logger';
 import { View, Text, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
 import { createBodyWeightEntry } from '@/repositories/bodyWeightEntries';
 
@@ -41,7 +42,7 @@ export const AddBodyWeightModal: React.FC<AddBodyWeightModalProps> = ({
             onSuccess();
             Alert.alert('Success', 'Body weight recorded');
         } catch (error) {
-            console.error('Error adding weight:', error);
+            logger.error('Error adding weight:', error);
             Alert.alert('Error', 'Failed to record weight');
         } finally {
             setLoading(false);

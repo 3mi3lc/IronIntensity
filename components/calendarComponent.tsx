@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { logger } from '@/utils/logger';
 import { View, Text, TouchableOpacity, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
@@ -56,7 +57,7 @@ const CalendarComponent = () => {
         try {
             router.push({ pathname: '/workout/create' });
         } catch (error) {
-            console.error('Failed to create workout:', error);
+            logger.error('Failed to create workout:', error);
             Alert.alert('Error', 'Failed to create workout. Please try again.');
         } finally {
             setIsCreating(false);

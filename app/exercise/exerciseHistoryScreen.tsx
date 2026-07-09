@@ -1,5 +1,6 @@
 // app/exercise/exerciseHistoryScreen.tsx
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
@@ -44,7 +45,7 @@ export function ExerciseHistoryScreen({
         if (!dateStr) return new Date();
         const date = new Date(dateStr); // ISO strings with +00:00 parse natively just fine
         if (isNaN(date.getTime())) {
-            console.warn('Invalid date:', dateStr);
+            logger.warn('Invalid date:', dateStr);
             return new Date();
         }
         return date;
@@ -59,10 +60,10 @@ export function ExerciseHistoryScreen({
         setError(null);
         try {
             const data = await getExerciseHistory(userId, exerciseId);
-            console.log('History dates:', data.map(w => w.completedAt));
+            logger.debug('History dates:', data.map(w => w.completedAt));
             setHistory(data);
         } catch (err) {
-            console.error('Error loading exercise history:', err);
+            logger.error('Error loading exercise history:', err);
             setError('Failed to load exercise history');
         } finally {
             setLoading(false);
@@ -244,7 +245,7 @@ export function ExerciseHistoryScreen({
                                 No History Yet
                             </Text>
                             <Text className="text-surface_a50 text-center">
-                                This exercise hasn't been performed yet
+                                This exercise hasn&apos;t been performed yet
                             </Text>
                         </View>
                     </View>

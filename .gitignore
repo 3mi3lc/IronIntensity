@@ -9,7 +9,9 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native (Expo prebuild output — regenerate with `expo prebuild`)
+/android/
+/ios/
 *.orig.*
 *.jks
 *.p8
@@ -31,6 +33,12 @@ yarn-error.*
 
 # local env files
 .env*.local
+
+# IDE
+.idea/
+
+# Supabase local CLI state
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo

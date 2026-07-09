@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useContext } from 'react';
+import { logger } from '@/utils/logger';
 import {
     View,
     Text,
@@ -38,7 +39,7 @@ function CreateExercise() {
                 const sortedParts = parts.sort((a, b) => a.name.localeCompare(b.name));
                 setBodyParts(sortedParts);
             } catch (err) {
-                console.error('Failed to load body parts:', err);
+                logger.error('Failed to load body parts:', err);
                 Alert.alert('Error', 'Failed to load body parts');
             } finally {
                 setLoading(false);
@@ -104,7 +105,7 @@ function CreateExercise() {
             setShowSuccess(true);
 
         } catch (err) {
-            console.error('Failed to create exercise:', err);
+            logger.error('Failed to create exercise:', err);
             Alert.alert('Error', 'Failed to create exercise. Please try again.');
         } finally {
             setSaving(false);

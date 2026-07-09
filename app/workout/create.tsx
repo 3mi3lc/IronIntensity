@@ -1,5 +1,6 @@
 // app/workout/create.tsx
 import React, { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { WorkoutScreen } from '@/components/workoutScreen';
@@ -82,7 +83,7 @@ function CreateWorkout() {
 
             setWorkoutId(newWorkout.id);
         } catch (err) {
-            console.error('Failed to create workout:', err);
+            logger.error('Failed to create workout:', err);
             Alert.alert('Error', 'Failed to create workout');
             router.back();
         } finally {

@@ -51,7 +51,7 @@ const DeleteWorkoutModal = ({
                             Are you sure you want to delete
                         </Text>
                         <Text className="text-white font-bold text-lg text-center mb-3">
-                            "{workoutName}"
+                            &quot;{workoutName}&quot;
                         </Text>
                         <Text className="text-surface_a50 text-center text-sm">
                             This will permanently delete this workout and all its exercises and sets. This action cannot be undone.

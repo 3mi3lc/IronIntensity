@@ -1,5 +1,6 @@
 // app/workout/performAgain.tsx
 import React, { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { Alert } from 'react-native';
 import { WorkoutScreen } from '@/components/workoutScreen';
@@ -85,10 +86,10 @@ function PerformAgainWorkout() {
                 throw new Error('Failed to duplicate workout');
             }
 
-            console.log('Workout duplicated:', newWorkout.id);
+            logger.debug('Workout duplicated:', newWorkout.id);
             setWorkoutId(newWorkout.id);
         } catch (err) {
-            console.error('Failed to duplicate workout:', err);
+            logger.error('Failed to duplicate workout:', err);
             Alert.alert('Error', 'Failed to start workout. Please try again.');
             router.back();
         } finally {

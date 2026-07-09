@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { logger } from '@/utils/logger';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import { AntDesign } from '@expo/vector-icons';
@@ -20,7 +21,7 @@ export default function Login() {
 
     useEffect(() => {
         if (user) {
-            console.log('Login: User detected, navigating to app...');
+            logger.debug('Login: User detected, navigating to app...');
             router.replace('/(tabs)/logging');
         }
     }, [user]);
@@ -38,7 +39,7 @@ export default function Login() {
 
         setIsLoading(true);
         try {
-            console.log('Starting auth...', isSignUp ? 'Sign Up' : 'Sign In');
+            logger.debug('Starting auth...', isSignUp ? 'Sign Up' : 'Sign In');
 
             if (isSignUp && signUp) {
                 const { error } = await signUp(email.trim(), password, username.trim());
@@ -58,7 +59,7 @@ export default function Login() {
                 }
             }
         } catch (error: any) {
-            console.error('Auth error:', error);
+            logger.error('Auth error:', error);
             Alert.alert('Error', error.message || 'An error occurred');
         } finally {
             setIsLoading(false);
