@@ -34,6 +34,7 @@ describe('migration chain — fresh install', () => {
         expect(tables).toEqual(expect.arrayContaining([
             'users', 'exercises', 'workouts', 'workout_exercises', 'workout_exercise_sets',
             'body_parts', 'exercise_body_parts', 'sync_metadata', 'body_weight_entries',
+            'user_achievements',
         ]));
     });
 

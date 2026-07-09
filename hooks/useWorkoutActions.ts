@@ -8,8 +8,8 @@ import { ExerciseWithSets, Workout } from '@/repositories/types';
 import { updateWorkoutById, softDeleteWorkoutById, updateWorkoutTimestamps } from '@/repositories/workouts';
 import { markPRsForWorkout } from '@/repositories/workoutExerciseSets';
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
-import { checkAchievements } from '@/repositories/achievements';
-import { getTotalVolume, getTotalWorkouts, getWorkoutStreak } from '@/repositories/statistics';
+import { syncUnlockedAchievements } from '@/repositories/achievements';
+import { getWorkoutStreak } from '@/repositories/statistics';
 
 interface UseWorkoutActionsParams {
     isReadOnly: boolean;
@@ -133,14 +133,6 @@ export function useWorkoutActions({
             if (!workout || !user) return false;
 
             try {
-                // Capture stats BEFORE any DB writes
-                const allTime = { startDate: '2000-01-01', endDate: new Date().toISOString() };
-                const [prevVolume, prevWorkoutCount, { current: prevStreak }] = await Promise.all([
-                    getTotalVolume(user.id, allTime.startDate, allTime.endDate),
-                    getTotalWorkouts(user.id, allTime.startDate, allTime.endDate),
-                    getWorkoutStreak(user.id),
-                ]);
-
                 const success = await handleFinishWorkout(name, date);
 
                 if (success) {
@@ -148,15 +140,9 @@ export function useWorkoutActions({
                     router.push({ pathname: '/logging' });
 
                     setTimeout(async () => {
+                        // Persist any newly-earned achievements and toast them.
                         const { current: newStreak, longest: newLongest } = await getWorkoutStreak(user.id);
-                        const newlyUnlocked = await checkAchievements(
-                            user.id,
-                            newStreak,
-                            prevWorkoutCount,
-                            prevVolume,
-                            prevStreak,
-                            newLongest,
-                        );
+                        const newlyUnlocked = await syncUnlockedAchievements(user.id, newStreak, newLongest);
 
                         // Show one toast per achievement, staggered
                         newlyUnlocked.forEach((achievement, index) => {

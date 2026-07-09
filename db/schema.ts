@@ -110,3 +110,22 @@ export const body_weight_entries = sqliteTable('body_weight_entries', {
     deleted_at: text('deleted_at'),
     is_synced: integer('is_synced').notNull().default(0),
 });
+
+// User_Achievements Table (records unlock events; definitions live in code)
+export const user_achievements = sqliteTable(
+    'user_achievements',
+    {
+        user_id: text('user_id')
+            .notNull()
+            .references(() => users.id),
+        achievement_id: text('achievement_id').notNull(),
+        unlocked_at: text('unlocked_at').notNull(),
+        created_at: text('created_at').notNull().default("datetime('now')"),
+        updated_at: text('updated_at').notNull().default("datetime('now')"),
+        deleted_at: text('deleted_at'),
+        is_synced: integer('is_synced').notNull().default(0),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.user_id, table.achievement_id] }),
+    })
+);

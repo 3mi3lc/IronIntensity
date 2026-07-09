@@ -34,6 +34,11 @@ import {
     markBodyWeightEntriesAsSynced,
     upsertBodyWeightEntriesFromRemote
 } from "@/repositories/bodyWeightEntries";
+import {
+    getUnsyncedUserAchievements,
+    markUserAchievementsAsSynced,
+    upsertUserAchievementsFromRemote
+} from "@/repositories/userAchievements";
 import {logger} from "@/utils/logger";
 
 const unknownError = (e: unknown) => (e instanceof Error ? e.message : 'Unknown error');
@@ -261,6 +266,22 @@ export class SyncService {
         });
     }
 
+    async pushUserAchievements(): Promise<boolean> {
+        return this.pushTable({
+            entity: 'user_achievements',
+            table: 'user_achievements',
+            getUnsynced: getUnsyncedUserAchievements,
+            toRemote: a => ({
+                user_id: a.user_id, achievement_id: a.achievement_id, unlocked_at: a.unlocked_at,
+                created_at: a.created_at, updated_at: a.updated_at, deleted_at: a.deleted_at,
+            }),
+            upsertOptions: {onConflict: 'user_id,achievement_id'},
+            markSynced: rows => markUserAchievementsAsSynced(
+                rows.map(a => ({user_id: a.user_id, achievement_id: a.achievement_id}))
+            ),
+        });
+    }
+
     async pushAll(): Promise<boolean> {
         logger.debug('Starting full push...');
 
@@ -290,6 +311,9 @@ export class SyncService {
         if (!await this.pushBodyWeightEntries()) {
             logger.error('Body weight entries push failed');
             return false;
+        }
+        if (!await this.pushUserAchievements()) {
+            logger.warn('User achievements push had issues, continuing...');
         }
 
         logger.debug('✅ Full push completed successfully');
@@ -365,6 +389,15 @@ export class SyncService {
         });
     }
 
+    async pullUserAchievements(): Promise<boolean> {
+        return this.pullTable({
+            entity: 'user_achievements',
+            table: 'user_achievements',
+            applyFilters: q => q.eq('user_id', this.userId).is('deleted_at', null),
+            upsertLocal: upsertUserAchievementsFromRemote,
+        });
+    }
+
     async pullAll(): Promise<boolean> {
         logger.debug('Starting full pull...');
 
@@ -395,6 +428,9 @@ export class SyncService {
         if (!await this.pullBodyWeightEntries()) {
             logger.error('Body weight entries pull failed');
             return false;
+        }
+        if (!await this.pullUserAchievements()) {
+            logger.warn('User achievements pull had issues, continuing...');
         }
 
         logger.debug('✅ Full pull completed successfully');
