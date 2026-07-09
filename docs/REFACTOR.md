@@ -165,18 +165,30 @@ but mechanical; bundle with Phase 4 file-convention work.
 
 ---
 
-## Phase 3 — Decompose `useWorkoutLogic`
+## Phase 3 — Decompose `useWorkoutLogic` — ✅ DONE (2026-07-05)
 
-Goal: separate business logic from UI side-effects.
+**Result: `useWorkoutLogic` 413 → ~100 lines (a composition facade).** Split into
+four focused hooks, with the public API and behavior **unchanged** — the four
+consumer screens (`create`/`edit`/`performAgain`/`view`) were not touched:
 
-Split the 410-line hook into focused pieces:
-- `useWorkoutData` — load/refresh workout + exercises + max weights.
-- `useSetMutations` — add/update/delete/reorder sets, debounce timers.
-- `usePrDetection` — PR check + achievement unlock (returns events, not toasts).
+- `useWorkoutData(workoutId)` — load/refresh workout + exercises + max weights +
+  lazily-loaded historical sets; owns `exerciseData`/`setExerciseData`.
+- `useSetMutations(...)` — add/delete/update-with-debounce sets + PR toast.
+- `useWorkoutActions(...)` — delete/reorder exercises, finish (with achievement +
+  PR side-effects), delete, navigation, and the edit-form state (name/date).
+- `useExerciseHistoryPanel()` — self-contained history-panel UI state.
 
-Move UI side-effects (`Toast.show`, `Alert.alert`, `router.push`) out of the logic
-layer — have hooks return events/results and let screens render the toasts/alerts.
-This makes the PR/achievement logic unit-testable without a UI.
+**Chosen scope: internal split behind an identical API** (per pairing decision) —
+lowest risk, no screen changes. Also cleaned the last `err: any` in the data
+loader and dropped an unused `prevLongest`.
+
+**Deliberately NOT done:** relocating `Toast`/`Alert`/`router` out of the hooks
+into screens. For this RN app that's architectural purity at the cost of more UI
+wiring; calling them from hooks is idiomatic and pragmatic. The PR/achievement
+*calculation* is already unit-tested at the repository layer.
+
+Static checks green (0 tsc errors, 36 tests, lint unchanged); **runtime behavior
+to be verified in-app** (no UI test harness).
 
 ---
 
