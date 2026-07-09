@@ -3,6 +3,30 @@ import {db} from '@/db/client';
 import {exercises, workout_exercise_sets, workout_exercises, workouts,} from '@/db/schema';
 import {and, desc, eq, gte, isNotNull, isNull, lte, sql} from 'drizzle-orm';
 
+// ==================== SHARED QUERY HELPERS ====================
+
+/** Conditions selecting a user's completed, non-deleted workouts in a date range. */
+const workoutInRange = (userId: string, startDate: string, endDate: string) => [
+    eq(workouts.user_id, userId),
+    isNotNull(workouts.completed_at),
+    gte(workouts.completed_at, startDate),
+    lte(workouts.completed_at, endDate),
+    isNull(workouts.deleted_at),
+];
+
+/** `COALESCE(SUM(weight * reps), 0)` — total training volume for a set selection. */
+const volumeSum = () =>
+    sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`;
+
+/** Turn a time-series into a running total on the given numeric key. */
+function accumulate<T, K extends keyof T>(points: T[], key: K): T[] {
+    let cumulative = 0;
+    return points.map(point => {
+        cumulative += point[key] as unknown as number;
+        return { ...point, [key]: cumulative };
+    });
+}
+
 // ==================== BASIC STATS ====================
 
 export async function getTotalWorkouts(
@@ -14,13 +38,7 @@ export async function getTotalWorkouts(
         .select({ count: sql<number>`COUNT(*)` })
         .from(workouts)
         .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at)
-            )
+            and(...workoutInRange(userId, startDate, endDate))
         );
 
     return result[0]?.count || 0;
@@ -33,7 +51,7 @@ export async function getTotalVolume(
 ): Promise<number> {
     const result = await db
         .select({
-            totalVolume: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`
+            totalVolume: volumeSum()
         })
         .from(workout_exercise_sets)
         .innerJoin(
@@ -43,11 +61,7 @@ export async function getTotalVolume(
         .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
+                ...workoutInRange(userId, startDate, endDate),
                 isNull(workout_exercise_sets.deleted_at)
             )
         );
@@ -144,7 +158,7 @@ export async function getVolumeByDay(
     const result = await db
         .select({
             date: sql<string>`DATE(${workouts.completed_at})`,
-            volume: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`
+            volume: volumeSum()
         })
         .from(workout_exercise_sets)
         .innerJoin(
@@ -154,11 +168,7 @@ export async function getVolumeByDay(
         .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
+                ...workoutInRange(userId, startDate, endDate),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
@@ -179,7 +189,7 @@ export async function getVolumeByWeek(
     const result = await db
         .select({
             date: sql<string>`strftime('%Y-W%W', ${workouts.completed_at})`,
-            volume: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`
+            volume: volumeSum()
         })
         .from(workout_exercise_sets)
         .innerJoin(
@@ -189,11 +199,7 @@ export async function getVolumeByWeek(
         .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
+                ...workoutInRange(userId, startDate, endDate),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
@@ -214,7 +220,7 @@ export async function getVolumeByMonth(
     const result = await db
         .select({
             date: sql<string>`strftime('%Y-%m', ${workouts.completed_at})`,
-            volume: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`
+            volume: volumeSum()
         })
         .from(workout_exercise_sets)
         .innerJoin(
@@ -224,11 +230,7 @@ export async function getVolumeByMonth(
         .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
+                ...workoutInRange(userId, startDate, endDate),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
@@ -262,13 +264,7 @@ export async function getWorkoutsByDay(
         })
         .from(workouts)
         .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at)
-            )
+            and(...workoutInRange(userId, startDate, endDate))
         )
         .groupBy(sql`DATE(
         ${workouts.completed_at}
@@ -293,13 +289,7 @@ export async function getWorkoutsByWeek(
         })
         .from(workouts)
         .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at)
-            )
+            and(...workoutInRange(userId, startDate, endDate))
         )
         .groupBy(sql`strftime
         ('%Y-W%W',
@@ -329,7 +319,7 @@ export async function getTopExercisesByVolume(
         .select({
             exerciseId: exercises.id,
             exerciseName: exercises.name,
-            totalVolume: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`
+            totalVolume: volumeSum()
         })
         .from(workout_exercise_sets)
         .innerJoin(
@@ -340,11 +330,7 @@ export async function getTopExercisesByVolume(
         .innerJoin(exercises, eq(workout_exercises.exercise_id, exercises.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
+                ...workoutInRange(userId, startDate, endDate),
                 isNull(workout_exercise_sets.deleted_at),
                 isNull(exercises.deleted_at)
             )
@@ -376,7 +362,7 @@ export async function getExerciseVolumeByDay(
     const result = await db
         .select({
             date: sql<string>`DATE(${workouts.completed_at})`,
-            volume: sql<number>`COALESCE(SUM(${workout_exercise_sets.weight} * ${workout_exercise_sets.reps}), 0)`
+            volume: volumeSum()
         })
         .from(workout_exercise_sets)
         .innerJoin(
@@ -386,12 +372,8 @@ export async function getExerciseVolumeByDay(
         .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
+                ...workoutInRange(userId, startDate, endDate),
                 eq(workout_exercises.exercise_id, exerciseId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
@@ -431,13 +413,9 @@ export async function getExerciseMaxWeightByDay(
         .innerJoin(workouts, eq(workout_exercises.workout_id, workouts.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
+                ...workoutInRange(userId, startDate, endDate),
                 eq(workout_exercises.exercise_id, exerciseId),
-                isNotNull(workouts.completed_at),
                 isNotNull(workout_exercise_sets.weight),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
@@ -491,12 +469,8 @@ export async function getRecentPRs(
         .innerJoin(exercises, eq(workout_exercises.exercise_id, exercises.id))
         .where(
             and(
-                eq(workouts.user_id, userId),
+                ...workoutInRange(userId, startDate, endDate),
                 eq(workout_exercise_sets.is_pr, 1),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at),
                 isNull(workout_exercise_sets.deleted_at)
             )
         )
@@ -555,17 +529,7 @@ export async function getCumulativeVolumeByDay(
     startDate: string,
     endDate: string
 ): Promise<VolumeDataPoint[]> {
-    const dailyVolumes = await getVolumeByDay(userId, startDate, endDate);
-
-    // Convert to cumulative
-    let cumulative = 0;
-    return dailyVolumes.map(point => {
-        cumulative += point.volume;
-        return {
-            date: point.date,
-            volume: cumulative
-        };
-    });
+    return accumulate(await getVolumeByDay(userId, startDate, endDate), 'volume');
 }
 
 export async function getCumulativeVolumeByWeek(
@@ -573,16 +537,7 @@ export async function getCumulativeVolumeByWeek(
     startDate: string,
     endDate: string
 ): Promise<VolumeDataPoint[]> {
-    const weeklyVolumes = await getVolumeByWeek(userId, startDate, endDate);
-
-    let cumulative = 0;
-    return weeklyVolumes.map(point => {
-        cumulative += point.volume;
-        return {
-            date: point.date,
-            volume: cumulative
-        };
-    });
+    return accumulate(await getVolumeByWeek(userId, startDate, endDate), 'volume');
 }
 
 export async function getCumulativeVolumeByMonth(
@@ -590,16 +545,7 @@ export async function getCumulativeVolumeByMonth(
     startDate: string,
     endDate: string
 ): Promise<VolumeDataPoint[]> {
-    const monthlyVolumes = await getVolumeByMonth(userId, startDate, endDate);
-
-    let cumulative = 0;
-    return monthlyVolumes.map(point => {
-        cumulative += point.volume;
-        return {
-            date: point.date,
-            volume: cumulative
-        };
-    });
+    return accumulate(await getVolumeByMonth(userId, startDate, endDate), 'volume');
 }
 
 // ==================== CUMULATIVE WORKOUTS ====================
@@ -609,16 +555,7 @@ export async function getCumulativeWorkoutsByDay(
     startDate: string,
     endDate: string
 ): Promise<WorkoutDataPoint[]> {
-    const dailyWorkouts = await getWorkoutsByDay(userId, startDate, endDate);
-
-    let cumulative = 0;
-    return dailyWorkouts.map(point => {
-        cumulative += point.count;
-        return {
-            date: point.date,
-            count: cumulative
-        };
-    });
+    return accumulate(await getWorkoutsByDay(userId, startDate, endDate), 'count');
 }
 
 export async function getCumulativeWorkoutsByWeek(
@@ -626,16 +563,7 @@ export async function getCumulativeWorkoutsByWeek(
     startDate: string,
     endDate: string
 ): Promise<WorkoutDataPoint[]> {
-    const weeklyWorkouts = await getWorkoutsByWeek(userId, startDate, endDate);
-
-    let cumulative = 0;
-    return weeklyWorkouts.map(point => {
-        cumulative += point.count;
-        return {
-            date: point.date,
-            count: cumulative
-        };
-    });
+    return accumulate(await getWorkoutsByWeek(userId, startDate, endDate), 'count');
 }
 
 // ==================== EXERCISE HISTORY ====================
@@ -669,22 +597,12 @@ export async function getCumulativeWorkoutsByMonth(
         })
         .from(workouts)
         .where(
-            and(
-                eq(workouts.user_id, userId),
-                isNotNull(workouts.completed_at),
-                gte(workouts.completed_at, startDate),
-                lte(workouts.completed_at, endDate),
-                isNull(workouts.deleted_at)
-            )
+            and(...workoutInRange(userId, startDate, endDate))
         )
         .groupBy(sql`strftime('%Y-%m', ${workouts.completed_at})`)
         .orderBy(sql`strftime('%Y-%m', ${workouts.completed_at})`);
 
-    let cumulative = 0;
-    return result.map(point => {
-        cumulative += point.count;
-        return { date: point.date, count: cumulative };
-    });
+    return accumulate(result, 'count');
 }
 
 
