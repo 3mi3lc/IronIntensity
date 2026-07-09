@@ -217,8 +217,7 @@ This makes the PR/achievement logic unit-testable without a UI.
    green. (`contexts/` kept `.tsx` — they render Providers.)
 
 Still open:
-4. **Fix the migration chain** (see Phase 5a bug note) — filed as its own task;
-   deferred here to avoid risking existing installs' migration history.
+4. ~~Fix the migration chain~~ — ✅ **DONE (2026-07-05)**, see the Phase 5a bug note.
 7. **Split `statistics.tsx`** (Part C) — deferred. It has ~22 functions (only 3
    test-covered) with cross-dependencies (comparison→totals, cumulative→by-period);
    a physical split is pure code-movement whose only payoff is a smaller file, and
@@ -247,16 +246,25 @@ Suites (24 tests, all green):
   `getWorkoutStreak` (longest run, same-week collapse).
 
 > **Harness note:** the schema is built from `test-utils/schema.sql` (mirrors
-> `db/schema.tsx`), **not** by replaying migrations — see the migration bug below.
-> Keep `schema.sql` in sync with `db/schema.tsx` on schema changes.
+> `db/schema.ts`) for speed/determinism, **not** by replaying migrations. Keep
+> `schema.sql` in sync with `db/schema.ts` on schema changes;
+> `__tests__/migrations.test.ts` separately guards that the real migrations still
+> apply cleanly (now that the chain is fixed — see below).
 
-> 🐞 **Migration bug found (needs its own fix):** the migration chain is **not
-> clean-installable**. `0000` creates `exercise_body_parts` without
-> `created_at/updated_at/deleted_at/is_synced`, but `0002` rebuilds that table with
-> `INSERT ... SELECT created_at, ... FROM exercise_body_parts` — columns that don't
-> exist yet. A fresh install crashes at migration `0002` (`no such column:
-> created_at`). Existing installs survive because they were migrated incrementally.
-> Also: `0005` re-runs `0004`'s `completed_at` backfill (harmless duplicate).
+> ✅ **Migration bug — FIXED (2026-07-05).** The chain was **not clean-installable**:
+> `0000` created `exercise_body_parts` without
+> `created_at/updated_at/deleted_at/is_synced`, but `0002` rebuilt the table with
+> `INSERT ... SELECT created_at, ... FROM exercise_body_parts` — columns that didn't
+> exist yet — so every fresh install crashed at `0002` (`no such column: created_at`).
+> **Fix:** `0002`'s copy now `SELECT`s only `exercise_id, body_part_id`; the new
+> columns take their table defaults (the source table is empty at that point on a
+> fresh install anyway, and the end schema is unchanged). Chosen over editing `0000`
+> because it's localized and needs no snapshot changes. **Safe for existing installs:**
+> the drizzle migrator tracks applied migrations by the journal's `when` timestamp,
+> not by SQL hash, so a changed migration body is never re-run on installs past it.
+> Verified by `__tests__/migrations.test.ts`, which replays the real migrations on a
+> fresh in-memory DB. `0005`'s harmless duplicate backfill was left as-is (removing it
+> would mean editing the journal for no functional gain).
 
 ### Phase 5b — DONE (2026-07-05)
 
