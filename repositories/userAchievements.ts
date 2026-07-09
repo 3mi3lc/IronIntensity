@@ -37,6 +37,20 @@ export async function getUnlockedAchievementIds(userId: string): Promise<Set<str
     return new Set(rows.map(r => r.id));
 }
 
+/** Map of unlocked achievement id -> unlocked_at timestamp (excludes soft-deleted). */
+export async function getUnlockedAchievementMap(userId: string): Promise<Map<string, string>> {
+    const rows = await db
+        .select({ id: user_achievements.achievement_id, at: user_achievements.unlocked_at })
+        .from(user_achievements)
+        .where(
+            and(
+                eq(user_achievements.user_id, userId),
+                isNull(user_achievements.deleted_at),
+            )
+        );
+    return new Map(rows.map(r => [r.id, r.at]));
+}
+
 // ==================== SYNC ====================
 
 export async function getUnsyncedUserAchievements(): Promise<UserAchievement[]> {

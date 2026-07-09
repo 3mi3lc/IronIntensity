@@ -1,7 +1,7 @@
 import { db } from '@/db/client';
 import { body_weight_entries, exercise_body_parts, workout_exercise_sets, workout_exercises, workouts } from '@/db/schema';
 import { and, eq, isNull, isNotNull, sql } from 'drizzle-orm';
-import { getUnlockedAchievementIds, unlockAchievements } from '@/repositories/userAchievements';
+import { getUnlockedAchievementIds, getUnlockedAchievementMap, unlockAchievements } from '@/repositories/userAchievements';
 
 export type AchievementCategory =
     | 'volume' | 'workouts' | 'streak' | 'pr' | 'bodyweight'
@@ -18,6 +18,8 @@ export interface AchievementDef {
 
 export interface Achievement extends AchievementDef {
     unlocked: boolean;
+    /** When this badge was recorded as unlocked (null if unlocked only by live metric, not yet persisted). */
+    unlockedAt: string | null;
     /** Current value of this achievement's metric (e.g. workouts completed). */
     progress: number;
     /** progress toward the threshold, clamped to 0..1 (1 once unlocked). */
@@ -217,12 +219,13 @@ async function getMetrics(userId: string, longestStreak: number): Promise<Metric
     };
 }
 
-function toAchievement(def: AchievementDef, value: number, persisted: boolean): Achievement {
-    const unlocked = persisted || value >= def.threshold;
+function toAchievement(def: AchievementDef, value: number, unlockedAt: string | null): Achievement {
+    const unlocked = unlockedAt !== null || value >= def.threshold;
     const denom = def.threshold <= 0 ? 1 : def.threshold;
     return {
         ...def,
         unlocked,
+        unlockedAt,
         progress: value,
         progressPercent: unlocked ? 1 : Math.min(value / denom, 1),
     };
@@ -237,13 +240,13 @@ export async function getAllAchievementsWithStatus(
     currentStreak: number,
     longestStreak: number
 ): Promise<Achievement[]> {
-    const [metrics, unlockedIds] = await Promise.all([
+    const [metrics, unlockedMap] = await Promise.all([
         getMetrics(userId, longestStreak),
-        getUnlockedAchievementIds(userId),
+        getUnlockedAchievementMap(userId),
     ]);
 
     return ACHIEVEMENTS.map(def =>
-        toAchievement(def, metrics[def.category], unlockedIds.has(def.id))
+        toAchievement(def, metrics[def.category], unlockedMap.get(def.id) ?? null)
     );
 }
 
@@ -269,5 +272,6 @@ export async function syncUnlockedAchievements(
         await unlockAchievements(userId, newlyUnlocked.map(a => a.id));
     }
 
-    return newlyUnlocked.map(def => toAchievement(def, metrics[def.category], true));
+    const unlockedAt = new Date().toISOString();
+    return newlyUnlocked.map(def => toAchievement(def, metrics[def.category], unlockedAt));
 }

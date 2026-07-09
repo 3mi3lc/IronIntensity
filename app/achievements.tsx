@@ -26,26 +26,16 @@ const CATEGORY_ORDER: { key: AchievementCategory; label: string }[] = [
     { key: 'bodyweight', label: 'Bodyweight' },
 ];
 
-type Filter = AchievementCategory | 'all';
-
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-    return (
-        <TouchableOpacity
-            onPress={onPress}
-            activeOpacity={0.8}
-            className={`px-4 py-2 rounded-full ${active ? 'bg-primary_a0' : 'bg-surface_a10'}`}
-        >
-            <Text className={`text-sm font-semibold ${active ? 'text-white' : 'text-surface_a50'}`}>{label}</Text>
-        </TouchableOpacity>
-    );
-}
+const SectionTitle = ({ children }: { children: string }) => (
+    <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2 mt-2">{children}</Text>
+);
 
 export default function AchievementsScreen() {
     const { user } = useAuth();
     const { currentStreak, longestStreak } = useStreak(user?.id);
     const [achievements, setAchievements] = useState<Achievement[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<Filter>('all');
+    const [browseOpen, setBrowseOpen] = useState(false);
     const [expanded, setExpanded] = useState<Set<AchievementCategory>>(new Set());
 
     useEffect(() => {
@@ -76,10 +66,19 @@ export default function AchievementsScreen() {
     const total = achievements.length;
     const overallPercent = total > 0 ? Math.round((unlockedCount / total) * 100) : 0;
 
+    const closest = achievements
+        .filter(a => !a.unlocked && a.threshold > 0 && a.progressPercent > 0)
+        .sort((a, b) => b.progressPercent - a.progressPercent)
+        .slice(0, 5);
+
+    const recent = achievements
+        .filter(a => a.unlockedAt)
+        .sort((a, b) => (a.unlockedAt! < b.unlockedAt! ? 1 : -1))
+        .slice(0, 10);
+
     const sections = CATEGORY_ORDER
         .map(c => ({ ...c, rows: achievements.filter(a => a.category === c.key) }))
         .filter(s => s.rows.length > 0);
-    const visibleSections = filter === 'all' ? sections : sections.filter(s => s.key === filter);
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
@@ -119,29 +118,63 @@ export default function AchievementsScreen() {
                         </View>
                     </View>
 
-                    {/* Category filter chips */}
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        className="mb-4 -mx-1"
-                        contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}
-                    >
-                        <Chip label="All" active={filter === 'all'} onPress={() => setFilter('all')} />
-                        {sections.map(s => (
-                            <Chip key={s.key} label={s.label} active={filter === s.key} onPress={() => setFilter(s.key)} />
-                        ))}
-                    </ScrollView>
+                    {/* Closest to unlocking */}
+                    {closest.length > 0 && (
+                        <View className="mb-4">
+                            <SectionTitle>Closest to Unlocking</SectionTitle>
+                            <View className="bg-surface_a10 rounded-2xl overflow-hidden">
+                                {closest.map((a, i) => (
+                                    <AchievementRow key={a.id} achievement={a} showBorder={i < closest.length - 1} />
+                                ))}
+                            </View>
+                        </View>
+                    )}
 
-                    {visibleSections.map(section => {
-                        const open = filter !== 'all' || expanded.has(section.key);
+                    {/* Recently unlocked */}
+                    {recent.length > 0 && (
+                        <View className="mb-4">
+                            <SectionTitle>Recently Unlocked</SectionTitle>
+                            <ScrollView
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ gap: 8 }}
+                            >
+                                {recent.map(a => (
+                                    <View
+                                        key={a.id}
+                                        className="bg-surface_a10 rounded-2xl p-3 items-center justify-center"
+                                        style={{ width: 92, height: 92 }}
+                                    >
+                                        <Text style={{ fontSize: 30 }}>{a.icon}</Text>
+                                        <Text numberOfLines={2} className="text-white text-[10px] mt-1 text-center leading-3">
+                                            {a.title}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
+                    {/* Browse all (opt-in) */}
+                    <TouchableOpacity
+                        onPress={() => setBrowseOpen(o => !o)}
+                        activeOpacity={0.7}
+                        className="bg-surface_a10 rounded-2xl p-4 flex-row items-center justify-between mt-2"
+                    >
+                        <Text className="text-white font-bold text-base">Browse all categories</Text>
+                        <AntDesign name={browseOpen ? 'up' : 'down'} size={16} color="#7a7a7a" />
+                    </TouchableOpacity>
+
+                    {browseOpen && sections.map(section => {
+                        const open = expanded.has(section.key);
                         const unlocked = section.rows.filter(r => r.unlocked).length;
                         const percent = Math.round((unlocked / section.rows.length) * 100);
 
                         return (
-                            <View key={section.key} className="mb-3">
+                            <View key={section.key} className="mt-3">
                                 <TouchableOpacity
-                                    onPress={() => filter === 'all' && toggle(section.key)}
-                                    activeOpacity={filter === 'all' ? 0.7 : 1}
+                                    onPress={() => toggle(section.key)}
+                                    activeOpacity={0.7}
                                     className="bg-surface_a10 rounded-2xl p-4"
                                 >
                                     <View className="flex-row items-center justify-between">
@@ -150,9 +183,7 @@ export default function AchievementsScreen() {
                                             <Text className="text-surface_a50 text-sm mr-2">
                                                 {unlocked}/{section.rows.length}
                                             </Text>
-                                            {filter === 'all' && (
-                                                <AntDesign name={open ? 'up' : 'down'} size={14} color="#7a7a7a" />
-                                            )}
+                                            <AntDesign name={open ? 'up' : 'down'} size={14} color="#7a7a7a" />
                                         </View>
                                     </View>
                                     <View className="h-1.5 bg-surface_a20 rounded-full overflow-hidden mt-2">
