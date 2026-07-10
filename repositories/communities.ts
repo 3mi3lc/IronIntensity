@@ -64,7 +64,7 @@ export interface CachedResult<T> {
  * return `stale: false`. On failure, return the last-synced cache (or `empty`)
  * flagged `stale: true`.
  */
-async function cachedRead<T>(key: string, fetcher: () => Promise<T>, empty: T): Promise<CachedResult<T>> {
+export async function cachedRead<T>(key: string, fetcher: () => Promise<T>, empty: T): Promise<CachedResult<T>> {
     try {
         const data = await fetcher();
         await writeCache(key, data);
