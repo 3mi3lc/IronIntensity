@@ -1,11 +1,10 @@
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Share } from 'react-native';
-import { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert, Share, ActivityIndicator } from 'react-native';
+import { useState, useCallback, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
-import { LoadingScreen } from '@/components/loadingScreen';
 import {
     getCommunityFeed,
     getLeaderboard,
@@ -80,40 +79,54 @@ function metricNote(metric: LeaderboardMetric, period: LeaderboardPeriod): strin
 export default function CommunityHomeScreen() {
     const { id, name, code } = useLocalSearchParams<{ id: string; name?: string; code?: string }>();
     const { user } = useAuth();
-    const [tab, setTab] = useState<Tab>('leaderboard');
+    const [tab, setTab] = useState<Tab>('feed');
     const [metric, setMetric] = useState<LeaderboardMetric>('consistency');
     const [period, setPeriod] = useState<LeaderboardPeriod>('week');
     const [board, setBoard] = useState<LeaderboardRow[]>([]);
     const [feed, setFeed] = useState<FeedEvent[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [boardLoading, setBoardLoading] = useState(true);
+    const [feedLoading, setFeedLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [stale, setStale] = useState(false);
+    const [boardStale, setBoardStale] = useState(false);
+    const [feedStale, setFeedStale] = useState(false);
+    const stale = boardStale || feedStale;
 
-    const load = useCallback(async () => {
+    // Reloads just the leaderboard (metric/period switches), so the surrounding
+    // chrome and feed stay put and only the list area shows a spinner.
+    const loadBoard = useCallback(async () => {
         if (!id) return;
-        const [b, f] = await Promise.all([getLeaderboard(id, metric, period), getCommunityFeed(id)]);
-        setBoard(b.data);
-        setFeed(f.data);
-        setStale(b.stale || f.stale);
+        setBoardLoading(true);
+        try {
+            const b = await getLeaderboard(id, metric, period);
+            setBoard(b.data);
+            setBoardStale(b.stale);
+        } finally {
+            setBoardLoading(false);
+        }
     }, [id, metric, period]);
 
-    useFocusEffect(
-        useCallback(() => {
-            let active = true;
-            (async () => {
-                setLoading(true);
-                await load();
-                if (active) setLoading(false);
-            })();
-            return () => { active = false; };
-        }, [load])
-    );
+    const loadFeed = useCallback(async () => {
+        if (!id) return;
+        try {
+            const f = await getCommunityFeed(id);
+            setFeed(f.data);
+            setFeedStale(f.stale);
+        } finally {
+            setFeedLoading(false);
+        }
+    }, [id]);
+
+    // Board reloads whenever the metric or period changes.
+    useEffect(() => { loadBoard(); }, [loadBoard]);
+
+    // Feed loads on focus (and on return to the screen).
+    useFocusEffect(useCallback(() => { loadFeed(); }, [loadFeed]));
 
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
-        await load();
+        await Promise.all([loadBoard(), loadFeed()]);
         setRefreshing(false);
-    }, [load]);
+    }, [loadBoard, loadFeed]);
 
     const onInvite = useCallback(() => {
         if (!code) return;
@@ -140,8 +153,6 @@ export default function CommunityHomeScreen() {
                 : x));
         }
     }, [user?.id]);
-
-    if (loading) return <LoadingScreen message={null} />;
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
@@ -177,7 +188,7 @@ export default function CommunityHomeScreen() {
 
             {/* Tab switch */}
             <View className="flex-row mx-4 mb-3 bg-surface_a10 rounded-xl p-1">
-                {(['leaderboard', 'feed'] as Tab[]).map(t => (
+                {(['feed', 'leaderboard'] as Tab[]).map(t => (
                     <TouchableOpacity
                         key={t}
                         onPress={() => setTab(t)}
@@ -236,7 +247,11 @@ export default function CommunityHomeScreen() {
                             </View>
                         )}
 
-                        {board.length === 0 ? (
+                        {boardLoading ? (
+                            <View className="mt-12 items-center">
+                                <ActivityIndicator size="large" color="#f34023" />
+                            </View>
+                        ) : board.length === 0 ? (
                             <Text className="text-surface_a50 text-center mt-12">
                                 No one on this board yet. Finish a workout to get on it.
                             </Text>
@@ -255,7 +270,11 @@ export default function CommunityHomeScreen() {
                         <Text className="text-surface_a50 text-xs text-center mt-4">{metricNote(metric, period)}</Text>
                     </>
                 ) : (
-                    feed.length === 0 ? (
+                    feedLoading ? (
+                        <View className="mt-12 items-center">
+                            <ActivityIndicator size="large" color="#f34023" />
+                        </View>
+                    ) : feed.length === 0 ? (
                         <Text className="text-surface_a50 text-center mt-12">
                             No activity yet. Completed workouts show up here.
                         </Text>
