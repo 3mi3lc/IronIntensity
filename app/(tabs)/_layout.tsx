@@ -3,6 +3,7 @@ import React from 'react'
 import {Tabs} from "expo-router";
 import {icons} from "@/constants/icons";
 import {Image, View } from "react-native";
+import {AntDesign} from "@expo/vector-icons";
 
 const TabIcon = ({focused, icon} : any) => {
     return (
@@ -48,6 +49,16 @@ const _Layout = () => {
                     <TabIcon focused={focused} icon={icons.stats_icon}></TabIcon>
                 )
             }} />
+
+            <Tabs.Screen name="communities"  options={{
+                headerShown: false,
+                title: 'Community',
+                tabBarIcon: ({focused}) => (
+                    <View className="items-center">
+                        <AntDesign name="team" size={26} color={focused ? '#eb0202' : '#9ca3af'} />
+                    </View>
+                )
+            }}/>
 
             <Tabs.Screen name="profile"  options={{
                 headerShown: false,

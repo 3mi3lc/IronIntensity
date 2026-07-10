@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/loadingScreen';
 import { getMyCommunities, Community } from '@/repositories/communities';
@@ -10,6 +11,7 @@ import { logger } from '@/utils/logger';
 
 export default function CommunitiesScreen() {
     const { isOffline } = useAuth();
+    const tabBarHeight = useBottomTabBarHeight();
     const [communities, setCommunities] = useState<Community[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -49,24 +51,14 @@ export default function CommunitiesScreen() {
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
             {/* Header */}
-            <View className="px-4 pt-4 pb-4 flex-row items-center">
-                <TouchableOpacity
-                    onPress={() => router.back()}
-                    className="p-2 bg-surface_a10 rounded-xl"
-                    activeOpacity={0.7}
-                >
-                    <AntDesign name="arrow-left" size={24} color="#eb0202" />
-                </TouchableOpacity>
-                <View className="flex-1 mx-4">
-                    <Text className="text-primary_a0 font-bold text-2xl text-center">Communities</Text>
-                </View>
-                <View style={{ width: 44 }} />
+            <View className="px-4 pt-4 pb-4">
+                <Text className="text-primary_a0 font-bold text-2xl text-center">Communities</Text>
             </View>
 
             <ScrollView
                 className="flex-1 px-4"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
+                contentContainerStyle={{ paddingBottom: tabBarHeight + 40 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f34023" />}
             >
                 {/* Create / Join actions */}
