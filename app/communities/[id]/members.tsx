@@ -6,20 +6,23 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/loadingScreen';
 import { getCommunityMembers, leaveCommunity, CommunityMember } from '@/repositories/communities';
+import { getReliability } from '@/repositories/communityCalendar';
 import { logger } from '@/utils/logger';
 
 export default function CommunityMembersScreen() {
     const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
     const { user } = useAuth();
     const [members, setMembers] = useState<CommunityMember[]>([]);
+    const [reliability, setReliability] = useState<Map<string, { kept: number; total: number }>>(new Map());
     const [loading, setLoading] = useState(true);
     const [stale, setStale] = useState(false);
 
     const load = useCallback(async () => {
         if (!id) return;
-        const { data, stale } = await getCommunityMembers(id);
-        setMembers(data);
-        setStale(stale);
+        const [mem, rel] = await Promise.all([getCommunityMembers(id), getReliability(id)]);
+        setMembers(mem.data);
+        setReliability(new Map(rel.data.map(r => [r.user_id, { kept: r.kept, total: r.total }])));
+        setStale(mem.stale || rel.stale);
     }, [id]);
 
     useFocusEffect(
@@ -95,22 +98,32 @@ export default function CommunityMembersScreen() {
                         You are offline and have no saved member list yet.
                     </Text>
                 ) : (
-                    members.map(m => (
-                        <View key={m.user_id} className="bg-surface_a10 px-4 py-4 rounded-xl mb-2 flex-row items-center">
-                            <View className="w-9 h-9 rounded-full bg-surface_a20 items-center justify-center mr-3">
-                                <Text className="text-white font-bold">{m.username?.charAt(0).toUpperCase() ?? '?'}</Text>
-                            </View>
-                            <Text className="text-white font-semibold flex-1" numberOfLines={1}>
-                                {m.username}
-                                {user?.id === m.user_id ? '  (you)' : ''}
-                            </Text>
-                            {m.role === 'admin' && (
-                                <View className="bg-surface_a20 px-2 py-1 rounded-md">
-                                    <Text className="text-surface_a50 text-xs font-bold">ADMIN</Text>
+                    members.map(m => {
+                        const rel = reliability.get(m.user_id);
+                        return (
+                            <View key={m.user_id} className="bg-surface_a10 px-4 py-4 rounded-xl mb-2 flex-row items-center">
+                                <View className="w-9 h-9 rounded-full bg-surface_a20 items-center justify-center mr-3">
+                                    <Text className="text-white font-bold">{m.username?.charAt(0).toUpperCase() ?? '?'}</Text>
                                 </View>
-                            )}
-                        </View>
-                    ))
+                                <View className="flex-1">
+                                    <Text className="text-white font-semibold" numberOfLines={1}>
+                                        {m.username}
+                                        {user?.id === m.user_id ? '  (you)' : ''}
+                                    </Text>
+                                    {rel && rel.total > 0 && (
+                                        <Text className="text-surface_a50 text-xs mt-0.5">
+                                            Kept {rel.kept}/{rel.total} planned sessions
+                                        </Text>
+                                    )}
+                                </View>
+                                {m.role === 'admin' && (
+                                    <View className="bg-surface_a20 px-2 py-1 rounded-md">
+                                        <Text className="text-surface_a50 text-xs font-bold">ADMIN</Text>
+                                    </View>
+                                )}
+                            </View>
+                        );
+                    })
                 )}
 
                 <TouchableOpacity

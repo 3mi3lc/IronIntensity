@@ -15,8 +15,15 @@ import {
     LeaderboardPeriod,
 } from '@/repositories/communities';
 import { logger } from '@/utils/logger';
+import { CommunityCalendarTab } from '@/components/communityCalendarTab';
 
-type Tab = 'leaderboard' | 'feed';
+type Tab = 'feed' | 'leaderboard' | 'calendar';
+
+const TAB_LABELS: Record<Tab, string> = {
+    feed: 'Feed',
+    leaderboard: 'Leaderboard',
+    calendar: 'Calendar',
+};
 
 /** One line of copy for a feed event. Weight is shown only for PRs (the carve-out). */
 function feedLine(e: FeedEvent): { emoji: string; title: string; subtitle?: string } {
@@ -89,7 +96,8 @@ export default function CommunityHomeScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [boardStale, setBoardStale] = useState(false);
     const [feedStale, setFeedStale] = useState(false);
-    const stale = boardStale || feedStale;
+    const [calendarStale, setCalendarStale] = useState(false);
+    const stale = boardStale || feedStale || calendarStale;
 
     // Reloads just the leaderboard (metric/period switches), so the surrounding
     // chrome and feed stay put and only the list area shows a spinner.
@@ -188,15 +196,15 @@ export default function CommunityHomeScreen() {
 
             {/* Tab switch */}
             <View className="flex-row mx-4 mb-3 bg-surface_a10 rounded-xl p-1">
-                {(['feed', 'leaderboard'] as Tab[]).map(t => (
+                {(['feed', 'leaderboard', 'calendar'] as Tab[]).map(t => (
                     <TouchableOpacity
                         key={t}
                         onPress={() => setTab(t)}
                         className={`flex-1 py-2 rounded-lg ${tab === t ? 'bg-primary_a0' : ''}`}
                         activeOpacity={0.85}
                     >
-                        <Text className={`text-center font-bold ${tab === t ? 'text-white' : 'text-surface_a50'}`}>
-                            {t === 'leaderboard' ? 'Leaderboard' : 'Feed'}
+                        <Text className={`text-center font-bold text-sm ${tab === t ? 'text-white' : 'text-surface_a50'}`}>
+                            {TAB_LABELS[t]}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -269,6 +277,8 @@ export default function CommunityHomeScreen() {
                         )}
                         <Text className="text-surface_a50 text-xs text-center mt-4">{metricNote(metric, period)}</Text>
                     </>
+                ) : tab === 'calendar' ? (
+                    <CommunityCalendarTab communityId={id!} onStale={setCalendarStale} />
                 ) : (
                     feedLoading ? (
                         <View className="mt-12 items-center">
