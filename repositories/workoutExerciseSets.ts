@@ -606,3 +606,44 @@ export async function getPRsForWorkout(
         reps: r.reps,
     }));
 }
+
+/**
+ * Summary stats for one workout, for the community activity feed: number of live
+ * sets, total volume (kg), and the exercise of the heaviest single set. Excludes
+ * soft-deleted rows. Aggregates only — no per-set detail leaves this function.
+ */
+export async function getWorkoutSummary(
+    workoutId: string
+): Promise<{ setCount: number; totalVolume: number; topLiftLabel: string | null }> {
+    const rows = await db
+        .select({
+            weight: workout_exercise_sets.weight,
+            reps: workout_exercise_sets.reps,
+            exerciseName: exercises.name,
+        })
+        .from(workout_exercise_sets)
+        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+        .innerJoin(exercises, eq(workout_exercises.exercise_id, exercises.id))
+        .where(
+            and(
+                eq(workout_exercises.workout_id, workoutId),
+                isNull(workout_exercise_sets.deleted_at),
+                isNull(workout_exercises.deleted_at),
+            )
+        );
+
+    let totalVolume = 0;
+    let topWeight = -1;
+    let topLiftLabel: string | null = null;
+    for (const r of rows) {
+        if (r.weight != null) {
+            totalVolume += r.weight * r.reps;
+            if (r.weight > topWeight) {
+                topWeight = r.weight;
+                topLiftLabel = r.exerciseName;
+            }
+        }
+    }
+
+    return { setCount: rows.length, totalVolume: Math.round(totalVolume), topLiftLabel };
+}
