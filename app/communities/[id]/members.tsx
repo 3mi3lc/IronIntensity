@@ -13,17 +13,13 @@ export default function CommunityMembersScreen() {
     const { user } = useAuth();
     const [members, setMembers] = useState<CommunityMember[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
+    const [stale, setStale] = useState(false);
 
     const load = useCallback(async () => {
         if (!id) return;
-        try {
-            setError(false);
-            setMembers(await getCommunityMembers(id));
-        } catch (e) {
-            logger.error('Failed to load members:', e);
-            setError(true);
-        }
+        const { data, stale } = await getCommunityMembers(id);
+        setMembers(data);
+        setStale(stale);
     }, [id]);
 
     useFocusEffect(
@@ -87,8 +83,17 @@ export default function CommunityMembersScreen() {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 40 }}
             >
-                {error ? (
-                    <Text className="text-surface_a50 text-center mt-12">Could not load members.</Text>
+                {stale && (
+                    <View className="flex-row items-center justify-center mb-4">
+                        <AntDesign name="disconnect" size={12} color="#7a7a7a" />
+                        <Text className="text-surface_a50 text-xs ml-2">Offline — showing last synced</Text>
+                    </View>
+                )}
+
+                {stale && members.length === 0 ? (
+                    <Text className="text-surface_a50 text-center mt-12">
+                        You are offline and have no saved member list yet.
+                    </Text>
                 ) : (
                     members.map(m => (
                         <View key={m.user_id} className="bg-surface_a10 px-4 py-4 rounded-xl mb-2 flex-row items-center">

@@ -9,8 +9,7 @@ import { LoadingScreen } from '@/components/loadingScreen';
 import {
     getCommunityFeed,
     getLeaderboard,
-    addKudos,
-    removeKudos,
+    setKudos,
     FeedEvent,
     LeaderboardRow,
     LeaderboardMetric,
@@ -88,19 +87,14 @@ export default function CommunityHomeScreen() {
     const [feed, setFeed] = useState<FeedEvent[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState(false);
+    const [stale, setStale] = useState(false);
 
     const load = useCallback(async () => {
         if (!id) return;
-        try {
-            setError(false);
-            const [b, f] = await Promise.all([getLeaderboard(id, metric, period), getCommunityFeed(id)]);
-            setBoard(b);
-            setFeed(f);
-        } catch (e) {
-            logger.error('Failed to load community:', e);
-            setError(true);
-        }
+        const [b, f] = await Promise.all([getLeaderboard(id, metric, period), getCommunityFeed(id)]);
+        setBoard(b.data);
+        setFeed(f.data);
+        setStale(b.stale || f.stale);
     }, [id, metric, period]);
 
     useFocusEffect(
@@ -134,9 +128,10 @@ export default function CommunityHomeScreen() {
         setFeed(prev => prev.map(e => e.id === event.id
             ? { ...e, i_kudosed: nextMine, kudos_count: e.kudos_count + (nextMine ? 1 : -1) }
             : e));
+        // setKudos never throws: it delivers online, or queues to the local
+        // outbox when offline for the next sync. The optimistic state stands.
         try {
-            if (nextMine) await addKudos(event.id, user.id);
-            else await removeKudos(event.id, user.id);
+            await setKudos(event.id, user.id, nextMine);
         } catch (e) {
             logger.error('Failed to toggle kudos:', e);
             // Revert
@@ -202,12 +197,14 @@ export default function CommunityHomeScreen() {
                 contentContainerStyle={{ paddingBottom: 40 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f34023" />}
             >
-                {error ? (
-                    <View className="items-center mt-16 px-6">
-                        <AntDesign name="disconnect" size={40} color="#7a7a7a" />
-                        <Text className="text-surface_a50 text-center mt-4">Could not load. Pull to retry.</Text>
+                {stale && (
+                    <View className="flex-row items-center justify-center mb-3">
+                        <AntDesign name="disconnect" size={12} color="#7a7a7a" />
+                        <Text className="text-surface_a50 text-xs ml-2">Offline — showing last synced</Text>
                     </View>
-                ) : tab === 'leaderboard' ? (
+                )}
+
+                {tab === 'leaderboard' ? (
                     <>
                         {/* Metric chips */}
                         <View className="flex-row flex-wrap gap-2 mb-3">

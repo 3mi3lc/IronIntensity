@@ -35,8 +35,11 @@ The split:
 - **The social layer is a new, online-only surface** on Supabase, gated by
   row-level security (RLS) via community membership. The offline sync flags
   (`is_synced`, `deleted_at`) do not drive access here; RLS does.
-- **Degrade gracefully offline:** show the last-synced leaderboard and feed from
-  cache; queue kudos to send on reconnect.
+- **Degrade gracefully offline (implemented):** reads are network-first with a
+  local cache fallback (`community_cache`), so the last-synced leaderboards, feed,
+  and member lists stay viewable offline behind a subtle "showing last synced"
+  banner. Kudos toggled offline are held in a local outbox (`pending_kudos`),
+  overlaid onto the feed for immediate feedback, and flushed on the next sync.
 
 ---
 
