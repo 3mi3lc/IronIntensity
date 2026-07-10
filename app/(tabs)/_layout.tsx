@@ -38,7 +38,7 @@ const _Layout = () => {
                 headerShown: false,
                 title: "Log",
                 tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} name="book" />
+                    <TabIcon focused={focused} name="calendar" />
                 )
             }}></Tabs.Screen>
 
