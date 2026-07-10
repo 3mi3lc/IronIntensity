@@ -8,7 +8,11 @@ import {AntDesign} from "@expo/vector-icons";
 const TabIcon = ({focused, icon} : any) => {
     return (
         <View className="items-center">
-            <Image source={icon} className="size-7"/>
+            <Image
+                source={icon}
+                className="size-7"
+                style={{ tintColor: focused ? '#eb0202' : '#9ca3af' }}
+            />
         </View>
     )
 
@@ -55,7 +59,7 @@ const _Layout = () => {
                 title: 'Community',
                 tabBarIcon: ({focused}) => (
                     <View className="items-center">
-                        <AntDesign name="team" size={26} color={focused ? '#eb0202' : '#9ca3af'} />
+                        <AntDesign name="team" size={28} color={focused ? '#eb0202' : '#9ca3af'} />
                     </View>
                 )
             }}/>
