@@ -1,21 +1,17 @@
 // app/(tabs)/_layout.tsx
 import React from 'react'
 import {Tabs} from "expo-router";
-import {icons} from "@/constants/icons";
-import {Image, View } from "react-native";
+import {View} from "react-native";
 import {AntDesign} from "@expo/vector-icons";
 
-const TabIcon = ({focused, icon} : any) => {
+type AntDesignName = React.ComponentProps<typeof AntDesign>['name'];
+
+const TabIcon = ({focused, name}: {focused: boolean; name: AntDesignName}) => {
     return (
         <View className="items-center">
-            <Image
-                source={icon}
-                className="size-7"
-                style={{ tintColor: focused ? '#eb0202' : '#9ca3af' }}
-            />
+            <AntDesign name={name} size={28} color={focused ? '#eb0202' : '#9ca3af'} />
         </View>
     )
-
 }
 
 const _Layout = () => {
@@ -42,7 +38,7 @@ const _Layout = () => {
                 headerShown: false,
                 title: "Log",
                 tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} icon={icons.log_icon}></TabIcon>
+                    <TabIcon focused={focused} name="book" />
                 )
             }}></Tabs.Screen>
 
@@ -50,7 +46,7 @@ const _Layout = () => {
                 headerShown: false,
                 title: 'Stats',
                 tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} icon={icons.stats_icon}></TabIcon>
+                    <TabIcon focused={focused} name="bar-chart" />
                 )
             }} />
 
@@ -58,9 +54,7 @@ const _Layout = () => {
                 headerShown: false,
                 title: 'Community',
                 tabBarIcon: ({focused}) => (
-                    <View className="items-center">
-                        <AntDesign name="team" size={28} color={focused ? '#eb0202' : '#9ca3af'} />
-                    </View>
+                    <TabIcon focused={focused} name="team" />
                 )
             }}/>
 
@@ -68,7 +62,7 @@ const _Layout = () => {
                 headerShown: false,
                 title: 'Profile',
                 tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} icon={icons.profile_icon}></TabIcon>
+                    <TabIcon focused={focused} name="user" />
                 )
             }}/>
         </Tabs>
