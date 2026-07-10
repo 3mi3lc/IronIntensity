@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import {
     AchievementCategory,
 } from '@/repositories/achievements';
 import { AchievementRow } from '@/components/achievementRow';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 const CATEGORY_ORDER: { key: AchievementCategory; label: string }[] = [
     { key: 'milestone', label: 'Getting Started' },
@@ -98,12 +99,10 @@ export default function AchievementsScreen() {
             </View>
 
             {loading ? (
-                <View className="flex-1 justify-center items-center">
-                    <ActivityIndicator size="large" color="#f34023" />
-                </View>
+                <LoadingScreen safeArea={false} />
             ) : (
                 <ScrollView
-                    className="flex-1 px-6"
+                    className="flex-1 px-4"
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 40 }}
                 >

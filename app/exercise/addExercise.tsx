@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { logger } from '@/utils/logger';
 import React, {  useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { getAllExercisesWithBodyPart } from '@/repositories/exercises';
 import { addExerciseToWorkoutById } from '@/repositories/workoutExercises';
 import type { BodypartWithExercises } from '@/repositories/types';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 type BodyPartSection = BodypartWithExercises & {
     expanded: boolean;
@@ -80,16 +81,7 @@ function AddExercise() {
     };
 
     if (loading || addingExercise) {
-        return (
-            <View className="flex-1 justify-center items-center bg-surface_a0">
-                <View className="bg-surface_a10 p-8 rounded-2xl items-center">
-                    <ActivityIndicator size="large" color="#eb0202" />
-                    <Text className="text-white text-xl font-bold mt-4">
-                        {loading ? 'Loading exercises...' : 'Adding exercise...'}
-                    </Text>
-                </View>
-            </View>
-        );
+        return <LoadingScreen message={loading ? 'Loading exercises...' : 'Adding exercise...'} />;
     }
 
     return (

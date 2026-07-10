@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { getExerciseHistory } from '@/repositories/statistics';
 import { formatDistanceToNow, format } from 'date-fns';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 interface ExerciseHistorySet {
     id: string;
@@ -71,16 +72,7 @@ export function ExerciseHistoryScreen({
     };
 
     if (loading) {
-        return (
-            <SafeAreaView className="flex-1 bg-surface_a0">
-                <View className="flex-1 justify-center items-center">
-                    <View className="bg-surface_a10 p-6 rounded-2xl">
-                        <AntDesign name="loading" size={48} color="#f34023" />
-                        <Text className="text-light text-xl font-bold mt-4">Loading history...</Text>
-                    </View>
-                </View>
-            </SafeAreaView>
-        );
+        return <LoadingScreen message="Loading history..." />;
     }
 
     return (

@@ -12,6 +12,7 @@ import { ExerciseList } from '@/components/exerciseList';
 import { RecentPRsList } from '@/components/recentPRsList';
 import { AddBodyWeightModal } from '@/components/addBodyWeightModal';
 import { ExerciseHistoryScreen } from '../exercise/exerciseHistoryScreen';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 const Statistics = () => {
     const { user } = useAuth();
@@ -39,11 +40,7 @@ const Statistics = () => {
         : workoutsData;
 
     if (loading) {
-        return (
-            <SafeAreaView className="flex-1 bg-surface_a0 items-center justify-center">
-                <Text className="text-surface_a50">Loading statistics...</Text>
-            </SafeAreaView>
-        );
+        return <LoadingScreen message="Loading statistics..." />;
     }
 
     if (showExerciseHistory && selectedExerciseForHistory && user?.id) {

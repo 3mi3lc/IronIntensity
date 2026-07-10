@@ -13,6 +13,7 @@ import { AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createExercise } from '@/repositories/exercises';
 import { getAllBodyParts } from '@/repositories/bodyParts';
+import { LoadingScreen } from '@/components/loadingScreen';
 import { addBodyPartToExercise } from '@/repositories/exerciseBodyParts';
 import { UserContext } from '@/contexts/UserContext';
 import type { BodyPart } from '@/repositories/types';
@@ -118,11 +119,7 @@ function CreateExercise() {
     };
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-surface_a0 pt-16">
-                <Text className="text-white text-3xl font-bold">Loading...</Text>
-            </View>
-        );
+        return <LoadingScreen />;
     }
 
     return (

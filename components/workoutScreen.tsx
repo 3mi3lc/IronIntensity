@@ -7,6 +7,7 @@ import { ExerciseWithSets } from '@/repositories/types';
 import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
 import { ExerciseHistoryScreen } from '@/app/exercise/exerciseHistoryScreen';
 import { AntDesign } from '@expo/vector-icons';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 interface WorkoutScreenProps {
     title: string;
@@ -113,14 +114,7 @@ export function WorkoutScreen({
     }
 
     if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-surface_a0 pt-16">
-                <View className="bg-surface_a10 p-6 rounded-2xl">
-                    <AntDesign name="loading" size={48} color="#f34023" />
-                    <Text className="text-light text-xl font-bold mt-4">Loading workout...</Text>
-                </View>
-            </View>
-        );
+        return <LoadingScreen message="Loading workout..." />;
     }
 
     return (

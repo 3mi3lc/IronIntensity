@@ -3,7 +3,7 @@ import { Redirect } from 'expo-router';
 import { logger } from '@/utils/logger';
 import { useContext, useEffect } from 'react';
 import { UserContext } from '@/contexts/UserContext';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 export default function Index() {
     const { user, isLoading, isOffline } = useContext(UserContext) ?? {
@@ -21,17 +21,7 @@ export default function Index() {
     }, [user, isLoading, isOffline]);
 
     if (isLoading) {
-        return (
-            <View className="flex-1 bg-surface_a0 justify-center items-center">
-                <ActivityIndicator size="large" color="#eb0202" />
-                <Text className="text-white mt-4">Loading...</Text>
-                {isOffline && (
-                    <Text className="text-gray-400 text-sm mt-2">
-                        (Offline mode)
-                    </Text>
-                )}
-            </View>
-        );
+        return <LoadingScreen subMessage={isOffline ? 'Offline mode' : undefined} />;
     }
 
     logger.debug('Index: Redirecting...', user ? 'to app' : 'to login');
