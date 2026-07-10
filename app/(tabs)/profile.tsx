@@ -154,6 +154,20 @@ export default function Profile() {
                     )}
                 </TouchableOpacity>
 
+                {/* Communities → social layer */}
+                <TouchableOpacity
+                    onPress={() => router.push('/communities')}
+                    className="bg-surface_a10 p-5 rounded-2xl mb-6 flex-row items-center"
+                    activeOpacity={0.85}
+                >
+                    <Text style={{ fontSize: 24 }}>👥</Text>
+                    <View className="flex-1 ml-3">
+                        <Text className="text-white text-xl font-bold">Communities</Text>
+                        <Text className="text-surface_a50 text-sm mt-1">Leaderboards & feed with your crew</Text>
+                    </View>
+                    <AntDesign name="right" size={14} color="#7a7a7a" />
+                </TouchableOpacity>
+
                 {/* Dev-only: preview the finish-reward celebrations */}
                 {__DEV__ && (
                     <TouchableOpacity
