@@ -19,9 +19,17 @@ export const useAutoSync = () => {
     }, [fullSync]);
 
     useEffect(() => {
+        // Wait until NetInfo has reported real connectivity. At cold start
+        // isOffline defaults to false (assumed online), so acting before the
+        // state is known could fire a doomed sync on an offline launch.
+        if (!userContext?.isNetworkStateKnown) {
+            logger.debug('Auto-sync: Waiting for network state to settle');
+            return;
+        }
+
         // Skip sync if offline
         if (userContext?.isOffline) {
-            logger.debug('Auto-sync: Skipping — device is offline');
+            logger.debug('Auto-sync: Skipping, device is offline');
             return;
         }
 
@@ -39,7 +47,7 @@ export const useAutoSync = () => {
         if (!user) {
             hasAutoSynced.current = false;
         }
-    }, [user, auth?.session, userContext?.isOffline]);
+    }, [user, auth?.session, userContext?.isOffline, userContext?.isNetworkStateKnown]);
 
     return { isSyncing };
 };

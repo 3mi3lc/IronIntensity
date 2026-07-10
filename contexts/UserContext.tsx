@@ -12,6 +12,10 @@ interface UserContextType {
     triggerRefresh: () => void;
     clearUser: () => void;
     isOffline: boolean;
+    // False until NetInfo reports the connectivity state at least once. Consumers
+    // that trigger network work on startup should wait for this so they don't act
+    // on the default (assumed online) value before the real state is known.
+    isNetworkStateKnown: boolean;
 }
 
 export const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -24,6 +28,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isOffline, setIsOffline] = useState(false);
+    const [isNetworkStateKnown, setIsNetworkStateKnown] = useState(false);
 
     const triggerRefresh = () => {
         setRefreshTrigger(prev => prev + 1);
@@ -37,6 +42,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const unsubscribe = NetInfo.addEventListener(state => {
             setIsOffline(!state.isConnected);
+            setIsNetworkStateKnown(true);
         });
 
         return () => unsubscribe();
@@ -126,7 +132,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }, [auth?.supabaseUser, auth?.isLoading, isOffline]);
 
     return (
-        <UserContext.Provider value={{ user, isLoading, refreshTrigger, triggerRefresh, clearUser, isOffline }}>
+        <UserContext.Provider value={{ user, isLoading, refreshTrigger, triggerRefresh, clearUser, isOffline, isNetworkStateKnown }}>
             {children}
         </UserContext.Provider>
     );

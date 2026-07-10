@@ -27,41 +27,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if (!mounted) return;
 
                 if (cachedSession) {
-                    // Check if token is expired
-                    const expiresAt = cachedSession.expires_at; // unix timestamp in seconds
-                    const now = Math.floor(Date.now() / 1000);
-                    const isExpired = expiresAt ? now >= expiresAt : false;
-
-                    if (isExpired) {
-                        logger.debug('AuthContext: Token expired, attempting refresh...');
-                        // Try to refresh — will fail offline
-                        const { data, error } = await supabase.auth.refreshSession();
-                        if (error || !data.session) {
-                            logger.debug('AuthContext: Refresh failed (offline?), using expired session for local access');
-                            // Still let the user in — they can use local data
-                            setSession(cachedSession);
-                            setSupabaseUser(cachedSession.user);
-                        } else {
-                            setSession(data.session);
-                            setSupabaseUser(data.session.user);
-                        }
-                    } else {
-                        logger.debug('AuthContext: Valid cached session found');
-                        setSession(cachedSession);
-                        setSupabaseUser(cachedSession.user);
-
-                        // Background refresh
-                        supabase.auth.refreshSession().then(({ data, error }) => {
-                            if (!mounted) return;
-                            if (!error && data.session) {
-                                setSession(data.session);
-                                setSupabaseUser(data.session.user);
-                            }
-                        });
-                    }
-
+                    // Offline-first: let the user in immediately with the cached
+                    // session and never block the UI on a network call. Even an
+                    // expired token is fine: it just means sync will retry once
+                    // a connection is available.
+                    logger.debug('AuthContext: Cached session found, granting local access');
+                    setSession(cachedSession);
+                    setSupabaseUser(cachedSession.user);
                     initialSessionHandled.current = true;
                     setIsLoading(false);
+
+                    // Refresh the token in the background. This hits the network,
+                    // so it must not be awaited: it fails silently when offline
+                    // and updates the session if/when it succeeds.
+                    supabase.auth.refreshSession().then(({ data, error }) => {
+                        if (!mounted) return;
+                        if (!error && data.session) {
+                            logger.debug('AuthContext: Background token refresh succeeded');
+                            setSession(data.session);
+                            setSupabaseUser(data.session.user);
+                        } else {
+                            logger.debug('AuthContext: Background token refresh failed (offline?)');
+                        }
+                    }).catch((err) => {
+                        logger.debug('AuthContext: Background token refresh threw (offline?)', err);
+                    });
                 } else {
                     logger.debug('AuthContext: No cached session found');
                     setSession(null);
