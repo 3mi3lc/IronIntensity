@@ -7,11 +7,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from '@/utils/logger';
 import { ExerciseWithSets, Workout } from '@/repositories/types';
 import { updateWorkoutById, softDeleteWorkoutById, updateWorkoutTimestamps } from '@/repositories/workouts';
-import { markPRsForWorkout, getPRsForWorkout } from '@/repositories/workoutExerciseSets';
+import { markPRsForWorkout, getPRsForWorkout, getWorkoutSummary } from '@/repositories/workoutExerciseSets';
 import { reorderWorkoutExercises, softDeleteWorkoutExerciseById } from '@/repositories/workoutExercises';
 import { syncUnlockedAchievements } from '@/repositories/achievements';
 import { getWorkoutStreak, getTotalWorkouts, getVolumeByMonth } from '@/repositories/statistics';
 import { pickFinishReward } from '@/utils/rewardEngine';
+import { buildActivityEvents, type BadgeUnlock } from '@/utils/activityEvents';
+import { queueActivity } from '@/repositories/pendingActivity';
 import { Confetti } from '@/components/confettiOverlay';
 
 const EPOCH_START = '1970-01-01T00:00:00.000Z';
@@ -84,6 +86,41 @@ async function maybeShowFinishReward(params: {
         await AsyncStorage.setItem(LAST_CONFETTI_KEY, reward.confetti ? '1' : '0');
     } catch (error) {
         logger.error('Failed to show finish reward:', error);
+    }
+}
+
+/**
+ * Queue this finished workout's community feed events (workout summary, PRs,
+ * streak milestone, new badges) for the emit_activity RPC on next sync. Purely
+ * additive and best-effort: any failure is swallowed so it can never affect the
+ * finish flow, and a user in no communities simply queues events that emit into
+ * nothing.
+ */
+async function queueFinishActivity(params: {
+    workoutId: string;
+    workoutName: string;
+    currentStreak: number;
+    newBadges: BadgeUnlock[];
+}): Promise<void> {
+    const { workoutId, workoutName, currentStreak, newBadges } = params;
+
+    try {
+        const [prs, summary] = await Promise.all([
+            getPRsForWorkout(workoutId),
+            getWorkoutSummary(workoutId),
+        ]);
+
+        const events = buildActivityEvents({
+            summary: { workoutName, ...summary },
+            prCount: prs.length,
+            bestPr: prs[0] ?? null,
+            currentStreak,
+            newBadges,
+        });
+
+        await queueActivity(events);
+    } catch (error) {
+        logger.error('Failed to queue finish activity:', error);
     }
 }
 
@@ -241,6 +278,19 @@ export function useWorkoutActions({
                             workoutDate: date,
                             newStreak,
                             newBadgeCount: newlyUnlocked.length,
+                        });
+
+                        // Queue community feed events for this finish (emitted on
+                        // next sync). Best-effort; never blocks the finish flow.
+                        await queueFinishActivity({
+                            workoutId: workout.id,
+                            workoutName: name.trim() || 'Completed Workout',
+                            currentStreak: newStreak,
+                            newBadges: newlyUnlocked.map(a => ({
+                                id: a.id,
+                                title: a.title,
+                                icon: a.icon,
+                            })),
                         });
                     }, 500);
                 }

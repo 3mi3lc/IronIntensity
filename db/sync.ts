@@ -39,6 +39,10 @@ import {
     markUserAchievementsAsSynced,
     upsertUserAchievementsFromRemote
 } from "@/repositories/userAchievements";
+import {
+    getUnsyncedPendingActivity,
+    markPendingActivitySynced
+} from "@/repositories/pendingActivity";
 import {logger} from "@/utils/logger";
 
 const unknownError = (e: unknown) => (e instanceof Error ? e.message : 'Unknown error');
@@ -282,6 +286,45 @@ export class SyncService {
         });
     }
 
+    /**
+     * Emit queued community feed events via the emit_activity RPC. Each pending
+     * row is a JSON array of events for one finished workout; the RPC fans them
+     * out to the user's communities server-side. Non-standard (an RPC, not a
+     * table upsert), so it does not use the generic push engine. Malformed rows
+     * are dropped so they cannot block the queue; on RPC error we stop and retry
+     * next sync. A user in no communities still clears rows (server no-op).
+     */
+    async pushActivity(): Promise<boolean> {
+        try {
+            const rows = await getUnsyncedPendingActivity();
+            if (rows.length === 0) return true;
+
+            const delivered: string[] = [];
+            for (const row of rows) {
+                let events: unknown;
+                try {
+                    events = JSON.parse(row.payload);
+                } catch {
+                    delivered.push(row.id); // drop poison rows
+                    continue;
+                }
+
+                const {error} = await supabase.rpc('emit_activity', {p_events: events});
+                if (error) {
+                    await recordSyncError('pending_activity', error.message);
+                    break; // retry the rest next sync
+                }
+                delivered.push(row.id);
+            }
+
+            if (delivered.length > 0) await markPendingActivitySynced(delivered);
+            return true;
+        } catch (e) {
+            await recordSyncError('pending_activity', unknownError(e));
+            return false;
+        }
+    }
+
     async pushAll(): Promise<boolean> {
         logger.debug('Starting full push...');
 
@@ -314,6 +357,9 @@ export class SyncService {
         }
         if (!await this.pushUserAchievements()) {
             logger.warn('User achievements push had issues, continuing...');
+        }
+        if (!await this.pushActivity()) {
+            logger.warn('Activity push had issues, continuing...');
         }
 
         logger.debug('✅ Full push completed successfully');
