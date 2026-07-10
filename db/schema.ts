@@ -122,6 +122,30 @@ export const pending_activity = sqliteTable('pending_activity', {
     is_synced: integer('is_synced').notNull().default(0),
 });
 
+// Community_Cache Table (local read cache for the online community RPCs, so the
+// last-synced boards/feed/members stay viewable offline). Purely local; keyed by
+// a cache key (e.g. "my_communities", "feed:<id>", "leaderboard:<id>:<m>:<p>").
+export const community_cache = sqliteTable('community_cache', {
+    key: text('key').primaryKey().notNull(),
+    value: text('value').notNull(),
+    updated_at: text('updated_at').notNull().default("datetime('now')"),
+});
+
+// Pending_Kudos Table (local outbox for kudos given/removed while offline). One
+// row per (event, user) holds the latest intended state; flushed on next sync.
+export const pending_kudos = sqliteTable(
+    'pending_kudos',
+    {
+        feed_event_id: text('feed_event_id').notNull(),
+        user_id: text('user_id').notNull(),
+        action: text('action').notNull(), // 'add' | 'remove'
+        updated_at: text('updated_at').notNull().default("datetime('now')"),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.feed_event_id, table.user_id] }),
+    })
+);
+
 // User_Achievements Table (records unlock events; definitions live in code)
 export const user_achievements = sqliteTable(
     'user_achievements',
