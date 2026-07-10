@@ -53,12 +53,14 @@ The device already holds full workout detail locally. The question is what
   seen. Ordinary set weights and bodyweight stay hidden. In Phase 2 the PR card
   can also show a relative-strength score derived from the private bodyweight
   input.
-- **Bodyweight is a private, server-side computation input, never a displayed
-  value.** Phase 1 does not need it at all. In Phase 2, relative-strength boards
-  need bodyweight to compute a DOTS/Wilks score, so it travels to the server into
-  a row only that member (and the server function) can read. Only the derived
-  score (`dots_score: 342`) is ever returned to other members. The number is
-  used, never shown.
+- **Bodyweight is a private input, never a displayed value.** Phase 1 does not
+  need it at all. The Phase 2 relative-strength board turned out cleaner than the
+  original server-side plan: the strength-to-bodyweight ratio is computed
+  **on-device at workout finish** (the client already holds bodyweight locally),
+  and only the derived ratio (`relative_strength: 1.25`) is emitted into the
+  feed. Bodyweight never leaves the device for this, so there is nothing to guard
+  server-side. A true DOTS/Wilks score (which also needs the lifter's sex) can
+  replace the plain ratio later if that data is added.
 - **Share levels (later):** full numbers / relative-only / "completed a workout"
   with no weights, chosen per community.
 
@@ -119,9 +121,12 @@ Phase 1 or early Phase 2 win that pays off the achievement work already done.
 
 ## Later phases
 
-- **Phase 2 (richer competition):** relative strength via DOTS/Wilks (bodyweight
-  as private server input, score-only output), per-exercise boards, raw-volume
-  board, monthly and all-time timeframes, badge unlocks in the feed.
+- **Phase 2 (richer competition):** _done, except per-exercise boards._ Shipped:
+  relative-strength board (on-device bodyweight ratio, ratio-only output),
+  raw-volume board, week/month/all-time timeframes on every cumulative board, and
+  badge unlocks in the feed (the latter landed early, in Phase 1). Still open:
+  per-exercise boards (heaviest squat, most pull-ups). Backend delta in
+  `supabase/communities_phase2.sql`.
 - **Phase 3 (calendar):** planned training sessions others can see, RSVP / "I'm
   in", recurring schedules, optional check-in feeding a reliability stat.
   **Safety gate:** a visible schedule broadcasts physical location and time. It
