@@ -92,7 +92,7 @@ export default function Profile() {
             </View>
 
             <ScrollView
-                className="flex-1 px-6"
+                className="flex-1 px-4"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: tabBarHeight + 40 }}
             >
@@ -153,6 +153,18 @@ export default function Profile() {
                         <Text className="text-surface_a50 text-sm">Every badge unlocked. Legend. 👑</Text>
                     )}
                 </TouchableOpacity>
+
+                {/* Dev-only: preview the finish-reward celebrations */}
+                {__DEV__ && (
+                    <TouchableOpacity
+                        onPress={() => router.push('/dev/rewardPreview')}
+                        className="bg-surface_a10 py-4 rounded-xl flex-row items-center justify-center mb-3"
+                        activeOpacity={0.8}
+                    >
+                        <AntDesign name="gift" size={20} color="#ffd166" />
+                        <Text className="text-white font-bold text-lg ml-2">Reward Preview (dev)</Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* Logout Button */}
                 <TouchableOpacity

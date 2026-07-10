@@ -33,6 +33,34 @@ export const toastConfig = {
         </View>
     ),
 
+    celebration: ({ text1, text2 }: BaseToastProps) => (
+        <View
+            style={{
+                backgroundColor: '#282828',
+                borderRadius: 16,
+                padding: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                marginHorizontal: 24,
+                borderWidth: 1,
+                borderColor: 'rgba(243,64,35,0.4)',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 12,
+                elevation: 8,
+            }}
+        >
+            {!!text2 && <Text style={{ fontSize: 28 }}>{text2}</Text>}
+            <View style={{ flex: 1 }}>
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 15 }}>
+                    {text1}
+                </Text>
+            </View>
+        </View>
+    ),
+
     achievement: ({ text1, text2 }: BaseToastProps) => (
         <View
             style={{

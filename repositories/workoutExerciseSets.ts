@@ -1,7 +1,7 @@
 // src/repositories/workoutExerciseSets.ts
 import { db } from '@/db/client';
 import { logger } from '@/utils/logger';
-import {workout_exercise_sets, workout_exercises, workouts} from '@/db/schema';
+import {workout_exercise_sets, workout_exercises, workouts, exercises} from '@/db/schema';
 import { eq, and, isNull, isNotNull, lt , sql, desc, ne, inArray} from 'drizzle-orm';
 import { newId, now } from '@/utils/id';
 import { softDeleteFields, touch } from './_helpers';
@@ -571,4 +571,38 @@ export async function markPRsForWorkout(workoutId: string): Promise<void> {
             runningBest.set(set.exerciseId, best);
         }
     }
+}
+
+/**
+ * The PR sets recorded in a single workout, heaviest first. Call after
+ * {@link markPRsForWorkout} to summarise the personal records set this session.
+ */
+export async function getPRsForWorkout(
+    workoutId: string
+): Promise<Array<{ exerciseName: string; weight: number; reps: number }>> {
+    const rows = await db
+        .select({
+            exerciseName: exercises.name,
+            weight: workout_exercise_sets.weight,
+            reps: workout_exercise_sets.reps,
+        })
+        .from(workout_exercise_sets)
+        .innerJoin(workout_exercises, eq(workout_exercise_sets.workout_exercise_id, workout_exercises.id))
+        .innerJoin(exercises, eq(workout_exercises.exercise_id, exercises.id))
+        .where(
+            and(
+                eq(workout_exercises.workout_id, workoutId),
+                eq(workout_exercise_sets.is_pr, 1),
+                isNotNull(workout_exercise_sets.weight),
+                isNull(workout_exercise_sets.deleted_at),
+                isNull(workout_exercises.deleted_at),
+            )
+        )
+        .orderBy(desc(workout_exercise_sets.weight));
+
+    return rows.map(r => ({
+        exerciseName: r.exerciseName,
+        weight: r.weight!,
+        reps: r.reps,
+    }));
 }

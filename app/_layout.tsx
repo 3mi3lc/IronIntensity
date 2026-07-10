@@ -20,6 +20,8 @@ import { useUnfinishedWorkoutCheck } from '@/hooks/useUnfinishedWorkoutCheck';
 import UnfinishedWorkoutModal from '@/components/unfinishedWorkoutModal';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from '@/components/toastConfig';
+import { ConfettiOverlay } from '@/components/confettiOverlay';
+import { LoadingScreen } from '@/components/loadingScreen';
 
 
 function RootLayoutNav() {
@@ -58,12 +60,7 @@ function RootLayoutNav() {
     }, [user, isLoading, segments]);
 
     if (isLoading) {
-        return (
-            <View className="flex-1 bg-surface_a0 justify-center items-center">
-                <ActivityIndicator size="large" color="#eb0202" />
-                <Text className="text-white text-lg mt-4">Loading...</Text>
-            </View>
-        );
+        return <LoadingScreen />;
     }
 
     return (
@@ -112,6 +109,7 @@ function RootLayoutNav() {
                 />
             )}
             <Toast config={toastConfig} />
+            <ConfettiOverlay />
         </>
     );
 }
@@ -142,11 +140,7 @@ export default function RootLayout() {
         <SafeAreaProvider>
             <GestureHandlerRootView className="flex-1">
                 <StatusBar style="light" backgroundColor="#121212" />
-                <Suspense fallback={
-                    <View className="flex-1 bg-surface_a0 justify-center items-center">
-                        <ActivityIndicator size="large" color="#eb0202" />
-                    </View>
-                }>
+                <Suspense fallback={<LoadingScreen message={null} />}>
                     <SQLiteProvider
                         databaseName={DATABASE_NAME}
                         options={{ enableChangeListener: true }}
