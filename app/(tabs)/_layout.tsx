@@ -2,7 +2,7 @@
 import React from 'react'
 import {Tabs} from "expo-router";
 import {View} from "react-native";
-import {AntDesign, Ionicons} from "@expo/vector-icons";
+import {AntDesign} from "@expo/vector-icons";
 
 type AntDesignName = React.ComponentProps<typeof AntDesign>['name'];
 
@@ -38,9 +38,7 @@ const _Layout = () => {
                 headerShown: false,
                 title: "Log",
                 tabBarIcon: () => (
-                    <View className="items-center">
-                        <Ionicons name="calendar-outline" size={28} color="#eb0202" />
-                    </View>
+                    <TabIcon name="calendar" />
                 )
             }}></Tabs.Screen>
 
