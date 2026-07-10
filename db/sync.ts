@@ -43,6 +43,8 @@ import {
     getUnsyncedPendingActivity,
     markPendingActivitySynced
 } from "@/repositories/pendingActivity";
+import {getPendingKudos, clearPendingKudos} from "@/repositories/pendingKudos";
+import {addKudos, removeKudos} from "@/repositories/communities";
 import {logger} from "@/utils/logger";
 
 const unknownError = (e: unknown) => (e instanceof Error ? e.message : 'Unknown error');
@@ -325,6 +327,33 @@ export class SyncService {
         }
     }
 
+    /**
+     * Flush kudos toggled while offline. Each pending row carries the latest
+     * intended state ('add' | 'remove'); apply it online, then clear the row. On
+     * error we stop and retry next sync. Non-fatal.
+     */
+    async pushKudos(): Promise<boolean> {
+        try {
+            const rows = await getPendingKudos();
+            if (rows.length === 0) return true;
+
+            for (const row of rows) {
+                try {
+                    if (row.action === 'add') await addKudos(row.feed_event_id, row.user_id);
+                    else await removeKudos(row.feed_event_id, row.user_id);
+                    await clearPendingKudos(row.feed_event_id, row.user_id);
+                } catch (e) {
+                    await recordSyncError('pending_kudos', unknownError(e));
+                    break; // retry the rest next sync
+                }
+            }
+            return true;
+        } catch (e) {
+            await recordSyncError('pending_kudos', unknownError(e));
+            return false;
+        }
+    }
+
     async pushAll(): Promise<boolean> {
         logger.debug('Starting full push...');
 
@@ -360,6 +389,9 @@ export class SyncService {
         }
         if (!await this.pushActivity()) {
             logger.warn('Activity push had issues, continuing...');
+        }
+        if (!await this.pushKudos()) {
+            logger.warn('Kudos push had issues, continuing...');
         }
 
         logger.debug('✅ Full push completed successfully');

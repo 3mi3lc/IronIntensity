@@ -7,7 +7,6 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/loadingScreen';
 import { getMyCommunities, Community } from '@/repositories/communities';
-import { logger } from '@/utils/logger';
 
 export default function CommunitiesScreen() {
     const { isOffline } = useAuth();
@@ -15,17 +14,12 @@ export default function CommunitiesScreen() {
     const [communities, setCommunities] = useState<Community[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState(false);
+    const [stale, setStale] = useState(false);
 
     const load = useCallback(async () => {
-        try {
-            setError(false);
-            const list = await getMyCommunities();
-            setCommunities(list);
-        } catch (e) {
-            logger.error('Failed to load communities:', e);
-            setError(true);
-        }
+        const { data, stale } = await getMyCommunities();
+        setCommunities(data);
+        setStale(stale);
     }, []);
 
     useFocusEffect(
@@ -81,13 +75,20 @@ export default function CommunitiesScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {error ? (
+                {stale && (
+                    <View className="flex-row items-center justify-center mb-4">
+                        <AntDesign name="disconnect" size={12} color="#7a7a7a" />
+                        <Text className="text-surface_a50 text-xs ml-2">
+                            {isOffline ? 'Offline — showing last synced' : 'Showing last synced'}
+                        </Text>
+                    </View>
+                )}
+
+                {stale && communities.length === 0 ? (
                     <View className="items-center mt-16 px-6">
                         <AntDesign name="disconnect" size={40} color="#7a7a7a" />
                         <Text className="text-surface_a50 text-center mt-4">
-                            {isOffline
-                                ? 'You are offline. Communities need a connection.'
-                                : 'Could not load your communities. Pull to retry.'}
+                            You are offline and have no saved communities yet.
                         </Text>
                     </View>
                 ) : communities.length === 0 ? (
