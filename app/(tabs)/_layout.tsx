@@ -6,10 +6,10 @@ import {AntDesign} from "@expo/vector-icons";
 
 type AntDesignName = React.ComponentProps<typeof AntDesign>['name'];
 
-const TabIcon = ({focused, name}: {focused: boolean; name: AntDesignName}) => {
+const TabIcon = ({name}: {name: AntDesignName}) => {
     return (
         <View className="items-center">
-            <AntDesign name={name} size={28} color={focused ? '#eb0202' : '#9ca3af'} />
+            <AntDesign name={name} size={28} color="#eb0202" />
         </View>
     )
 }
@@ -37,32 +37,32 @@ const _Layout = () => {
             <Tabs.Screen name="logging"  options={{
                 headerShown: false,
                 title: "Log",
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} name="calendar" />
+                tabBarIcon: () => (
+                    <TabIcon name="calendar" />
                 )
             }}></Tabs.Screen>
 
             <Tabs.Screen name="statistics"  options={{
                 headerShown: false,
                 title: 'Stats',
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} name="bar-chart" />
+                tabBarIcon: () => (
+                    <TabIcon name="bar-chart" />
                 )
             }} />
 
             <Tabs.Screen name="communities"  options={{
                 headerShown: false,
                 title: 'Community',
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} name="team" />
+                tabBarIcon: () => (
+                    <TabIcon name="team" />
                 )
             }}/>
 
             <Tabs.Screen name="profile"  options={{
                 headerShown: false,
                 title: 'Profile',
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} name="user" />
+                tabBarIcon: () => (
+                    <TabIcon name="user" />
                 )
             }}/>
         </Tabs>
