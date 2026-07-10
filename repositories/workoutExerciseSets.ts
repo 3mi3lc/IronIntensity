@@ -614,7 +614,7 @@ export async function getPRsForWorkout(
  */
 export async function getWorkoutSummary(
     workoutId: string
-): Promise<{ setCount: number; totalVolume: number; topLiftLabel: string | null }> {
+): Promise<{ setCount: number; totalVolume: number; topLiftLabel: string | null; topWeight: number | null }> {
     const rows = await db
         .select({
             weight: workout_exercise_sets.weight,
@@ -645,5 +645,10 @@ export async function getWorkoutSummary(
         }
     }
 
-    return { setCount: rows.length, totalVolume: Math.round(totalVolume), topLiftLabel };
+    return {
+        setCount: rows.length,
+        totalVolume: Math.round(totalVolume),
+        topLiftLabel,
+        topWeight: topLiftLabel ? topWeight : null,
+    };
 }

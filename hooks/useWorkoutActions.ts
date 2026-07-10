@@ -14,6 +14,7 @@ import { getWorkoutStreak, getTotalWorkouts, getVolumeByMonth } from '@/reposito
 import { pickFinishReward } from '@/utils/rewardEngine';
 import { buildActivityEvents, type BadgeUnlock } from '@/utils/activityEvents';
 import { queueActivity } from '@/repositories/pendingActivity';
+import { getLatestBodyweight } from '@/repositories/bodyWeightEntries';
 import { Confetti } from '@/components/confettiOverlay';
 
 const EPOCH_START = '1970-01-01T00:00:00.000Z';
@@ -97,17 +98,19 @@ async function maybeShowFinishReward(params: {
  * nothing.
  */
 async function queueFinishActivity(params: {
+    userId: string;
     workoutId: string;
     workoutName: string;
     currentStreak: number;
     newBadges: BadgeUnlock[];
 }): Promise<void> {
-    const { workoutId, workoutName, currentStreak, newBadges } = params;
+    const { userId, workoutId, workoutName, currentStreak, newBadges } = params;
 
     try {
-        const [prs, summary] = await Promise.all([
+        const [prs, summary, bodyweightKg] = await Promise.all([
             getPRsForWorkout(workoutId),
             getWorkoutSummary(workoutId),
+            getLatestBodyweight(userId),
         ]);
 
         const events = buildActivityEvents({
@@ -116,6 +119,7 @@ async function queueFinishActivity(params: {
             bestPr: prs[0] ?? null,
             currentStreak,
             newBadges,
+            bodyweightKg,
         });
 
         await queueActivity(events);
@@ -283,6 +287,7 @@ export function useWorkoutActions({
                         // Queue community feed events for this finish (emitted on
                         // next sync). Best-effort; never blocks the finish flow.
                         await queueFinishActivity({
+                            userId: user.id,
                             workoutId: workout.id,
                             workoutName: name.trim() || 'Completed Workout',
                             currentStreak: newStreak,

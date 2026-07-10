@@ -24,6 +24,8 @@ export interface WorkoutSummary {
     setCount: number;
     totalVolume: number;
     topLiftLabel: string | null;
+    /** Heaviest single-set weight (kg) this workout, or null if none weighted. */
+    topWeight: number | null;
 }
 
 export interface BadgeUnlock {
@@ -42,6 +44,18 @@ export interface ActivityInput {
     currentStreak: number;
     /** Badges newly unlocked by this finish. */
     newBadges: BadgeUnlock[];
+    /**
+     * Latest bodyweight (kg), or null if none logged. Used only to derive a
+     * relative-strength ratio here; the raw bodyweight is never placed in the
+     * emitted payload, so it never reaches the community feed.
+     */
+    bodyweightKg?: number | null;
+}
+
+/** Strength-to-bodyweight ratio for the heaviest lift, or null if not derivable. */
+function relativeStrength(topWeight: number | null, bodyweightKg: number | null | undefined): number | null {
+    if (!topWeight || !bodyweightKg || bodyweightKg <= 0) return null;
+    return Math.round((topWeight / bodyweightKg) * 100) / 100;
 }
 
 // Streak milestones worth a feed event, in consecutive weeks. Mirrors the set in
@@ -56,6 +70,7 @@ const STREAK_MILESTONES = new Set([4, 8, 12, 26, 52, 78, 104]);
 export function buildActivityEvents(input: ActivityInput): ActivityEvent[] {
     const events: ActivityEvent[] = [];
 
+    const relStrength = relativeStrength(input.summary.topWeight, input.bodyweightKg);
     events.push({
         type: 'workout_completed',
         payload: {
@@ -63,6 +78,9 @@ export function buildActivityEvents(input: ActivityInput): ActivityEvent[] {
             set_count: input.summary.setCount,
             total_volume: input.summary.totalVolume,
             top_lift_label: input.summary.topLiftLabel,
+            // Only the derived ratio is emitted, never the bodyweight. Omitted
+            // (rather than null) when it cannot be derived.
+            ...(relStrength != null ? { relative_strength: relStrength } : {}),
         },
     });
 
