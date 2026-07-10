@@ -1,10 +1,21 @@
 import { supabase } from '@/utils/supabase';
+import { readCache, writeCache } from '@/repositories/communityCache';
+import {
+    enqueueKudos,
+    clearPendingKudos,
+    getPendingKudosMap,
+    KudosAction,
+} from '@/repositories/pendingKudos';
 
 /**
  * Communities data access. Unlike the offline-first local repositories, the
  * social layer is online-only and lives entirely on Supabase, reached through
- * security-definer RPCs (see supabase/communities_phase1.sql). Every call throws
- * on error so screens can surface it; callers should handle the offline case.
+ * security-definer RPCs (see supabase/communities_phase1.sql).
+ *
+ * Reads are network-first with a local cache fallback: a successful fetch
+ * refreshes the cache, and a failed fetch (typically offline) is served from the
+ * last-synced cache and flagged `stale`. Kudos writes fall back to a local outbox
+ * when offline and are flushed on the next sync.
  */
 
 export interface Community {
@@ -42,9 +53,37 @@ export interface LeaderboardRow {
 export type LeaderboardMetric = 'consistency' | 'volume' | 'relative' | 'improved';
 export type LeaderboardPeriod = 'week' | 'month' | 'all';
 
-function unwrap<T>(data: T | null, error: { message: string } | null): T {
-    if (error) throw new Error(error.message);
-    return (data ?? ([] as unknown as T));
+/** A read result plus whether it was served from cache after a failed fetch. */
+export interface CachedResult<T> {
+    data: T;
+    stale: boolean;
+}
+
+/**
+ * Network-first read with cache fallback. On success, refresh the cache and
+ * return `stale: false`. On failure, return the last-synced cache (or `empty`)
+ * flagged `stale: true`.
+ */
+async function cachedRead<T>(key: string, fetcher: () => Promise<T>, empty: T): Promise<CachedResult<T>> {
+    try {
+        const data = await fetcher();
+        await writeCache(key, data);
+        return { data, stale: false };
+    } catch {
+        const cached = await readCache<T>(key);
+        return { data: cached ?? empty, stale: true };
+    }
+}
+
+/** Apply a queued (offline) kudos op to a feed event so the UI reflects intent. */
+export function applyPendingKudos(event: FeedEvent, action: KudosAction | undefined): FeedEvent {
+    if (action === 'add' && !event.i_kudosed) {
+        return { ...event, i_kudosed: true, kudos_count: event.kudos_count + 1 };
+    }
+    if (action === 'remove' && event.i_kudosed) {
+        return { ...event, i_kudosed: false, kudos_count: Math.max(0, event.kudos_count - 1) };
+    }
+    return event;
 }
 
 /** Create a community; the caller becomes its first admin. Returns the new row. */
@@ -61,50 +100,69 @@ export async function joinCommunity(code: string): Promise<Community> {
     return data as Community;
 }
 
-/** Communities the current user belongs to, with member counts and their role. */
-export async function getMyCommunities(): Promise<Community[]> {
-    const { data, error } = await supabase.rpc('my_communities');
-    return unwrap(data, error);
+/** Communities the current user belongs to (cached). */
+export async function getMyCommunities(): Promise<CachedResult<Community[]>> {
+    return cachedRead('my_communities', async () => {
+        const { data, error } = await supabase.rpc('my_communities');
+        if (error) throw new Error(error.message);
+        return (data ?? []) as Community[];
+    }, []);
 }
 
-/** Members of a community (caller must be a member). */
-export async function getCommunityMembers(communityId: string): Promise<CommunityMember[]> {
-    const { data, error } = await supabase.rpc('community_members_list', {
-        p_community_id: communityId,
-    });
-    return unwrap(data, error);
+/** Members of a community (cached; caller must be a member). */
+export async function getCommunityMembers(communityId: string): Promise<CachedResult<CommunityMember[]>> {
+    return cachedRead(`members:${communityId}`, async () => {
+        const { data, error } = await supabase.rpc('community_members_list', { p_community_id: communityId });
+        if (error) throw new Error(error.message);
+        return (data ?? []) as CommunityMember[];
+    }, []);
 }
 
-/** Newest-first feed for a community, enriched with kudos state. */
-export async function getCommunityFeed(communityId: string, limit = 50): Promise<FeedEvent[]> {
-    const { data, error } = await supabase.rpc('community_feed', {
-        p_community_id: communityId,
-        p_limit: limit,
-    });
-    return unwrap(data, error);
+/** Newest-first feed for a community (cached), with queued offline kudos overlaid. */
+export async function getCommunityFeed(communityId: string, limit = 50): Promise<CachedResult<FeedEvent[]>> {
+    const res = await cachedRead<FeedEvent[]>(`feed:${communityId}`, async () => {
+        const { data, error } = await supabase.rpc('community_feed', {
+            p_community_id: communityId,
+            p_limit: limit,
+        });
+        if (error) throw new Error(error.message);
+        return (data ?? []) as FeedEvent[];
+    }, []);
+
+    try {
+        const pending = await getPendingKudosMap();
+        if (pending.size > 0) {
+            res.data = res.data.map(e => applyPendingKudos(e, pending.get(e.id)));
+        }
+    } catch {
+        // Overlay is best-effort; never let it break the feed load.
+    }
+    return res;
 }
 
 /**
- * A community leaderboard for a metric and timeframe. Scores are coerced to
- * numbers. The `improved` metric ignores the period (always this week vs the
+ * A community leaderboard for a metric and timeframe (cached). Scores are coerced
+ * to numbers. The `improved` metric ignores the period (always this week vs the
  * member's own prior 4-week baseline).
  */
 export async function getLeaderboard(
     communityId: string,
     metric: LeaderboardMetric,
     period: LeaderboardPeriod = 'week'
-): Promise<LeaderboardRow[]> {
-    const { data, error } = await supabase.rpc('community_leaderboard', {
-        p_community_id: communityId,
-        p_metric: metric,
-        p_period: period,
-    });
-    const rows = unwrap<any[]>(data, error);
-    return rows.map(r => ({
-        user_id: r.user_id,
-        username: r.username,
-        score: r.score == null ? null : Number(r.score),
-    }));
+): Promise<CachedResult<LeaderboardRow[]>> {
+    return cachedRead(`leaderboard:${communityId}:${metric}:${period}`, async () => {
+        const { data, error } = await supabase.rpc('community_leaderboard', {
+            p_community_id: communityId,
+            p_metric: metric,
+            p_period: period,
+        });
+        if (error) throw new Error(error.message);
+        return ((data ?? []) as any[]).map(r => ({
+            user_id: r.user_id,
+            username: r.username,
+            score: r.score == null ? null : Number(r.score),
+        }));
+    }, []);
 }
 
 /** Give kudos to a feed event. Idempotent via the (event, user, reaction) key. */
@@ -127,6 +185,21 @@ export async function removeKudos(feedEventId: string, userId: string): Promise<
         .eq('user_id', userId)
         .eq('reaction', 'clap');
     if (error) throw new Error(error.message);
+}
+
+/**
+ * Set the caller's kudos state on an event. Tries online first; if that fails
+ * (offline/transient) it queues the intended state to the local outbox for the
+ * next sync and keeps the optimistic UI. Never throws.
+ */
+export async function setKudos(feedEventId: string, userId: string, want: boolean): Promise<void> {
+    try {
+        if (want) await addKudos(feedEventId, userId);
+        else await removeKudos(feedEventId, userId);
+        await clearPendingKudos(feedEventId, userId);
+    } catch {
+        await enqueueKudos(feedEventId, userId, want ? 'add' : 'remove');
+    }
 }
 
 /** Leave a community (removes the current user's membership). */
