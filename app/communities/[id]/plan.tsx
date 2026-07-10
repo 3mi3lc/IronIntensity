@@ -1,20 +1,19 @@
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Platform, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Switch } from 'react-native';
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
+import { Calendar } from 'react-native-calendars';
+import { format, parseISO } from 'date-fns';
 import { createPlannedSession } from '@/repositories/communityCalendar';
+import { TimePicker } from '@/components/timePicker';
 import { logger } from '@/utils/logger';
 
 export default function PlanSessionScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const [date, setDate] = useState(new Date());
-    const [showDate, setShowDate] = useState(false);
     const [timeEnabled, setTimeEnabled] = useState(false);
     const [time, setTime] = useState(new Date());
-    const [showTime, setShowTime] = useState(false);
     const [title, setTitle] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -51,30 +50,30 @@ export default function PlanSessionScreen() {
 
             <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40 }}>
                 {/* Date */}
-                <Text className="text-surface_a50 text-sm mb-2 mt-4">Date</Text>
-                <TouchableOpacity
-                    onPress={() => setShowDate(true)}
-                    className="bg-surface_a10 px-4 py-4 rounded-xl flex-row items-center justify-between"
-                    activeOpacity={0.8}
-                >
-                    <Text className="text-white text-base">{format(date, 'EEEE, MMM d, yyyy')}</Text>
-                    <AntDesign name="calendar" size={18} color="#7a7a7a" />
-                </TouchableOpacity>
-                {showDate && (
-                    <DateTimePicker
-                        value={date}
-                        mode="date"
-                        minimumDate={new Date()}
-                        onChange={(_, selected) => {
-                            setShowDate(Platform.OS === 'ios');
-                            if (selected) setDate(selected);
+                <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2 mt-4">Date</Text>
+                <View className="bg-surface_a20 rounded-xl overflow-hidden">
+                    <Calendar
+                        firstDay={1}
+                        minDate={format(new Date(), 'yyyy-MM-dd')}
+                        onDayPress={(day) => setDate(parseISO(day.dateString))}
+                        markedDates={{ [format(date, 'yyyy-MM-dd')]: { selected: true, selectedColor: '#eb0202' } }}
+                        theme={{
+                            calendarBackground: '#3f3f3f',
+                            dayTextColor: '#ffffff',
+                            monthTextColor: '#ffffff',
+                            arrowColor: '#ffffff',
+                            selectedDayBackgroundColor: '#eb0202',
+                            todayTextColor: '#ff7857',
+                            textDisabledColor: '#6b6b6b',
+                            textMonthFontSize: 18,
+                            textMonthFontWeight: 'bold',
                         }}
                     />
-                )}
+                </View>
 
                 {/* Time (optional) */}
                 <View className="flex-row items-center justify-between mt-6">
-                    <Text className="text-surface_a50 text-sm">Set a time</Text>
+                    <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider">Set a time</Text>
                     <Switch
                         value={timeEnabled}
                         onValueChange={setTimeEnabled}
@@ -83,29 +82,13 @@ export default function PlanSessionScreen() {
                     />
                 </View>
                 {timeEnabled && (
-                    <TouchableOpacity
-                        onPress={() => setShowTime(true)}
-                        className="bg-surface_a10 px-4 py-4 rounded-xl flex-row items-center justify-between mt-2"
-                        activeOpacity={0.8}
-                    >
-                        <Text className="text-white text-base">{format(time, 'HH:mm')}</Text>
-                        <AntDesign name="clock-circle" size={18} color="#7a7a7a" />
-                    </TouchableOpacity>
-                )}
-                {showTime && timeEnabled && (
-                    <DateTimePicker
-                        value={time}
-                        mode="time"
-                        is24Hour
-                        onChange={(_, selected) => {
-                            setShowTime(Platform.OS === 'ios');
-                            if (selected) setTime(selected);
-                        }}
-                    />
+                    <View className="mt-3">
+                        <TimePicker value={time} onChange={setTime} />
+                    </View>
                 )}
 
                 {/* Title */}
-                <Text className="text-surface_a50 text-sm mb-2 mt-6">Title (optional)</Text>
+                <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2 mt-6">Title (optional)</Text>
                 <TextInput
                     value={title}
                     onChangeText={setTitle}

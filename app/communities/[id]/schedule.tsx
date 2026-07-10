@@ -1,13 +1,13 @@
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Platform, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Switch } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { parse, format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/loadingScreen';
 import { getRecurringSchedules, setRecurringSchedule } from '@/repositories/communityCalendar';
+import { TimePicker } from '@/components/timePicker';
 import { logger } from '@/utils/logger';
 
 // ISO weekdays: 1 = Mon .. 7 = Sun
@@ -28,7 +28,6 @@ export default function ScheduleScreen() {
     const [selected, setSelected] = useState<Set<number>>(new Set());
     const [timeEnabled, setTimeEnabled] = useState(false);
     const [time, setTime] = useState(new Date());
-    const [showTime, setShowTime] = useState(false);
     const [title, setTitle] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -100,7 +99,7 @@ export default function ScheduleScreen() {
             </View>
 
             <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40 }}>
-                <Text className="text-surface_a50 text-sm mb-3 mt-4">Training days</Text>
+                <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-3 mt-4">Training days</Text>
                 <View className="flex-row flex-wrap gap-2">
                     {DAYS.map(d => (
                         <TouchableOpacity
@@ -115,7 +114,7 @@ export default function ScheduleScreen() {
                 </View>
 
                 <View className="flex-row items-center justify-between mt-8">
-                    <Text className="text-surface_a50 text-sm">Set a time</Text>
+                    <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider">Set a time</Text>
                     <Switch
                         value={timeEnabled}
                         onValueChange={setTimeEnabled}
@@ -124,28 +123,12 @@ export default function ScheduleScreen() {
                     />
                 </View>
                 {timeEnabled && (
-                    <TouchableOpacity
-                        onPress={() => setShowTime(true)}
-                        className="bg-surface_a10 px-4 py-4 rounded-xl flex-row items-center justify-between mt-2"
-                        activeOpacity={0.8}
-                    >
-                        <Text className="text-white text-base">{format(time, 'HH:mm')}</Text>
-                        <AntDesign name="clock-circle" size={18} color="#7a7a7a" />
-                    </TouchableOpacity>
-                )}
-                {showTime && timeEnabled && (
-                    <DateTimePicker
-                        value={time}
-                        mode="time"
-                        is24Hour
-                        onChange={(_, sel) => {
-                            setShowTime(Platform.OS === 'ios');
-                            if (sel) setTime(sel);
-                        }}
-                    />
+                    <View className="mt-3">
+                        <TimePicker value={time} onChange={setTime} />
+                    </View>
                 )}
 
-                <Text className="text-surface_a50 text-sm mb-2 mt-6">Title (optional)</Text>
+                <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2 mt-6">Title (optional)</Text>
                 <TextInput
                     value={title}
                     onChangeText={setTitle}
