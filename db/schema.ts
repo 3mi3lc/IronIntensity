@@ -111,6 +111,17 @@ export const body_weight_entries = sqliteTable('body_weight_entries', {
     is_synced: integer('is_synced').notNull().default(0),
 });
 
+// Pending_Activity Table (local outbox: community feed events awaiting emit).
+// Purely local — never pulled back. Each row is a JSON array of { type, payload }
+// events for one finished workout, fanned out to the user's communities by the
+// emit_activity RPC on next sync, then marked synced.
+export const pending_activity = sqliteTable('pending_activity', {
+    id: text('id').primaryKey().notNull(),
+    payload: text('payload').notNull(),
+    created_at: text('created_at').notNull().default("datetime('now')"),
+    is_synced: integer('is_synced').notNull().default(0),
+});
+
 // User_Achievements Table (records unlock events; definitions live in code)
 export const user_achievements = sqliteTable(
     'user_achievements',

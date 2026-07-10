@@ -1,16 +1,17 @@
 // app/(tabs)/_layout.tsx
 import React from 'react'
 import {Tabs} from "expo-router";
-import {icons} from "@/constants/icons";
-import {Image, View } from "react-native";
+import {View} from "react-native";
+import {AntDesign} from "@expo/vector-icons";
 
-const TabIcon = ({focused, icon} : any) => {
+type AntDesignName = React.ComponentProps<typeof AntDesign>['name'];
+
+const TabIcon = ({name}: {name: AntDesignName}) => {
     return (
         <View className="items-center">
-            <Image source={icon} className="size-7"/>
+            <AntDesign name={name} size={28} color="#eb0202" />
         </View>
     )
-
 }
 
 const _Layout = () => {
@@ -36,24 +37,32 @@ const _Layout = () => {
             <Tabs.Screen name="logging"  options={{
                 headerShown: false,
                 title: "Log",
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} icon={icons.log_icon}></TabIcon>
+                tabBarIcon: () => (
+                    <TabIcon name="calendar" />
                 )
             }}></Tabs.Screen>
 
             <Tabs.Screen name="statistics"  options={{
                 headerShown: false,
                 title: 'Stats',
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} icon={icons.stats_icon}></TabIcon>
+                tabBarIcon: () => (
+                    <TabIcon name="bar-chart" />
                 )
             }} />
+
+            <Tabs.Screen name="communities"  options={{
+                headerShown: false,
+                title: 'Community',
+                tabBarIcon: () => (
+                    <TabIcon name="team" />
+                )
+            }}/>
 
             <Tabs.Screen name="profile"  options={{
                 headerShown: false,
                 title: 'Profile',
-                tabBarIcon: ({focused}) => (
-                    <TabIcon focused={focused} icon={icons.profile_icon}></TabIcon>
+                tabBarIcon: () => (
+                    <TabIcon name="user" />
                 )
             }}/>
         </Tabs>
