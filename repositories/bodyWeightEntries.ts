@@ -62,6 +62,26 @@ export async function getBodyWeightEntries(
         .orderBy(desc(body_weight_entries.recorded_at));
 }
 
+/**
+ * The user's most recent bodyweight (kg), or null if none logged. Used to derive
+ * a relative-strength score at workout finish; the weight itself stays on-device
+ * and never enters the community feed.
+ */
+export async function getLatestBodyweight(userId: string): Promise<number | null> {
+    const [row] = await db
+        .select({ weight: body_weight_entries.weight })
+        .from(body_weight_entries)
+        .where(
+            and(
+                eq(body_weight_entries.user_id, userId),
+                isNull(body_weight_entries.deleted_at),
+            )
+        )
+        .orderBy(desc(body_weight_entries.recorded_at))
+        .limit(1);
+    return row?.weight ?? null;
+}
+
 export async function getUnsyncedBodyWeightEntries(userId: string): Promise<BodyWeightEntry[]> {
     return db
         .select()

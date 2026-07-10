@@ -14,6 +14,7 @@ import {
     FeedEvent,
     LeaderboardRow,
     LeaderboardMetric,
+    LeaderboardPeriod,
 } from '@/repositories/communities';
 import { logger } from '@/utils/logger';
 
@@ -42,11 +43,47 @@ function feedLine(e: FeedEvent): { emoji: string; title: string; subtitle?: stri
     }
 }
 
+const METRICS: [LeaderboardMetric, string][] = [
+    ['consistency', 'Consistency'],
+    ['volume', 'Volume'],
+    ['relative', 'Strength'],
+    ['improved', 'Improved'],
+];
+
+const PERIODS: [LeaderboardPeriod, string][] = [
+    ['week', 'Week'],
+    ['month', 'Month'],
+    ['all', 'All-time'],
+];
+
+const groupThousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+function formatScore(metric: LeaderboardMetric, score: number | null): string {
+    if (score == null) return '—';
+    switch (metric) {
+        case 'consistency': return `${score}`;
+        case 'volume': return `${groupThousands(score)} kg`;
+        case 'relative': return `${score.toFixed(2)}×`;
+        case 'improved': return `${score > 0 ? '+' : ''}${score}%`;
+    }
+}
+
+function metricNote(metric: LeaderboardMetric, period: LeaderboardPeriod): string {
+    const window = period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'all-time';
+    switch (metric) {
+        case 'consistency': return `Workouts completed ${window}.`;
+        case 'volume': return `Total volume lifted ${window}.`;
+        case 'relative': return `Best lift relative to bodyweight ${window}. Log your bodyweight to appear.`;
+        case 'improved': return 'Volume change vs your own last 4 weeks.';
+    }
+}
+
 export default function CommunityHomeScreen() {
     const { id, name, code } = useLocalSearchParams<{ id: string; name?: string; code?: string }>();
     const { user } = useAuth();
     const [tab, setTab] = useState<Tab>('leaderboard');
     const [metric, setMetric] = useState<LeaderboardMetric>('consistency');
+    const [period, setPeriod] = useState<LeaderboardPeriod>('week');
     const [board, setBoard] = useState<LeaderboardRow[]>([]);
     const [feed, setFeed] = useState<FeedEvent[]>([]);
     const [loading, setLoading] = useState(true);
@@ -57,14 +94,14 @@ export default function CommunityHomeScreen() {
         if (!id) return;
         try {
             setError(false);
-            const [b, f] = await Promise.all([getLeaderboard(id, metric), getCommunityFeed(id)]);
+            const [b, f] = await Promise.all([getLeaderboard(id, metric, period), getCommunityFeed(id)]);
             setBoard(b);
             setFeed(f);
         } catch (e) {
             logger.error('Failed to load community:', e);
             setError(true);
         }
-    }, [id, metric]);
+    }, [id, metric, period]);
 
     useFocusEffect(
         useCallback(() => {
@@ -172,9 +209,9 @@ export default function CommunityHomeScreen() {
                     </View>
                 ) : tab === 'leaderboard' ? (
                     <>
-                        {/* Metric toggle */}
-                        <View className="flex-row gap-2 mb-4">
-                            {([['consistency', 'Consistency'], ['improved', 'Most improved']] as [LeaderboardMetric, string][]).map(([m, label]) => (
+                        {/* Metric chips */}
+                        <View className="flex-row flex-wrap gap-2 mb-3">
+                            {METRICS.map(([m, label]) => (
                                 <TouchableOpacity
                                     key={m}
                                     onPress={() => setMetric(m)}
@@ -186,9 +223,25 @@ export default function CommunityHomeScreen() {
                             ))}
                         </View>
 
+                        {/* Period selector — hidden for most-improved, which is baseline-relative */}
+                        {metric !== 'improved' && (
+                            <View className="flex-row bg-surface_a10 rounded-xl p-1 mb-4">
+                                {PERIODS.map(([p, label]) => (
+                                    <TouchableOpacity
+                                        key={p}
+                                        onPress={() => setPeriod(p)}
+                                        className={`flex-1 py-1.5 rounded-lg ${period === p ? 'bg-surface_a20' : ''}`}
+                                        activeOpacity={0.85}
+                                    >
+                                        <Text className={`text-center text-sm font-semibold ${period === p ? 'text-white' : 'text-surface_a50'}`}>{label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
                         {board.length === 0 ? (
                             <Text className="text-surface_a50 text-center mt-12">
-                                No activity this week yet. Finish a workout to get on the board.
+                                No one on this board yet. Finish a workout to get on it.
                             </Text>
                         ) : (
                             board.map((row, i) => (
@@ -198,19 +251,11 @@ export default function CommunityHomeScreen() {
                                         {row.username}
                                         {user?.id === row.user_id ? '  (you)' : ''}
                                     </Text>
-                                    <Text className="text-primary_a0 font-bold">
-                                        {metric === 'consistency'
-                                            ? `${row.score ?? 0}`
-                                            : row.score == null ? '—' : `${row.score > 0 ? '+' : ''}${row.score}%`}
-                                    </Text>
+                                    <Text className="text-primary_a0 font-bold">{formatScore(metric, row.score)}</Text>
                                 </View>
                             ))
                         )}
-                        <Text className="text-surface_a50 text-xs text-center mt-4">
-                            {metric === 'consistency'
-                                ? 'Workouts completed since Monday.'
-                                : 'Volume change vs your own last 4 weeks.'}
-                        </Text>
+                        <Text className="text-surface_a50 text-xs text-center mt-4">{metricNote(metric, period)}</Text>
                     </>
                 ) : (
                     feed.length === 0 ? (

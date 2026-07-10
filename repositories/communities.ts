@@ -39,7 +39,8 @@ export interface LeaderboardRow {
     score: number | null;
 }
 
-export type LeaderboardMetric = 'consistency' | 'improved';
+export type LeaderboardMetric = 'consistency' | 'volume' | 'relative' | 'improved';
+export type LeaderboardPeriod = 'week' | 'month' | 'all';
 
 function unwrap<T>(data: T | null, error: { message: string } | null): T {
     if (error) throw new Error(error.message);
@@ -83,15 +84,21 @@ export async function getCommunityFeed(communityId: string, limit = 50): Promise
     return unwrap(data, error);
 }
 
-/** A weekly leaderboard for a community. Scores are coerced to numbers. */
+/**
+ * A community leaderboard for a metric and timeframe. Scores are coerced to
+ * numbers. The `improved` metric ignores the period (always this week vs the
+ * member's own prior 4-week baseline).
+ */
 export async function getLeaderboard(
     communityId: string,
-    metric: LeaderboardMetric
+    metric: LeaderboardMetric,
+    period: LeaderboardPeriod = 'week'
 ): Promise<LeaderboardRow[]> {
-    const fn = metric === 'consistency'
-        ? 'community_leaderboard_consistency'
-        : 'community_leaderboard_improved';
-    const { data, error } = await supabase.rpc(fn, { p_community_id: communityId });
+    const { data, error } = await supabase.rpc('community_leaderboard', {
+        p_community_id: communityId,
+        p_metric: metric,
+        p_period: period,
+    });
     const rows = unwrap<any[]>(data, error);
     return rows.map(r => ({
         user_id: r.user_id,

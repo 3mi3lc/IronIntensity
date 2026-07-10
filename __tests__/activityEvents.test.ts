@@ -1,7 +1,7 @@
 import { buildActivityEvents, ActivityInput } from '@/utils/activityEvents';
 
 const base: ActivityInput = {
-    summary: { workoutName: 'Push Day', setCount: 18, totalVolume: 8450, topLiftLabel: 'Bench Press' },
+    summary: { workoutName: 'Push Day', setCount: 18, totalVolume: 8450, topLiftLabel: 'Bench Press', topWeight: 100 },
     prCount: 0,
     bestPr: null,
     currentStreak: 3, // not a milestone
@@ -9,7 +9,7 @@ const base: ActivityInput = {
 };
 
 describe('buildActivityEvents', () => {
-    it('always emits a workout_completed summary', () => {
+    it('always emits a workout_completed summary (no ratio without bodyweight)', () => {
         const events = buildActivityEvents(base);
         expect(events).toHaveLength(1);
         expect(events[0]).toEqual({
@@ -21,6 +21,22 @@ describe('buildActivityEvents', () => {
                 top_lift_label: 'Bench Press',
             },
         });
+    });
+
+    it('adds a relative_strength ratio only when bodyweight is known', () => {
+        const events = buildActivityEvents({ ...base, bodyweightKg: 80 });
+        // 100kg top set / 80kg bodyweight = 1.25
+        expect(events[0].payload.relative_strength).toBe(1.25);
+    });
+
+    it('omits relative_strength when bodyweight is missing or no weighted set', () => {
+        expect(buildActivityEvents({ ...base, bodyweightKg: null })[0].payload)
+            .not.toHaveProperty('relative_strength');
+        expect(buildActivityEvents({
+            ...base,
+            summary: { ...base.summary, topWeight: null },
+            bodyweightKg: 80,
+        })[0].payload).not.toHaveProperty('relative_strength');
     });
 
     it('adds a pr event carrying the absolute weight when a PR was set', () => {
@@ -61,7 +77,7 @@ describe('buildActivityEvents', () => {
 
     it('combines all event types in order for a big finish', () => {
         const events = buildActivityEvents({
-            summary: { workoutName: 'Leg Day', setCount: 20, totalVolume: 12000, topLiftLabel: 'Squat' },
+            summary: { workoutName: 'Leg Day', setCount: 20, totalVolume: 12000, topLiftLabel: 'Squat', topWeight: 140 },
             prCount: 1,
             bestPr: { exerciseName: 'Squat', weight: 140, reps: 3 },
             currentStreak: 52,
