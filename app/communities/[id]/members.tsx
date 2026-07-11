@@ -1,10 +1,9 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator } from 'react-native';
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { LoadingScreen } from '@/components/loadingScreen';
 import {
     getCommunityMembers,
     getMyCommunities,
@@ -168,8 +167,6 @@ export default function CommunityMembersScreen() {
         );
     }, [id, user?.id, name]);
 
-    if (loading) return <LoadingScreen message="Loading members..." />;
-
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
             <View className="px-4 pt-4 pb-4 flex-row items-center">
@@ -198,6 +195,12 @@ export default function CommunityMembersScreen() {
                     </View>
                 )}
 
+                {loading && members.length === 0 ? (
+                    <View className="mt-16 items-center">
+                        <ActivityIndicator size="large" color="#f34023" />
+                    </View>
+                ) : (
+                  <>
                 {/* Admin panel */}
                 {isAdmin && (
                     <View className="bg-surface_a10 rounded-xl p-4 mb-4">
@@ -272,6 +275,8 @@ export default function CommunityMembersScreen() {
                     <AntDesign name="logout" size={18} color="#eb0202" />
                     <Text className="text-primary_a0 font-bold text-base ml-2">Leave community</Text>
                 </TouchableOpacity>
+                  </>
+                )}
             </ScrollView>
 
             <ReportModal

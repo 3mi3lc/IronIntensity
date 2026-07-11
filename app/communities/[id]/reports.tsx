@@ -1,10 +1,9 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
-import { LoadingScreen } from '@/components/loadingScreen';
 import { deleteFeedEvent } from '@/repositories/communities';
 import { getReports, resolveReport, removeMember, Report } from '@/repositories/communityModeration';
 import { logger } from '@/utils/logger';
@@ -92,8 +91,6 @@ export default function ReportsScreen() {
         ]);
     }, [id, load]);
 
-    if (loading) return <LoadingScreen message="Loading reports..." />;
-
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
             <View className="px-4 pt-4 pb-4 flex-row items-center">
@@ -107,7 +104,11 @@ export default function ReportsScreen() {
             </View>
 
             <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-                {error ? (
+                {loading ? (
+                    <View className="mt-16 items-center">
+                        <ActivityIndicator size="large" color="#f34023" />
+                    </View>
+                ) : error ? (
                     <Text className="text-surface_a50 text-center mt-12">Could not load reports.</Text>
                 ) : reports.length === 0 ? (
                     <View className="items-center mt-16 px-6">

@@ -1,11 +1,10 @@
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Switch, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { parse, format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
-import { LoadingScreen } from '@/components/loadingScreen';
 import { getRecurringSchedules, setRecurringSchedule } from '@/repositories/communityCalendar';
 import { TimePicker } from '@/components/timePicker';
 import { logger } from '@/utils/logger';
@@ -84,8 +83,6 @@ export default function ScheduleScreen() {
         }
     };
 
-    if (loading) return <LoadingScreen message="Loading your schedule..." />;
-
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
             <View className="px-4 pt-4 pb-4 flex-row items-center">
@@ -99,6 +96,12 @@ export default function ScheduleScreen() {
             </View>
 
             <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40 }}>
+                {loading ? (
+                    <View className="mt-16 items-center">
+                        <ActivityIndicator size="large" color="#f34023" />
+                    </View>
+                ) : (
+                  <>
                 <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-3 mt-4">Training days</Text>
                 <View className="flex-row flex-wrap gap-2">
                     {DAYS.map(d => (
@@ -146,6 +149,8 @@ export default function ScheduleScreen() {
                 >
                     <Text className="text-white font-bold text-base">{submitting ? 'Saving...' : 'Save schedule'}</Text>
                 </TouchableOpacity>
+                  </>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
