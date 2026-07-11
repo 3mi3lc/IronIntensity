@@ -45,15 +45,17 @@ export default function CommunitiesScreen() {
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
             {/* Header */}
-            <View className="px-4 pt-4 pb-4 flex-row items-center">
-                <View style={{ width: 44 }} />
-                <Text className="flex-1 text-primary_a0 font-bold text-2xl text-center">Communities</Text>
+            <View className="pt-4 pb-6 flex-row justify-between items-center px-6">
+                <View>
+                    <Text className="text-primary_a0 font-bold text-3xl">Communities</Text>
+                    <Text className="text-surface_a50 text-sm mt-1">Compete with your crew</Text>
+                </View>
                 <TouchableOpacity
                     onPress={() => router.push('/communities/discover')}
-                    className="p-2 bg-surface_a10 rounded-xl"
-                    activeOpacity={0.7}
+                    className="bg-primary_a0 p-3 rounded-full"
+                    activeOpacity={0.8}
                 >
-                    <AntDesign name="search" size={22} color="#eb0202" />
+                    <AntDesign name="search" size={24} color="white" />
                 </TouchableOpacity>
             </View>
 
