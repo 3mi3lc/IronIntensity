@@ -24,7 +24,7 @@ export async function refreshWorkoutReminder(prefs: NotifPrefs): Promise<void> {
         Number.isFinite(h) ? h : 18,
         Number.isFinite(m) ? m : 0,
         'Time to train 💪',
-        'Keep the momentum going — log a workout today.'
+        'Keep the momentum going. Log a workout today.'
     );
 }
 
@@ -58,7 +58,7 @@ export async function refreshStreakReminder(userId: string, prefs: NotifPrefs): 
         await scheduleAt(
             remind,
             'Streak at risk 🔥',
-            `Don't lose your ${current}-week streak — train before the week ends!`,
+            `Don't lose your ${current}-week streak. Train before the week ends!`,
             { type: 'streak' },
             STREAK_ID
         );
@@ -87,7 +87,7 @@ export async function scheduleSessionReminder(
     await scheduleAt(
         remind,
         'Training soon ⏰',
-        `${title ? `${title} — ` : ''}your planned session starts in an hour`,
+        `${title ? `${title}: ` : ''}your planned session starts in an hour`,
         { type: 'session' },
         id
     );

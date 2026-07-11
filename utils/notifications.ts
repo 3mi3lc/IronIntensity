@@ -6,7 +6,7 @@ import { logger } from '@/utils/logger';
 
 /**
  * Notifications core: foreground display handler, permission + Expo push token
- * registration, and thin local-scheduling helpers. All best-effort — failures
+ * registration, and thin local-scheduling helpers. All best-effort; failures
  * are logged, never thrown, so notifications can never break a flow.
  */
 
@@ -58,7 +58,7 @@ export async function getExpoPushToken(): Promise<string | null> {
         const projectId =
             Constants.expoConfig?.extra?.eas?.projectId ?? (Constants as any).easConfig?.projectId;
         if (!projectId) {
-            logger.warn('No EAS projectId — skipping push token registration');
+            logger.warn('No EAS projectId, skipping push token registration');
             return null;
         }
         const token = await Notifications.getExpoPushTokenAsync({ projectId });
