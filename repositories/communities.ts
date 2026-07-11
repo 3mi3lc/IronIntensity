@@ -24,6 +24,14 @@ export interface Community {
     invite_code: string;
     role: string;
     member_count: number;
+    is_public: boolean;
+}
+
+export interface PublicCommunity {
+    id: string;
+    name: string;
+    member_count: number;
+    is_member: boolean;
 }
 
 export interface CommunityMember {
@@ -105,8 +113,49 @@ export async function getMyCommunities(): Promise<CachedResult<Community[]>> {
     return cachedRead('my_communities', async () => {
         const { data, error } = await supabase.rpc('my_communities');
         if (error) throw new Error(error.message);
-        return (data ?? []) as Community[];
+        return ((data ?? []) as any[]).map(c => ({
+            id: c.id,
+            name: c.name,
+            invite_code: c.invite_code,
+            role: c.role,
+            member_count: Number(c.member_count ?? 0),
+            is_public: !!c.is_public,
+        }));
     }, []);
+}
+
+/** Search discoverable (public) communities by name. Empty query lists all. */
+export async function searchPublicCommunities(query: string): Promise<PublicCommunity[]> {
+    const { data, error } = await supabase.rpc('search_public_communities', { p_query: query });
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as any[]).map(c => ({
+        id: c.id,
+        name: c.name,
+        member_count: Number(c.member_count ?? 0),
+        is_member: !!c.is_member,
+    }));
+}
+
+/** Join a public community without an invite code. */
+export async function joinPublicCommunity(communityId: string): Promise<Community> {
+    const { data, error } = await supabase.rpc('join_public_community', { p_id: communityId });
+    if (error) throw new Error(error.message);
+    return data as Community;
+}
+
+/** Admin: publish or unpublish a community. */
+export async function setCommunityVisibility(communityId: string, isPublic: boolean): Promise<void> {
+    const { error } = await supabase.rpc('set_community_visibility', {
+        p_id: communityId,
+        p_public: isPublic,
+    });
+    if (error) throw new Error(error.message);
+}
+
+/** Delete a feed post (author or community admin, enforced by RLS). */
+export async function deleteFeedEvent(feedEventId: string): Promise<void> {
+    const { error } = await supabase.from('feed_events').delete().eq('id', feedEventId);
+    if (error) throw new Error(error.message);
 }
 
 /** Members of a community (cached; caller must be a member). */
