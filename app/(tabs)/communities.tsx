@@ -1,11 +1,10 @@
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/hooks/useAuth';
-import { LoadingScreen } from '@/components/loadingScreen';
 import { getMyCommunities, Community } from '@/repositories/communities';
 
 export default function CommunitiesScreen() {
@@ -39,8 +38,6 @@ export default function CommunitiesScreen() {
         await load();
         setRefreshing(false);
     }, [load]);
-
-    if (loading) return <LoadingScreen message="Loading communities..." />;
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
@@ -94,7 +91,11 @@ export default function CommunitiesScreen() {
                     </View>
                 )}
 
-                {stale && communities.length === 0 ? (
+                {loading && communities.length === 0 ? (
+                    <View className="mt-16 items-center">
+                        <ActivityIndicator size="large" color="#f34023" />
+                    </View>
+                ) : stale && communities.length === 0 ? (
                     <View className="items-center mt-16 px-6">
                         <AntDesign name="disconnect" size={40} color="#7a7a7a" />
                         <Text className="text-surface_a50 text-center mt-4">
