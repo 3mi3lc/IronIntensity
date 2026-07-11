@@ -50,3 +50,8 @@ coverage
 app-example
 
 GEMINI.md
+
+# Firebase / FCM
+google-services.json
+GoogleService-Info.plist
+*-firebase-adminsdk-*.json
