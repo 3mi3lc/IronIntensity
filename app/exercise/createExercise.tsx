@@ -7,13 +7,13 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { createExercise } from '@/repositories/exercises';
 import { getAllBodyParts } from '@/repositories/bodyParts';
-import { LoadingScreen } from '@/components/loadingScreen';
 import { addBodyPartToExercise } from '@/repositories/exerciseBodyParts';
 import { UserContext } from '@/contexts/UserContext';
 import type { BodyPart } from '@/repositories/types';
@@ -118,10 +118,6 @@ function CreateExercise() {
         router.back();
     };
 
-    if (loading) {
-        return <LoadingScreen />;
-    }
-
     return (
         <SafeAreaView className="flex-1 bg-surface_a0">
             {/* Header - Fixed, not in ScrollView */}
@@ -147,6 +143,11 @@ function CreateExercise() {
             </View>
 
             {/* Content - Scrollable */}
+            {loading ? (
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#f34023" />
+                </View>
+            ) : (
             <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
                 {/* Exercise Name Input */}
                 <View className="mb-6">
@@ -240,6 +241,7 @@ function CreateExercise() {
                 {/* Bottom Padding */}
                 <View className="h-8" />
             </ScrollView>
+            )}
 
             <ExerciseCreatedModal
                 visible={showSuccess}

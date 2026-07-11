@@ -1,12 +1,11 @@
 // app/exercise/exerciseHistoryScreen.tsx
 import React, { useState, useEffect } from 'react';
 import { logger } from '@/utils/logger';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { getExerciseHistory } from '@/repositories/statistics';
 import { formatDistanceToNow, format } from 'date-fns';
-import { LoadingScreen } from '@/components/loadingScreen';
 
 interface ExerciseHistorySet {
     id: string;
@@ -71,10 +70,6 @@ export function ExerciseHistoryScreen({
         }
     };
 
-    if (loading) {
-        return <LoadingScreen message="Loading history..." />;
-    }
-
     return (
         <SafeAreaView className="flex-1 bg-surface_a0">
             {/* Header */}
@@ -102,6 +97,11 @@ export function ExerciseHistoryScreen({
             </View>
 
             {/* Content */}
+            {loading ? (
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#f34023" />
+                </View>
+            ) : (
             <ScrollView
                 className="flex-1 px-4"
                 showsVerticalScrollIndicator={false}
@@ -243,6 +243,7 @@ export function ExerciseHistoryScreen({
                     </View>
                 )}
             </ScrollView>
+            )}
         </SafeAreaView>
     );
 }

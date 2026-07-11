@@ -1,13 +1,12 @@
 // components/WorkoutScreen.tsx
 import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { ExerciseWithSets } from '@/repositories/types';
 import WorkoutExerciseListItem from '@/components/workoutExerciseListItem';
 import { ExerciseHistoryScreen } from '@/app/exercise/exerciseHistoryScreen';
 import { AntDesign } from '@expo/vector-icons';
-import { LoadingScreen } from '@/components/loadingScreen';
 
 interface WorkoutScreenProps {
     title: string;
@@ -113,10 +112,6 @@ export function WorkoutScreen({
         );
     }
 
-    if (loading) {
-        return <LoadingScreen message="Loading workout..." />;
-    }
-
     return (
         <SafeAreaView className="flex-1 bg-surface_a0">
             {/* Header */}
@@ -161,7 +156,11 @@ export function WorkoutScreen({
 
             {/* Content */}
             <View className="flex-1 px-4">
-                {workoutId && exerciseData.length > 0 ? (
+                {loading ? (
+                    <View className="flex-1 justify-center items-center">
+                        <ActivityIndicator size="large" color="#f34023" />
+                    </View>
+                ) : workoutId && exerciseData.length > 0 ? (
                     <DraggableFlatList
                         data={exerciseData}
                         keyExtractor={(item) => item.workoutExerciseId}

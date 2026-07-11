@@ -1,6 +1,6 @@
 // app/(tabs)/statistics.tsx
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,7 +12,6 @@ import { ExerciseList } from '@/components/exerciseList';
 import { RecentPRsList } from '@/components/recentPRsList';
 import { AddBodyWeightModal } from '@/components/addBodyWeightModal';
 import { ExerciseHistoryScreen } from '../exercise/exerciseHistoryScreen';
-import { LoadingScreen } from '@/components/loadingScreen';
 
 const Statistics = () => {
     const { user } = useAuth();
@@ -38,10 +37,6 @@ const Statistics = () => {
     const chartData = selectedMetric === 'volume' ? volumeData
         : selectedMetric === 'weight' ? bodyWeightData
         : workoutsData;
-
-    if (loading) {
-        return <LoadingScreen message="Loading statistics..." />;
-    }
 
     if (showExerciseHistory && selectedExerciseForHistory && user?.id) {
         return (
@@ -75,6 +70,11 @@ const Statistics = () => {
                 </TouchableOpacity>
             </View>
 
+            {loading ? (
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#f34023" />
+                </View>
+            ) : (
             <ScrollView
                 className="flex-1 px-4"
                 showsVerticalScrollIndicator={false}
@@ -155,6 +155,7 @@ const Statistics = () => {
                     <MetricChart metric={selectedMetric} data={chartData} screenWidth={screenWidth} />
                 )}
             </ScrollView>
+            )}
 
             {user?.id && (
                 <AddBodyWeightModal

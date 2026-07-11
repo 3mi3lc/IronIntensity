@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { logger } from '@/utils/logger';
 import React, {  useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -80,8 +80,9 @@ function AddExercise() {
         }
     };
 
-    if (loading || addingExercise) {
-        return <LoadingScreen message={loading ? 'Loading exercises...' : 'Adding exercise...'} />;
+    // A blocking full-screen loader is appropriate while the add action runs.
+    if (addingExercise) {
+        return <LoadingScreen message="Adding exercise..." />;
     }
 
     return (
@@ -128,6 +129,11 @@ function AddExercise() {
             </View>
 
             {/* Body Part Sections */}
+            {loading ? (
+                <View className="flex-1 items-center justify-center">
+                    <ActivityIndicator size="large" color="#f34023" />
+                </View>
+            ) : (
             <ScrollView
                 className="flex-1 px-6"
                 showsVerticalScrollIndicator={false}
@@ -233,6 +239,7 @@ function AddExercise() {
                 {/* Bottom Padding */}
                 <View className="h-8" />
             </ScrollView>
+            )}
         </SafeAreaView>
     );
 }
