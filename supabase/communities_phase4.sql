@@ -24,7 +24,9 @@ returns boolean language sql security definer stable set search_path = public as
   );
 $$;
 
--- my_communities now also reports is_public.
+-- my_communities now also reports is_public. Its return type changes, so it must
+-- be dropped first (create-or-replace cannot alter a function's OUT columns).
+drop function if exists my_communities();
 create or replace function my_communities()
 returns table (id uuid, name text, invite_code text, role text, member_count bigint, is_public boolean)
 language sql security definer stable set search_path = public as $$
