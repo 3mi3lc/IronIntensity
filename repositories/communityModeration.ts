@@ -15,6 +15,7 @@ export interface Report {
     event_type: string | null;
     event_actor: string | null;
     event_payload: Record<string, any> | null;
+    target_username: string | null;
 }
 
 /** Report a feed post for admin review. */
@@ -30,6 +31,32 @@ export async function reportFeedEvent(
         target_type: 'feed_event',
         target_id: feedEventId,
         reason,
+    });
+    if (error) throw new Error(error.message);
+}
+
+/** Report a member for admin review. */
+export async function reportMember(
+    communityId: string,
+    memberUserId: string,
+    userId: string,
+    reason: string | null
+): Promise<void> {
+    const { error } = await supabase.from('reports').insert({
+        community_id: communityId,
+        reporter_user_id: userId,
+        target_type: 'member',
+        target_id: memberUserId,
+        reason,
+    });
+    if (error) throw new Error(error.message);
+}
+
+/** Admin: promote a member to admin. */
+export async function promoteMember(communityId: string, userId: string): Promise<void> {
+    const { error } = await supabase.rpc('promote_member', {
+        p_community_id: communityId,
+        p_user_id: userId,
     });
     if (error) throw new Error(error.message);
 }
