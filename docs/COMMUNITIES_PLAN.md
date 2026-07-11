@@ -135,8 +135,12 @@ Phase 1 or early Phase 2 win that pays off the achievement work already done.
   **Safety gate:** a visible schedule broadcasts physical location and time. It
   must be strictly opt-in per community and easy to switch off. This is why the
   calendar is sequenced after the feed, not first.
-- **Phase 4 (gym scale):** public/discoverable communities, QR-code join at the
-  gym, verified gyms, and moderation tooling (report, remove, block).
+- **Phase 4 (gym scale):** _discovery + moderation shipped._ Public/discoverable
+  communities (an `is_public` flag, a Discover search screen, join without a
+  code) and moderation (report a post, admin delete post, admin remove member, an
+  admin Reports review screen) are done; backend delta in
+  `supabase/communities_phase4.sql`. Still open: QR-code join at the gym (needs
+  camera) and verified gyms (needs a verification pipeline).
 
 ---
 
