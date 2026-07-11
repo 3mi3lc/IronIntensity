@@ -45,8 +45,16 @@ export default function CommunitiesScreen() {
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
             {/* Header */}
-            <View className="px-4 pt-4 pb-4">
-                <Text className="text-primary_a0 font-bold text-2xl text-center">Communities</Text>
+            <View className="px-4 pt-4 pb-4 flex-row items-center">
+                <View style={{ width: 44 }} />
+                <Text className="flex-1 text-primary_a0 font-bold text-2xl text-center">Communities</Text>
+                <TouchableOpacity
+                    onPress={() => router.push('/communities/discover')}
+                    className="p-2 bg-surface_a10 rounded-xl"
+                    activeOpacity={0.7}
+                >
+                    <AntDesign name="search" size={22} color="#eb0202" />
+                </TouchableOpacity>
             </View>
 
             <ScrollView
@@ -103,12 +111,15 @@ export default function CommunitiesScreen() {
                     communities.map(c => (
                         <TouchableOpacity
                             key={c.id}
-                            onPress={() => router.push({ pathname: '/communities/[id]', params: { id: c.id, name: c.name, code: c.invite_code } })}
+                            onPress={() => router.push({ pathname: '/communities/[id]', params: { id: c.id, name: c.name, code: c.invite_code, role: c.role } })}
                             className="bg-surface_a10 p-5 rounded-2xl mb-3 flex-row items-center"
                             activeOpacity={0.85}
                         >
                             <View className="flex-1">
-                                <Text className="text-white text-lg font-bold">{c.name}</Text>
+                                <View className="flex-row items-center">
+                                    <Text className="text-white text-lg font-bold">{c.name}</Text>
+                                    {c.is_public && <AntDesign name="global" size={13} color="#7a7a7a" style={{ marginLeft: 8 }} />}
+                                </View>
                                 <Text className="text-surface_a50 text-sm mt-1">
                                     {c.member_count} {c.member_count === 1 ? 'member' : 'members'}
                                     {c.role === 'admin' ? '  ·  Admin' : ''}

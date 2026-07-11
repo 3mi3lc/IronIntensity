@@ -9,11 +9,13 @@ import {
     getCommunityFeed,
     getLeaderboard,
     setKudos,
+    deleteFeedEvent,
     FeedEvent,
     LeaderboardRow,
     LeaderboardMetric,
     LeaderboardPeriod,
 } from '@/repositories/communities';
+import { reportFeedEvent } from '@/repositories/communityModeration';
 import { logger } from '@/utils/logger';
 import { CommunityCalendarTab } from '@/components/communityCalendarTab';
 
@@ -84,8 +86,9 @@ function metricNote(metric: LeaderboardMetric, period: LeaderboardPeriod): strin
 }
 
 export default function CommunityHomeScreen() {
-    const { id, name, code } = useLocalSearchParams<{ id: string; name?: string; code?: string }>();
+    const { id, name, code, role } = useLocalSearchParams<{ id: string; name?: string; code?: string; role?: string }>();
     const { user } = useAuth();
+    const isAdmin = role === 'admin';
     const [tab, setTab] = useState<Tab>('feed');
     const [metric, setMetric] = useState<LeaderboardMetric>('consistency');
     const [period, setPeriod] = useState<LeaderboardPeriod>('week');
@@ -161,6 +164,39 @@ export default function CommunityHomeScreen() {
                 : x));
         }
     }, [user?.id]);
+
+    const reportPost = useCallback(async (event: FeedEvent) => {
+        if (!id || !user?.id) return;
+        try {
+            await reportFeedEvent(id, event.id, user.id, null);
+            Alert.alert('Reported', 'Thanks — an admin will review this post.');
+        } catch (e) {
+            logger.error('Failed to report:', e);
+            Alert.alert('Could not report', 'Check your connection and try again.');
+        }
+    }, [id, user?.id]);
+
+    const deletePost = useCallback(async (event: FeedEvent) => {
+        setFeed(prev => prev.filter(e => e.id !== event.id));
+        try {
+            await deleteFeedEvent(event.id);
+        } catch (e) {
+            logger.error('Failed to delete post:', e);
+            Alert.alert('Could not delete', 'Check your connection and try again.');
+            loadFeed();
+        }
+    }, [loadFeed]);
+
+    // Overflow menu on a feed post: report (others') and/or delete (own or admin).
+    const onPostMenu = useCallback((event: FeedEvent) => {
+        const own = event.actor_user_id === user?.id;
+        const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
+        if (!own) buttons.push({ text: 'Report', onPress: () => reportPost(event) });
+        if (own || isAdmin) buttons.push({ text: 'Delete', style: 'destructive', onPress: () => deletePost(event) });
+        if (buttons.length === 0) return;
+        buttons.push({ text: 'Cancel', style: 'cancel' });
+        Alert.alert('Post', undefined, buttons);
+    }, [isAdmin, user?.id, reportPost, deletePost]);
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
@@ -305,6 +341,11 @@ export default function CommunityHomeScreen() {
                                         <AntDesign name="like" size={20} color={e.i_kudosed ? '#f34023' : '#7a7a7a'} />
                                         {e.kudos_count > 0 && <Text className="text-surface_a50 text-xs mt-1">{e.kudos_count}</Text>}
                                     </TouchableOpacity>
+                                    {(e.actor_user_id !== user?.id || isAdmin) && (
+                                        <TouchableOpacity onPress={() => onPostMenu(e)} className="items-center pl-2" activeOpacity={0.7}>
+                                            <AntDesign name="ellipsis" size={20} color="#7a7a7a" />
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
                             );
                         })

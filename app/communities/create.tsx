@@ -20,7 +20,7 @@ export default function CreateCommunityScreen() {
         try {
             const community = await createCommunity(trimmed);
             // Replace so Back returns to the list, not this form.
-            router.replace({ pathname: '/communities/[id]', params: { id: community.id, name: community.name, code: community.invite_code } });
+            router.replace({ pathname: '/communities/[id]', params: { id: community.id, name: community.name, code: community.invite_code, role: 'admin' } });
         } catch (e) {
             logger.error('Failed to create community:', e);
             Alert.alert('Could not create', 'Please check your connection and try again.');
