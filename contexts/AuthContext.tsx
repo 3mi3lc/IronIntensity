@@ -11,6 +11,12 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// supabase-js can deadlock on startup when offline: the auto-refresh tick grabs
+// the internal auth lock and hangs on a network fetch that never resolves, so
+// getSession() never returns. Cap the wait so the loading gate is always
+// released and the offline-first local-user path can take over.
+const SESSION_INIT_TIMEOUT = 3000;
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [session, setSession] = useState<Session | null>(null);
     const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
@@ -22,7 +28,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         const initSession = async () => {
             try {
-                const { data: { session: cachedSession } } = await supabase.auth.getSession();
+                let cachedSession: Session | null = null;
+
+                try {
+                    // Race getSession() against a timeout so an offline lock
+                    // deadlock can never hang the loading gate forever.
+                    const result = await Promise.race([
+                        supabase.auth.getSession(),
+                        new Promise<never>((_, reject) =>
+                            setTimeout(
+                                () => reject(new Error('getSession timed out')),
+                                SESSION_INIT_TIMEOUT
+                            )
+                        ),
+                    ]);
+                    cachedSession = result.data.session;
+                } catch (sessionError) {
+                    // getSession hung (offline lock deadlock) or failed. Fall
+                    // through to the no-session path; UserContext will grant
+                    // access from the local database when offline, and
+                    // onAuthStateChange delivers the real session once the
+                    // lock releases and connectivity returns.
+                    logger.debug('AuthContext: getSession unavailable, falling back to local access', sessionError);
+                }
 
                 if (!mounted) return;
 
