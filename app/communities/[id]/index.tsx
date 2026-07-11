@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import {
     getCommunityFeed,
@@ -16,6 +16,9 @@ import {
     LeaderboardPeriod,
 } from '@/repositories/communities';
 import { reportFeedEvent } from '@/repositories/communityModeration';
+import { rsvpSession, unrsvpSession } from '@/repositories/communityCalendar';
+import { getNotifPrefs } from '@/utils/notificationPrefs';
+import { scheduleSessionReminder, cancelSessionReminder } from '@/utils/localReminders';
 import { logger } from '@/utils/logger';
 import { CommunityCalendarTab } from '@/components/communityCalendarTab';
 import { ReportModal } from '@/components/reportModal';
@@ -41,6 +44,12 @@ function feedLine(e: FeedEvent): { emoji: string; title: string; subtitle?: stri
             return { emoji: '🔥', title: `${who} hit a ${e.payload.weeks}-week streak` };
         case 'badge_unlocked':
             return { emoji: e.payload.icon ?? '🎖️', title: `${who} unlocked ${e.payload.title}` };
+        case 'session_planned': {
+            const day = e.payload.scheduled_date ? format(parseISO(e.payload.scheduled_date), 'EEE, MMM d') : '';
+            const time = e.payload.scheduled_time ? ` at ${e.payload.scheduled_time}` : '';
+            const sub = [e.payload.title, `${day}${time}`.trim()].filter(Boolean).join('  ·  ');
+            return { emoji: '📅', title: `${who} planned a session`, subtitle: sub || undefined };
+        }
         case 'workout_completed':
         default: {
             const sets = e.payload.set_count;
@@ -163,6 +172,30 @@ export default function CommunityHomeScreen() {
             // Revert
             setFeed(prev => prev.map(x => x.id === event.id
                 ? { ...x, i_kudosed: event.i_kudosed, kudos_count: event.kudos_count }
+                : x));
+        }
+    }, [user?.id]);
+
+    const toggleFeedRsvp = useCallback(async (event: FeedEvent) => {
+        const sid = event.payload?.session_id as string | undefined;
+        if (!user?.id || !sid) return;
+        const next = !event.i_rsvped;
+        setFeed(prev => prev.map(e => e.id === event.id
+            ? { ...e, i_rsvped: next, rsvp_count: e.rsvp_count + (next ? 1 : -1) }
+            : e));
+        try {
+            if (next) {
+                await rsvpSession(sid, user.id);
+                const prefs = await getNotifPrefs();
+                await scheduleSessionReminder(sid, event.payload.scheduled_date, event.payload.scheduled_time, event.payload.title ?? null, prefs);
+            } else {
+                await unrsvpSession(sid, user.id);
+                await cancelSessionReminder(sid);
+            }
+        } catch (e) {
+            logger.error('Failed to RSVP from feed:', e);
+            setFeed(prev => prev.map(x => x.id === event.id
+                ? { ...x, i_rsvped: event.i_rsvped, rsvp_count: event.rsvp_count }
                 : x));
         }
     }, [user?.id]);
@@ -341,10 +374,27 @@ export default function CommunityHomeScreen() {
                                             {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
                                         </Text>
                                     </View>
-                                    <TouchableOpacity onPress={() => toggleKudos(e)} className="items-center px-2" activeOpacity={0.7}>
-                                        <AntDesign name="like" size={20} color={e.i_kudosed ? '#f34023' : '#7a7a7a'} />
-                                        {e.kudos_count > 0 && <Text className="text-surface_a50 text-xs mt-1">{e.kudos_count}</Text>}
-                                    </TouchableOpacity>
+                                    {e.type === 'session_planned' ? (
+                                        e.actor_user_id === user?.id ? (
+                                            <Text className="text-surface_a50 text-xs px-2">{e.rsvp_count} in</Text>
+                                        ) : (
+                                            <TouchableOpacity
+                                                onPress={() => toggleFeedRsvp(e)}
+                                                className={`px-3 py-1.5 rounded-full flex-row items-center ${e.i_rsvped ? 'bg-primary_a0' : 'bg-surface_a20'}`}
+                                                activeOpacity={0.8}
+                                            >
+                                                <AntDesign name={e.i_rsvped ? 'check' : 'plus'} size={12} color={e.i_rsvped ? 'white' : '#9ca3af'} />
+                                                <Text className={`text-xs font-bold ml-1 ${e.i_rsvped ? 'text-white' : 'text-surface_a50'}`}>
+                                                    {e.i_rsvped ? "I'm in" : 'Join'}{e.rsvp_count > 0 ? `  ${e.rsvp_count}` : ''}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )
+                                    ) : (
+                                        <TouchableOpacity onPress={() => toggleKudos(e)} className="items-center px-2" activeOpacity={0.7}>
+                                            <AntDesign name="like" size={20} color={e.i_kudosed ? '#f34023' : '#7a7a7a'} />
+                                            {e.kudos_count > 0 && <Text className="text-surface_a50 text-xs mt-1">{e.kudos_count}</Text>}
+                                        </TouchableOpacity>
+                                    )}
                                     {(e.actor_user_id !== user?.id || isAdmin) && (
                                         <TouchableOpacity onPress={() => onPostMenu(e)} className="items-center pl-2" activeOpacity={0.7}>
                                             <AntDesign name="ellipsis" size={20} color="#7a7a7a" />

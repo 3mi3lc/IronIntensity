@@ -45,11 +45,14 @@ export interface FeedEvent {
     id: string;
     actor_user_id: string;
     actor_username: string;
-    type: 'workout_completed' | 'pr' | 'streak_milestone' | 'badge_unlocked';
+    type: 'workout_completed' | 'pr' | 'streak_milestone' | 'badge_unlocked' | 'session_planned';
     payload: Record<string, any>;
     created_at: string;
     kudos_count: number;
     i_kudosed: boolean;
+    /** RSVP state, populated for session_planned events. */
+    rsvp_count: number;
+    i_rsvped: boolean;
 }
 
 export interface LeaderboardRow {

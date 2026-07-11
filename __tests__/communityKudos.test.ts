@@ -12,6 +12,8 @@ const event = (over: Partial<FeedEvent> = {}): FeedEvent => ({
     created_at: '2026-07-10T00:00:00.000Z',
     kudos_count: 2,
     i_kudosed: false,
+    rsvp_count: 0,
+    i_rsvped: false,
     ...over,
 });
 
