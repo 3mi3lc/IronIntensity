@@ -7,6 +7,8 @@ import { Calendar } from 'react-native-calendars';
 import { format, parseISO } from 'date-fns';
 import { createPlannedSession } from '@/repositories/communityCalendar';
 import { TimePicker } from '@/components/timePicker';
+import { getNotifPrefs } from '@/utils/notificationPrefs';
+import { scheduleSessionReminder } from '@/utils/localReminders';
 import { logger } from '@/utils/logger';
 
 export default function PlanSessionScreen() {
@@ -21,12 +23,14 @@ export default function PlanSessionScreen() {
         if (!id) return;
         setSubmitting(true);
         try {
-            await createPlannedSession(
+            const created = await createPlannedSession(
                 id,
                 format(date, 'yyyy-MM-dd'),
                 timeEnabled ? format(time, 'HH:mm') : null,
                 title.trim() || null,
             );
+            const prefs = await getNotifPrefs();
+            await scheduleSessionReminder(created.id, created.scheduled_date, created.scheduled_time, title.trim() || null, prefs);
             router.back();
         } catch (e) {
             logger.error('Failed to plan session:', e);
