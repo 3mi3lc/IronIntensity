@@ -19,7 +19,7 @@ export default function JoinCommunityScreen() {
         setSubmitting(true);
         try {
             const community = await joinCommunity(trimmed);
-            router.replace({ pathname: '/communities/[id]', params: { id: community.id, name: community.name, code: community.invite_code } });
+            router.replace({ pathname: '/communities/[id]', params: { id: community.id, name: community.name, code: community.invite_code, role: 'member' } });
         } catch (e: any) {
             logger.error('Failed to join community:', e);
             const invalid = typeof e?.message === 'string' && e.message.toLowerCase().includes('invalid');

@@ -1,11 +1,18 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Switch } from 'react-native';
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingScreen } from '@/components/loadingScreen';
-import { getCommunityMembers, leaveCommunity, CommunityMember } from '@/repositories/communities';
+import {
+    getCommunityMembers,
+    getMyCommunities,
+    leaveCommunity,
+    setCommunityVisibility,
+    CommunityMember,
+} from '@/repositories/communities';
+import { removeMember } from '@/repositories/communityModeration';
 import { getReliability } from '@/repositories/communityCalendar';
 import { logger } from '@/utils/logger';
 
@@ -14,16 +21,62 @@ export default function CommunityMembersScreen() {
     const { user } = useAuth();
     const [members, setMembers] = useState<CommunityMember[]>([]);
     const [reliability, setReliability] = useState<Map<string, { kept: number; total: number }>>(new Map());
+    const [myRole, setMyRole] = useState<string | null>(null);
+    const [isPublic, setIsPublic] = useState(false);
     const [loading, setLoading] = useState(true);
     const [stale, setStale] = useState(false);
 
+    const isAdmin = myRole === 'admin';
+
     const load = useCallback(async () => {
         if (!id) return;
-        const [mem, rel] = await Promise.all([getCommunityMembers(id), getReliability(id)]);
+        const [mem, rel, mine] = await Promise.all([
+            getCommunityMembers(id),
+            getReliability(id),
+            getMyCommunities(),
+        ]);
         setMembers(mem.data);
         setReliability(new Map(rel.data.map(r => [r.user_id, { kept: r.kept, total: r.total }])));
+        const thisOne = mine.data.find(c => c.id === id);
+        if (thisOne) {
+            setMyRole(thisOne.role);
+            setIsPublic(thisOne.is_public);
+        }
         setStale(mem.stale || rel.stale);
     }, [id]);
+
+    const toggleVisibility = useCallback(async (next: boolean) => {
+        if (!id) return;
+        setIsPublic(next); // optimistic
+        try {
+            await setCommunityVisibility(id, next);
+        } catch (e) {
+            logger.error('Failed to set visibility:', e);
+            setIsPublic(!next);
+            Alert.alert('Could not update', 'Check your connection and try again.');
+        }
+    }, [id]);
+
+    const confirmRemove = useCallback((m: CommunityMember) => {
+        if (!id) return;
+        Alert.alert('Remove member', `Remove ${m.username} from this community?`, [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Remove',
+                style: 'destructive',
+                onPress: async () => {
+                    setMembers(prev => prev.filter(x => x.user_id !== m.user_id));
+                    try {
+                        await removeMember(id, m.user_id);
+                    } catch (e) {
+                        logger.error('Failed to remove member:', e);
+                        Alert.alert('Could not remove', 'Check your connection and try again.');
+                        load();
+                    }
+                },
+            },
+        ]);
+    }, [id, load]);
 
     useFocusEffect(
         useCallback(() => {
@@ -93,6 +146,33 @@ export default function CommunityMembersScreen() {
                     </View>
                 )}
 
+                {/* Admin panel */}
+                {isAdmin && (
+                    <View className="bg-surface_a10 rounded-xl p-4 mb-4">
+                        <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-3">Admin</Text>
+                        <View className="flex-row items-center justify-between">
+                            <View className="flex-1 mr-3">
+                                <Text className="text-white font-semibold">Discoverable</Text>
+                                <Text className="text-surface_a50 text-xs mt-0.5">Let anyone find and join this community</Text>
+                            </View>
+                            <Switch
+                                value={isPublic}
+                                onValueChange={toggleVisibility}
+                                trackColor={{ true: '#f34023', false: '#3a3a3a' }}
+                                thumbColor="#fff"
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => router.push({ pathname: '/communities/[id]/reports', params: { id: id!, name: name ?? '' } })}
+                            className="flex-row items-center justify-between mt-4 pt-4 border-t border-surface_a20"
+                            activeOpacity={0.7}
+                        >
+                            <Text className="text-white font-semibold">Reports</Text>
+                            <AntDesign name="right" size={14} color="#7a7a7a" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+
                 {stale && members.length === 0 ? (
                     <Text className="text-surface_a50 text-center mt-12">
                         You are offline and have no saved member list yet.
@@ -100,6 +180,7 @@ export default function CommunityMembersScreen() {
                 ) : (
                     members.map(m => {
                         const rel = reliability.get(m.user_id);
+                        const canRemove = isAdmin && m.role !== 'admin' && m.user_id !== user?.id;
                         return (
                             <View key={m.user_id} className="bg-surface_a10 px-4 py-4 rounded-xl mb-2 flex-row items-center">
                                 <View className="w-9 h-9 rounded-full bg-surface_a20 items-center justify-center mr-3">
@@ -116,11 +197,15 @@ export default function CommunityMembersScreen() {
                                         </Text>
                                     )}
                                 </View>
-                                {m.role === 'admin' && (
+                                {m.role === 'admin' ? (
                                     <View className="bg-surface_a20 px-2 py-1 rounded-md">
                                         <Text className="text-surface_a50 text-xs font-bold">ADMIN</Text>
                                     </View>
-                                )}
+                                ) : canRemove ? (
+                                    <TouchableOpacity onPress={() => confirmRemove(m)} className="p-2" activeOpacity={0.7}>
+                                        <AntDesign name="close-circle" size={18} color="#7a7a7a" />
+                                    </TouchableOpacity>
+                                ) : null}
                             </View>
                         );
                     })
