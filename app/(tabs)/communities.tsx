@@ -44,8 +44,8 @@ export default function CommunitiesScreen() {
             {/* Header */}
             <View className="pt-4 pb-6 flex-row justify-between items-center px-6">
                 <View>
-                    <Text className="text-primary_a0 font-bold text-3xl">Communities</Text>
-                    <Text className="text-surface_a50 text-sm mt-1">Compete with your crew</Text>
+                    <Text className="text-primary_a0 font-bold text-3xl">Social</Text>
+                    <Text className="text-surface_a50 text-sm mt-1">Your crews, feed & leaderboards</Text>
                 </View>
                 <TouchableOpacity
                     onPress={() => router.push('/communities/discover')}

@@ -52,7 +52,7 @@ const _Layout = () => {
 
             <Tabs.Screen name="communities"  options={{
                 headerShown: false,
-                title: 'Community',
+                title: 'Social',
                 tabBarIcon: () => (
                     <TabIcon name="team" />
                 )
