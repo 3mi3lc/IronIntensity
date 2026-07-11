@@ -18,6 +18,7 @@ import {
 import { reportFeedEvent } from '@/repositories/communityModeration';
 import { logger } from '@/utils/logger';
 import { CommunityCalendarTab } from '@/components/communityCalendarTab';
+import { ReportModal } from '@/components/reportModal';
 
 type Tab = 'feed' | 'leaderboard' | 'calendar';
 
@@ -100,6 +101,7 @@ export default function CommunityHomeScreen() {
     const [boardStale, setBoardStale] = useState(false);
     const [feedStale, setFeedStale] = useState(false);
     const [calendarStale, setCalendarStale] = useState(false);
+    const [reportEvent, setReportEvent] = useState<FeedEvent | null>(null);
     const stale = boardStale || feedStale || calendarStale;
 
     // Reloads just the leaderboard (metric/period switches), so the surrounding
@@ -165,16 +167,18 @@ export default function CommunityHomeScreen() {
         }
     }, [user?.id]);
 
-    const reportPost = useCallback(async (event: FeedEvent) => {
-        if (!id || !user?.id) return;
+    const submitReport = useCallback(async (reason: string | null) => {
+        const event = reportEvent;
+        setReportEvent(null);
+        if (!event || !id || !user?.id) return;
         try {
-            await reportFeedEvent(id, event.id, user.id, null);
+            await reportFeedEvent(id, event.id, user.id, reason);
             Alert.alert('Reported', 'Thanks — an admin will review this post.');
         } catch (e) {
             logger.error('Failed to report:', e);
             Alert.alert('Could not report', 'Check your connection and try again.');
         }
-    }, [id, user?.id]);
+    }, [reportEvent, id, user?.id]);
 
     const deletePost = useCallback(async (event: FeedEvent) => {
         setFeed(prev => prev.filter(e => e.id !== event.id));
@@ -191,12 +195,12 @@ export default function CommunityHomeScreen() {
     const onPostMenu = useCallback((event: FeedEvent) => {
         const own = event.actor_user_id === user?.id;
         const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
-        if (!own) buttons.push({ text: 'Report', onPress: () => reportPost(event) });
+        if (!own) buttons.push({ text: 'Report', onPress: () => setReportEvent(event) });
         if (own || isAdmin) buttons.push({ text: 'Delete', style: 'destructive', onPress: () => deletePost(event) });
         if (buttons.length === 0) return;
         buttons.push({ text: 'Cancel', style: 'cancel' });
         Alert.alert('Post', undefined, buttons);
-    }, [isAdmin, user?.id, reportPost, deletePost]);
+    }, [isAdmin, user?.id, deletePost]);
 
     return (
         <SafeAreaView className="flex-1 bg-surface_a0" edges={['top', 'left', 'right']}>
@@ -352,6 +356,13 @@ export default function CommunityHomeScreen() {
                     )
                 )}
             </ScrollView>
+
+            <ReportModal
+                visible={!!reportEvent}
+                subject="This post will be sent to the community admins."
+                onCancel={() => setReportEvent(null)}
+                onSubmit={submitReport}
+            />
         </SafeAreaView>
     );
 }

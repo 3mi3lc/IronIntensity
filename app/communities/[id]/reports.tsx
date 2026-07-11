@@ -6,7 +6,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { formatDistanceToNow } from 'date-fns';
 import { LoadingScreen } from '@/components/loadingScreen';
 import { deleteFeedEvent } from '@/repositories/communities';
-import { getReports, resolveReport, Report } from '@/repositories/communityModeration';
+import { getReports, resolveReport, removeMember, Report } from '@/repositories/communityModeration';
 import { logger } from '@/utils/logger';
 
 function reportSummary(r: Report): string {
@@ -14,7 +14,7 @@ function reportSummary(r: Report): string {
         if (!r.event_type) return 'A post (since removed)';
         return `${r.event_actor ?? 'A member'}'s ${r.event_type.replace('_', ' ')} post`;
     }
-    return 'A member';
+    return `${r.target_username ?? 'A member'} (member)`;
 }
 
 export default function ReportsScreen() {
@@ -70,6 +70,28 @@ export default function ReportsScreen() {
         ]);
     }, [load]);
 
+    const removeAndResolve = useCallback((r: Report) => {
+        if (!id) return;
+        Alert.alert('Remove member', 'Remove this member and resolve the report?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Remove',
+                style: 'destructive',
+                onPress: async () => {
+                    setReports(prev => prev.filter(x => x.id !== r.id));
+                    try {
+                        await removeMember(id, r.target_id);
+                        await resolveReport(r.id);
+                    } catch (e) {
+                        logger.error('Failed to remove reported member:', e);
+                        Alert.alert('Could not remove', 'Check your connection and try again.');
+                        load();
+                    }
+                },
+            },
+        ]);
+    }, [id, load]);
+
     if (loading) return <LoadingScreen message="Loading reports..." />;
 
     return (
@@ -110,6 +132,16 @@ export default function ReportsScreen() {
                                     >
                                         <AntDesign name="delete" size={13} color="#eb0202" />
                                         <Text className="text-primary_a0 text-xs font-bold ml-1">Delete post</Text>
+                                    </TouchableOpacity>
+                                )}
+                                {r.target_type === 'member' && (
+                                    <TouchableOpacity
+                                        onPress={() => removeAndResolve(r)}
+                                        className="px-3 py-2 rounded-lg bg-surface_a20 flex-row items-center"
+                                        activeOpacity={0.8}
+                                    >
+                                        <AntDesign name="close-circle" size={13} color="#eb0202" />
+                                        <Text className="text-primary_a0 text-xs font-bold ml-1">Remove member</Text>
                                     </TouchableOpacity>
                                 )}
                                 <TouchableOpacity

@@ -12,8 +12,9 @@ import {
     setCommunityVisibility,
     CommunityMember,
 } from '@/repositories/communities';
-import { removeMember } from '@/repositories/communityModeration';
+import { removeMember, reportMember, promoteMember } from '@/repositories/communityModeration';
 import { getReliability } from '@/repositories/communityCalendar';
+import { ReportModal } from '@/components/reportModal';
 import { logger } from '@/utils/logger';
 
 export default function CommunityMembersScreen() {
@@ -23,6 +24,7 @@ export default function CommunityMembersScreen() {
     const [reliability, setReliability] = useState<Map<string, { kept: number; total: number }>>(new Map());
     const [myRole, setMyRole] = useState<string | null>(null);
     const [isPublic, setIsPublic] = useState(false);
+    const [reportTarget, setReportTarget] = useState<CommunityMember | null>(null);
     const [loading, setLoading] = useState(true);
     const [stale, setStale] = useState(false);
 
@@ -77,6 +79,56 @@ export default function CommunityMembersScreen() {
             },
         ]);
     }, [id, load]);
+
+    const confirmPromote = useCallback((m: CommunityMember) => {
+        if (!id) return;
+        Alert.alert(
+            'Make admin',
+            `Give ${m.username} admin rights? They'll be able to moderate posts and manage members.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Make admin',
+                    onPress: async () => {
+                        setMembers(prev => prev.map(x => x.user_id === m.user_id ? { ...x, role: 'admin' } : x));
+                        try {
+                            await promoteMember(id, m.user_id);
+                        } catch (e) {
+                            logger.error('Failed to promote member:', e);
+                            Alert.alert('Could not promote', 'Check your connection and try again.');
+                            load();
+                        }
+                    },
+                },
+            ]
+        );
+    }, [id, load]);
+
+    // Per-member action menu: report (anyone), and admin actions on non-admins.
+    const memberMenu = useCallback((m: CommunityMember) => {
+        const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [
+            { text: 'Report', onPress: () => setReportTarget(m) },
+        ];
+        if (isAdmin && m.role !== 'admin') {
+            buttons.push({ text: 'Make admin', onPress: () => confirmPromote(m) });
+            buttons.push({ text: 'Remove from community', style: 'destructive', onPress: () => confirmRemove(m) });
+        }
+        buttons.push({ text: 'Cancel', style: 'cancel' });
+        Alert.alert(m.username, undefined, buttons);
+    }, [isAdmin, confirmPromote, confirmRemove]);
+
+    const submitMemberReport = useCallback(async (reason: string | null) => {
+        const m = reportTarget;
+        setReportTarget(null);
+        if (!m || !id || !user?.id) return;
+        try {
+            await reportMember(id, m.user_id, user.id, reason);
+            Alert.alert('Reported', 'Thanks — an admin will review this.');
+        } catch (e) {
+            logger.error('Failed to report member:', e);
+            Alert.alert('Could not report', 'Check your connection and try again.');
+        }
+    }, [reportTarget, id, user?.id]);
 
     useFocusEffect(
         useCallback(() => {
@@ -180,7 +232,7 @@ export default function CommunityMembersScreen() {
                 ) : (
                     members.map(m => {
                         const rel = reliability.get(m.user_id);
-                        const canRemove = isAdmin && m.role !== 'admin' && m.user_id !== user?.id;
+                        const isSelf = m.user_id === user?.id;
                         return (
                             <View key={m.user_id} className="bg-surface_a10 px-4 py-4 rounded-xl mb-2 flex-row items-center">
                                 <View className="w-9 h-9 rounded-full bg-surface_a20 items-center justify-center mr-3">
@@ -189,7 +241,7 @@ export default function CommunityMembersScreen() {
                                 <View className="flex-1">
                                     <Text className="text-white font-semibold" numberOfLines={1}>
                                         {m.username}
-                                        {user?.id === m.user_id ? '  (you)' : ''}
+                                        {isSelf ? '  (you)' : ''}
                                     </Text>
                                     {rel && rel.total > 0 && (
                                         <Text className="text-surface_a50 text-xs mt-0.5">
@@ -197,15 +249,16 @@ export default function CommunityMembersScreen() {
                                         </Text>
                                     )}
                                 </View>
-                                {m.role === 'admin' ? (
-                                    <View className="bg-surface_a20 px-2 py-1 rounded-md">
+                                {m.role === 'admin' && (
+                                    <View className="bg-surface_a20 px-2 py-1 rounded-md mr-1">
                                         <Text className="text-surface_a50 text-xs font-bold">ADMIN</Text>
                                     </View>
-                                ) : canRemove ? (
-                                    <TouchableOpacity onPress={() => confirmRemove(m)} className="p-2" activeOpacity={0.7}>
-                                        <AntDesign name="close-circle" size={18} color="#7a7a7a" />
+                                )}
+                                {!isSelf && (
+                                    <TouchableOpacity onPress={() => memberMenu(m)} className="p-2" activeOpacity={0.7}>
+                                        <AntDesign name="ellipsis" size={18} color="#7a7a7a" />
                                     </TouchableOpacity>
-                                ) : null}
+                                )}
                             </View>
                         );
                     })
@@ -220,6 +273,13 @@ export default function CommunityMembersScreen() {
                     <Text className="text-primary_a0 font-bold text-base ml-2">Leave community</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            <ReportModal
+                visible={!!reportTarget}
+                subject={reportTarget ? `Report ${reportTarget.username} to the community admins.` : ''}
+                onCancel={() => setReportTarget(null)}
+                onSubmit={submitMemberReport}
+            />
         </SafeAreaView>
     );
 }
