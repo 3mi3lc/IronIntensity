@@ -15,6 +15,8 @@ import {
     PlannedSession,
     RecurringSchedule,
 } from '@/repositories/communityCalendar';
+import { getNotifPrefs } from '@/utils/notificationPrefs';
+import { scheduleSessionReminder, cancelSessionReminder } from '@/utils/localReminders';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']; // ISO 1..7
 
@@ -42,6 +44,16 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
         setRegulars(rec.data);
         onStale(cal.stale || rec.stale);
         setLoading(false);
+
+        // Reconcile local reminders for sessions I own or RSVP'd to (idempotent).
+        try {
+            const prefs = await getNotifPrefs();
+            for (const s of cal.data) {
+                if (s.is_own || s.i_rsvped) {
+                    await scheduleSessionReminder(s.id, s.scheduled_date, s.scheduled_time, s.title, prefs);
+                }
+            }
+        } catch { /* best-effort */ }
     }, [communityId, onStale]);
 
     useFocusEffect(
@@ -63,8 +75,14 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
             ? { ...x, i_rsvped: next, rsvp_count: x.rsvp_count + (next ? 1 : -1) }
             : x));
         try {
-            if (next) await rsvpSession(s.id, user.id);
-            else await unrsvpSession(s.id, user.id);
+            if (next) {
+                await rsvpSession(s.id, user.id);
+                const prefs = await getNotifPrefs();
+                await scheduleSessionReminder(s.id, s.scheduled_date, s.scheduled_time, s.title, prefs);
+            } else {
+                await unrsvpSession(s.id, user.id);
+                await cancelSessionReminder(s.id);
+            }
         } catch (e) {
             logger.error('Failed to RSVP:', e);
             setSessions(prev => prev.map(x => x.id === s.id
@@ -93,6 +111,7 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
                 style: 'destructive',
                 onPress: async () => {
                     setSessions(prev => prev.filter(x => x.id !== s.id));
+                    cancelSessionReminder(s.id);
                     try {
                         await deletePlannedSession(s.id);
                     } catch (e) {

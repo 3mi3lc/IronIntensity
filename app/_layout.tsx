@@ -22,6 +22,7 @@ import Toast from 'react-native-toast-message';
 import { toastConfig } from '@/components/toastConfig';
 import { ConfettiOverlay } from '@/components/confettiOverlay';
 import { LoadingScreen } from '@/components/loadingScreen';
+import { NotificationsGate } from '@/components/notificationsGate';
 
 
 function RootLayoutNav() {
@@ -110,6 +111,7 @@ function RootLayoutNav() {
             )}
             <Toast config={toastConfig} />
             <ConfettiOverlay />
+            <NotificationsGate />
         </>
     );
 }

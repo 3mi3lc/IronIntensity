@@ -154,6 +154,20 @@ export default function Profile() {
                     )}
                 </TouchableOpacity>
 
+                {/* Notifications settings */}
+                <TouchableOpacity
+                    onPress={() => router.push('/notifications')}
+                    className="bg-surface_a10 p-5 rounded-2xl mb-6 flex-row items-center"
+                    activeOpacity={0.85}
+                >
+                    <AntDesign name="bell" size={22} color="#eb0202" />
+                    <View className="flex-1 ml-3">
+                        <Text className="text-white text-xl font-bold">Notifications</Text>
+                        <Text className="text-surface_a50 text-sm mt-1">Reminders, kudos & session alerts</Text>
+                    </View>
+                    <AntDesign name="right" size={14} color="#7a7a7a" />
+                </TouchableOpacity>
+
                 {/* Dev-only: preview the finish-reward celebrations */}
                 {__DEV__ && (
                     <TouchableOpacity

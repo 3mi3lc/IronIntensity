@@ -88,20 +88,25 @@ export async function getReliability(communityId: string): Promise<CachedResult<
 
 // ==================== WRITES (online) ====================
 
-/** Plan a one-off session. `time` and `title` are optional. */
+/** Plan a one-off session. `time` and `title` are optional. Returns the new row. */
 export async function createPlannedSession(
     communityId: string,
     date: string,
     time: string | null,
     title: string | null
-): Promise<void> {
-    const { error } = await supabase.rpc('create_planned_session', {
+): Promise<{ id: string; scheduled_date: string; scheduled_time: string | null }> {
+    const { data, error } = await supabase.rpc('create_planned_session', {
         p_community_id: communityId,
         p_date: date,
         p_time: time,
         p_title: title,
     });
     if (error) throw new Error(error.message);
+    return {
+        id: (data as any).id,
+        scheduled_date: (data as any).scheduled_date,
+        scheduled_time: (data as any).scheduled_time,
+    };
 }
 
 /** Delete your own planned session. */

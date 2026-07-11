@@ -37,6 +37,13 @@
           "image": "./assets/images/adaptive-icon.png",
           "imageWidth": 200
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/adaptive-icon.png",
+          "color": "#eb0202"
+        }
       ]
     ],
     "experiments": {
