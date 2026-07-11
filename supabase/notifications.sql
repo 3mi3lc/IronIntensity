@@ -81,16 +81,17 @@ end; $$;
 drop trigger if exists kudos_notify on kudos;
 create trigger kudos_notify after insert on kudos for each row execute function on_kudos_notify();
 
--- RSVP → notify the session owner (not for self-RSVP).
+-- RSVP → notify the session owner with the running count (not for self-RSVP).
 create or replace function on_rsvp_notify() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare owner uuid; comm uuid; who text;
+declare owner uuid; comm uuid; who text; going bigint;
 begin
   select user_id, community_id into owner, comm from planned_sessions where id = new.planned_session_id;
   if owner is null or owner = new.user_id then return new; end if;
   select username into who from users where id = new.user_id;
+  select count(*) into going from session_rsvps where planned_session_id = new.planned_session_id;
   perform send_push(owner, 'Someone is in 💪',
-    coalesce(who, 'Someone') || ' is joining your session',
+    coalesce(who, 'Someone') || ' is joining your session (' || going || ' going)',
     jsonb_build_object('type', 'rsvp', 'community_id', comm));
   return new;
 end; $$;
