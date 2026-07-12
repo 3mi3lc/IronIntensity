@@ -2,7 +2,7 @@
   "expo": {
     "name": "ironintensity",
     "slug": "ironintensity",
-    "version": "1.1.0",
+    "version": "6.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -17,7 +17,7 @@
         "backgroundColor": "#121212"
       },
       "package": "com.emcor.ironintensity",
-      "versionCode": 2,
+      "versionCode": 6,
       "googleServicesFile": "./google-services.json"
     },
     "androidStatusBar": {
