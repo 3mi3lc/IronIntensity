@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { useState, useCallback } from 'react';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';

@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { logger } from '@/utils/logger';
 import React, {  useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';

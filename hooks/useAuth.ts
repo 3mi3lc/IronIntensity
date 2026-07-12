@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { logger } from '@/utils/logger';
-import { Alert } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { supabase } from '@/utils/supabase';
 import { AuthContext } from '@/contexts/AuthContext';
 import { UserContext } from '@/contexts/UserContext';

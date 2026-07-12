@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { logger } from '@/utils/logger';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
-import { Alert } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { WorkoutScreen } from '@/components/workoutScreen';
 import FinishWorkoutModal from '@/components/finishWorkoutModal';
 import CancelWorkoutModal from '@/components/cancelWorkoutModal';
