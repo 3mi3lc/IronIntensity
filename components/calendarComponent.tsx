@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { logger } from '@/utils/logger';
-import { View, Text, TouchableOpacity, Animated, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Animated } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import { useWorkoutCalendar } from '@/hooks/useWorkoutCalendar';

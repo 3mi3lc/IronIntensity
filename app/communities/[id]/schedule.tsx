@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Switch, ActivityIndicator } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';

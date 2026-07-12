@@ -1,7 +1,8 @@
 // components/AddBodyWeightModal.tsx
 import React, { useState } from 'react';
 import { logger } from '@/utils/logger';
-import { View, Text, TouchableOpacity, TextInput, Modal, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { createBodyWeightEntry } from '@/repositories/bodyWeightEntries';
 
 interface AddBodyWeightModalProps {

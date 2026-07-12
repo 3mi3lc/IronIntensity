@@ -6,9 +6,9 @@ import {
     TextInput,
     TouchableOpacity,
     ScrollView,
-    Alert,
     ActivityIndicator,
 } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

@@ -1,4 +1,5 @@
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { logger } from '@/utils/logger';
 import { useRouter } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';

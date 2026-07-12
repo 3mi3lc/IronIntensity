@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { Alert } from 'react-native';
+import { Alert } from '@/utils/themedAlert';
 import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
