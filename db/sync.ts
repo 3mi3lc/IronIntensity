@@ -311,7 +311,10 @@ export class SyncService {
                     continue;
                 }
 
-                const {error} = await supabase.rpc('emit_activity', {p_events: events});
+                // Pass the row id as the dedupe source so re-emitting the same
+                // batch (overlapping syncs / retry after a crash) can't create a
+                // duplicate feed post.
+                const {error} = await supabase.rpc('emit_activity', {p_events: events, p_source: row.id});
                 if (error) {
                     await recordSyncError('pending_activity', error.message);
                     break; // retry the rest next sync
