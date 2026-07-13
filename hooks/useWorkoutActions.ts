@@ -1,7 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useContext } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { Alert } from '@/utils/themedAlert';
 import { router } from 'expo-router';
+import { UserContext } from '@/contexts/UserContext';
+import { useSync } from '@/hooks/useSync';
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from '@/utils/logger';
@@ -153,6 +155,8 @@ export function useWorkoutActions({
     const [exerciseToDelete, setExerciseToDelete] = useState<ExerciseWithSets | null>(null);
     const [workoutNameInput, setWorkoutNameInput] = useState('');
     const [workoutDate, setWorkoutDate] = useState(new Date());
+    const { pushData } = useSync();
+    const userContext = useContext(UserContext);
 
     const handleDeleteExercise = async () => {
         if (!exerciseToDelete || !workout?.id || isReadOnly) return;
@@ -297,6 +301,15 @@ export function useWorkoutActions({
                                 icon: a.icon,
                             })),
                         });
+
+                        // Push now (when online) so the workout lands in
+                        // community feeds/leaderboards immediately, instead of
+                        // waiting for the next app-open or manual sync. Runs after
+                        // the activity is queued. Fire-and-forget; an offline
+                        // finish still syncs on reconnect.
+                        if (!userContext?.isOffline) {
+                            pushData().catch(err => logger.error('Post-finish sync failed:', err));
+                        }
                     }, 500);
                 }
 
@@ -306,7 +319,7 @@ export function useWorkoutActions({
                 return false;
             }
         },
-        [handleFinishWorkout, workoutNameInput, workoutDate, user]
+        [handleFinishWorkout, workoutNameInput, workoutDate, user, pushData, userContext?.isOffline]
     );
 
     return {
