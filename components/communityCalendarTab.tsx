@@ -38,13 +38,20 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-    // Dot on every day with a session, plus the selected-day highlight.
+    // Red dot on every day with a session, plus the selected-day highlight.
+    // The selected day (if it has a session) gets a white dot so it stays
+    // visible on the red selection background.
     const markedDates = useMemo(() => {
         const marks: Record<string, any> = {};
         for (const s of sessions) {
-            marks[s.scheduled_date] = { ...(marks[s.scheduled_date] || {}), marked: true };
+            marks[s.scheduled_date] = { ...(marks[s.scheduled_date] || {}), marked: true, dotColor: '#eb0202' };
         }
-        marks[selectedDate] = { ...(marks[selectedDate] || {}), selected: true };
+        marks[selectedDate] = {
+            ...(marks[selectedDate] || {}),
+            selected: true,
+            selectedColor: '#eb0202',
+            ...(marks[selectedDate]?.marked ? { dotColor: '#ffffff' } : {}),
+        };
         return marks;
     }, [sessions, selectedDate]);
 
