@@ -1,10 +1,11 @@
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Alert } from '@/utils/themedAlert';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { format, parseISO } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemedCalendar } from '@/components/themedCalendar';
 import { logger } from '@/utils/logger';
 import {
     getCommunityCalendar,
@@ -35,6 +36,22 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
     const [sessions, setSessions] = useState<PlannedSession[]>([]);
     const [regulars, setRegulars] = useState<RecurringSchedule[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+
+    // Dot on every day with a session, plus the selected-day highlight.
+    const markedDates = useMemo(() => {
+        const marks: Record<string, any> = {};
+        for (const s of sessions) {
+            marks[s.scheduled_date] = { ...(marks[s.scheduled_date] || {}), marked: true };
+        }
+        marks[selectedDate] = { ...(marks[selectedDate] || {}), selected: true };
+        return marks;
+    }, [sessions, selectedDate]);
+
+    const daySessions = useMemo(
+        () => sessions.filter(s => s.scheduled_date === selectedDate),
+        [sessions, selectedDate]
+    );
 
     const load = useCallback(async () => {
         const [cal, rec] = await Promise.all([
@@ -125,6 +142,71 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
         ]);
     }, [load]);
 
+    const renderSession = (s: PlannedSession) => (
+        <View key={s.id} className="bg-surface_a10 p-4 rounded-xl mb-2">
+            <View className="flex-row items-center">
+                <TouchableOpacity
+                    className="flex-1"
+                    activeOpacity={0.7}
+                    onPress={() => router.push({
+                        pathname: '/communities/[id]/session',
+                        params: { id: communityId, sid: s.id, title: s.title || 'Planned session', when: formatSessionWhen(s) },
+                    })}
+                >
+                    <Text className="text-white font-semibold">
+                        {s.is_own ? 'You' : s.username}
+                        {s.title ? ` · ${s.title}` : ''}
+                        {'  ›'}
+                    </Text>
+                    <Text className="text-surface_a50 text-sm mt-0.5">{formatSessionWhen(s)}</Text>
+                </TouchableOpacity>
+                {s.checked_in && (
+                    <View className="flex-row items-center">
+                        <AntDesign name="check-circle" size={14} color="#4ade80" />
+                        <Text className="text-surface_a50 text-xs ml-1">Showed up</Text>
+                    </View>
+                )}
+            </View>
+
+            <View className="flex-row items-center mt-3">
+                {!s.is_own ? (
+                    <TouchableOpacity
+                        onPress={() => toggleRsvp(s)}
+                        className={`px-3 py-1.5 rounded-full flex-row items-center ${s.i_rsvped ? 'bg-primary_a0' : 'bg-surface_a20'}`}
+                        activeOpacity={0.8}
+                    >
+                        <AntDesign name={s.i_rsvped ? 'check' : 'plus'} size={12} color={s.i_rsvped ? 'white' : '#9ca3af'} />
+                        <Text className={`text-xs font-bold ml-1 ${s.i_rsvped ? 'text-white' : 'text-surface_a50'}`}>
+                            {s.i_rsvped ? "I'm in" : 'Join'}
+                        </Text>
+                    </TouchableOpacity>
+                ) : (
+                    <View className="flex-row gap-2">
+                        {!s.checked_in && (
+                            <TouchableOpacity
+                                onPress={() => checkIn(s)}
+                                className="px-3 py-1.5 rounded-full bg-surface_a20 flex-row items-center"
+                                activeOpacity={0.8}
+                            >
+                                <AntDesign name="check" size={12} color="#9ca3af" />
+                                <Text className="text-surface_a50 text-xs font-bold ml-1">I showed up</Text>
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity
+                            onPress={() => remove(s)}
+                            className="px-3 py-1.5 rounded-full bg-surface_a20 flex-row items-center"
+                            activeOpacity={0.8}
+                        >
+                            <AntDesign name="delete" size={12} color="#9ca3af" />
+                            <Text className="text-surface_a50 text-xs font-bold ml-1">Delete</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                <Text className="text-surface_a50 text-xs ml-auto">{s.rsvp_count} in</Text>
+            </View>
+        </View>
+    );
+
     return (
         <>
             {/* Actions */}
@@ -153,78 +235,24 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
                 </View>
             ) : (
                 <>
-                    <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2">Upcoming</Text>
-                    {sessions.length === 0 ? (
+                    {/* Month calendar with a dot on days that have sessions */}
+                    <View className="bg-surface_a10 rounded-2xl mb-4 px-2 py-1 overflow-hidden">
+                        <ThemedCalendar
+                            markedDates={markedDates}
+                            onDayPress={(day) => setSelectedDate(day.dateString)}
+                        />
+                    </View>
+
+                    {/* Sessions on the selected day */}
+                    <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2">
+                        {format(parseISO(selectedDate), 'EEEE, MMM d')}
+                    </Text>
+                    {daySessions.length === 0 ? (
                         <Text className="text-surface_a50 text-center my-6">
-                            Nothing planned yet. Plan a session so your crew knows when you train.
+                            Nothing planned this day.
                         </Text>
                     ) : (
-                        sessions.map(s => (
-                            <View key={s.id} className="bg-surface_a10 p-4 rounded-xl mb-2">
-                                <View className="flex-row items-center">
-                                    <TouchableOpacity
-                                        className="flex-1"
-                                        activeOpacity={0.7}
-                                        onPress={() => router.push({
-                                            pathname: '/communities/[id]/session',
-                                            params: { id: communityId, sid: s.id, title: s.title || 'Planned session', when: formatSessionWhen(s) },
-                                        })}
-                                    >
-                                        <Text className="text-white font-semibold">
-                                            {s.is_own ? 'You' : s.username}
-                                            {s.title ? ` · ${s.title}` : ''}
-                                            {'  ›'}
-                                        </Text>
-                                        <Text className="text-surface_a50 text-sm mt-0.5">{formatSessionWhen(s)}</Text>
-                                    </TouchableOpacity>
-                                    {s.checked_in && (
-                                        <View className="flex-row items-center">
-                                            <AntDesign name="check-circle" size={14} color="#4ade80" />
-                                            <Text className="text-surface_a50 text-xs ml-1">Showed up</Text>
-                                        </View>
-                                    )}
-                                </View>
-
-                                <View className="flex-row items-center mt-3">
-                                    {!s.is_own ? (
-                                        <TouchableOpacity
-                                            onPress={() => toggleRsvp(s)}
-                                            className={`px-3 py-1.5 rounded-full flex-row items-center ${s.i_rsvped ? 'bg-primary_a0' : 'bg-surface_a20'}`}
-                                            activeOpacity={0.8}
-                                        >
-                                            <AntDesign name={s.i_rsvped ? 'check' : 'plus'} size={12} color={s.i_rsvped ? 'white' : '#9ca3af'} />
-                                            <Text className={`text-xs font-bold ml-1 ${s.i_rsvped ? 'text-white' : 'text-surface_a50'}`}>
-                                                {s.i_rsvped ? "I'm in" : 'Join'}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <View className="flex-row gap-2">
-                                            {!s.checked_in && (
-                                                <TouchableOpacity
-                                                    onPress={() => checkIn(s)}
-                                                    className="px-3 py-1.5 rounded-full bg-surface_a20 flex-row items-center"
-                                                    activeOpacity={0.8}
-                                                >
-                                                    <AntDesign name="check" size={12} color="#9ca3af" />
-                                                    <Text className="text-surface_a50 text-xs font-bold ml-1">I showed up</Text>
-                                                </TouchableOpacity>
-                                            )}
-                                            <TouchableOpacity
-                                                onPress={() => remove(s)}
-                                                className="px-3 py-1.5 rounded-full bg-surface_a20 flex-row items-center"
-                                                activeOpacity={0.8}
-                                            >
-                                                <AntDesign name="delete" size={12} color="#9ca3af" />
-                                                <Text className="text-surface_a50 text-xs font-bold ml-1">Delete</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                    <Text className="text-surface_a50 text-xs ml-auto">
-                                        {s.rsvp_count} {s.rsvp_count === 1 ? 'in' : 'in'}
-                                    </Text>
-                                </View>
-                            </View>
-                        ))
+                        daySessions.map(renderSession)
                     )}
 
                     {regulars.length > 0 && (
