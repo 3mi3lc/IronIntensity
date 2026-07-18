@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AntDesign } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Calendar } from 'react-native-calendars';
 import { format, parseISO } from 'date-fns';
+import { ThemedCalendar } from '@/components/themedCalendar';
 import { createPlannedSession } from '@/repositories/communityCalendar';
 import { TimePicker } from '@/components/timePicker';
 import { getNotifPrefs } from '@/utils/notificationPrefs';
@@ -57,22 +57,10 @@ export default function PlanSessionScreen() {
                 {/* Date */}
                 <Text className="text-surface_a50 text-xs font-bold uppercase tracking-wider mb-2 mt-4">Date</Text>
                 <View className="bg-surface_a20 rounded-xl overflow-hidden">
-                    <Calendar
-                        firstDay={1}
+                    <ThemedCalendar
                         minDate={format(new Date(), 'yyyy-MM-dd')}
                         onDayPress={(day) => setDate(parseISO(day.dateString))}
-                        markedDates={{ [format(date, 'yyyy-MM-dd')]: { selected: true, selectedColor: '#eb0202' } }}
-                        theme={{
-                            calendarBackground: '#3f3f3f',
-                            dayTextColor: '#ffffff',
-                            monthTextColor: '#ffffff',
-                            arrowColor: '#ffffff',
-                            selectedDayBackgroundColor: '#eb0202',
-                            todayTextColor: '#ff7857',
-                            textDisabledColor: '#6b6b6b',
-                            textMonthFontSize: 18,
-                            textMonthFontWeight: 'bold',
-                        }}
+                        markedDates={{ [format(date, 'yyyy-MM-dd')]: { selected: true } }}
                     />
                 </View>
 

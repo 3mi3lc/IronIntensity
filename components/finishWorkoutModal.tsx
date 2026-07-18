@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TextInput, Pressable } from 'react-native';
-import { Calendar } from 'react-native-calendars';
 import { AntDesign } from '@expo/vector-icons';
+import { ThemedCalendar } from '@/components/themedCalendar';
 
 interface FinishWorkoutModalProps {
     visible: boolean;
@@ -112,22 +112,11 @@ const FinishWorkoutModal: React.FC<FinishWorkoutModalProps> = ({
                                 WORKOUT DATE
                             </Text>
                             <View className="bg-surface_a20 rounded-xl overflow-hidden">
-                                <Calendar
-                                    firstDay={1}
+                                <ThemedCalendar
                                     onDayPress={onDayPress}
                                     hideExtraDays={false}
                                     markedDates={markedDates}
                                     markingType="multi-dot"
-                                    theme={{
-                                        calendarBackground: '#3f3f3f',
-                                        dayTextColor: '#ffffff',
-                                        monthTextColor: '#ffffff',
-                                        arrowColor: '#ffffff',
-                                        selectedDayBackgroundColor: '#eb0202',
-                                        todayTextColor: '#ff7857',
-                                        textMonthFontSize: 18,
-                                        textMonthFontWeight: 'bold',
-                                    }}
                                 />
                             </View>
                         </View>

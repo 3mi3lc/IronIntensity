@@ -3,7 +3,7 @@ import { logger } from '@/utils/logger';
 import { View, Text, TouchableOpacity, Animated } from 'react-native';
 import { Alert } from '@/utils/themedAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar } from 'react-native-calendars';
+import { ThemedCalendar } from '@/components/themedCalendar';
 import { useWorkoutCalendar } from '@/hooks/useWorkoutCalendar';
 import WorkoutListItem from '@/components/workoutListItem';
 import WorkoutOptionsModal from '@/components/workoutOptionsModal';
@@ -104,24 +104,11 @@ const CalendarComponent = () => {
                 {/* Calendar Card */}
                 <View className="w-full max-w-[400px] mb-1 bg-surface_a10 rounded-2xl shadow-lg overflow-hidden">
                     <Animated.View style={{ height: calendarHeight, overflow: 'hidden' }}>
-                        <Calendar
-                            firstDay={1}
+                        <ThemedCalendar
                             onDayPress={onDayPress}
                             hideExtraDays={false}
                             markedDates={markedDates}
                             markingType="multi-dot"
-                            theme={{
-                                calendarBackground: '#282828',
-                                dayTextColor: '#ffffff',
-                                monthTextColor: '#ffffff',
-                                arrowColor: '#eb0202',
-                                selectedDayBackgroundColor: '#eb0202',
-                                todayTextColor: '#f34023',
-                                textMonthFontSize: 20,
-                                textMonthFontWeight: 'bold',
-                                textDayFontSize: 16,
-                                textDayHeaderFontSize: 14,
-                            }}
                         />
                     </Animated.View>
 
