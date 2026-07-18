@@ -368,16 +368,34 @@ export default function CommunityHomeScreen() {
                             return (
                                 <View key={e.id} className="bg-surface_a10 p-4 rounded-xl mb-2 flex-row items-center">
                                     <Text style={{ fontSize: 24 }}>{line.emoji}</Text>
-                                    <View className="flex-1 ml-3">
-                                        <Text className="text-white font-semibold">{line.title}</Text>
+                                    <TouchableOpacity
+                                        className="flex-1 ml-3"
+                                        activeOpacity={0.7}
+                                        disabled={e.type !== 'session_planned'}
+                                        onPress={e.type === 'session_planned' ? () => {
+                                            const day = e.payload.scheduled_date ? format(parseISO(e.payload.scheduled_date), 'EEE, MMM d') : '';
+                                            const time = e.payload.scheduled_time ? ` at ${e.payload.scheduled_time}` : '';
+                                            router.push({ pathname: '/communities/[id]/session', params: { id: id!, sid: e.payload.session_id, title: e.payload.title || 'Planned session', when: `${day}${time}`.trim() } });
+                                        } : undefined}
+                                    >
+                                        <Text className="text-white font-semibold">
+                                            {line.title}
+                                            {e.type === 'session_planned' ? '  ›' : ''}
+                                        </Text>
                                         {!!line.subtitle && <Text className="text-surface_a50 text-sm mt-0.5">{line.subtitle}</Text>}
                                         <Text className="text-surface_a50 text-xs mt-1">
                                             {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
                                         </Text>
-                                    </View>
+                                    </TouchableOpacity>
                                     {e.type === 'session_planned' ? (
                                         e.actor_user_id === user?.id ? (
-                                            <Text className="text-surface_a50 text-xs px-2">{e.rsvp_count} in</Text>
+                                            <TouchableOpacity onPress={() => {
+                                                const day = e.payload.scheduled_date ? format(parseISO(e.payload.scheduled_date), 'EEE, MMM d') : '';
+                                                const time = e.payload.scheduled_time ? ` at ${e.payload.scheduled_time}` : '';
+                                                router.push({ pathname: '/communities/[id]/session', params: { id: id!, sid: e.payload.session_id, title: e.payload.title || 'Planned session', when: `${day}${time}`.trim() } });
+                                            }} className="px-2" activeOpacity={0.7}>
+                                                <Text className="text-surface_a50 text-xs">{e.rsvp_count} in</Text>
+                                            </TouchableOpacity>
                                         ) : (
                                             <TouchableOpacity
                                                 onPress={() => toggleFeedRsvp(e)}

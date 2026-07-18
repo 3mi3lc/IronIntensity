@@ -35,6 +35,23 @@ export interface ReliabilityRow {
     total: number;
 }
 
+export interface SessionAttendee {
+    user_id: string;
+    username: string;
+    is_owner: boolean;
+}
+
+/** Who is attending a planned session: the owner plus everyone who RSVP'd. */
+export async function getSessionAttendees(sessionId: string): Promise<SessionAttendee[]> {
+    const { data, error } = await supabase.rpc('session_attendees', { p_session_id: sessionId });
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as any[]).map(a => ({
+        user_id: a.user_id,
+        username: a.username,
+        is_owner: !!a.is_owner,
+    }));
+}
+
 // ==================== READS (cached) ====================
 
 /** Upcoming planned sessions for a community, enriched for the caller. */

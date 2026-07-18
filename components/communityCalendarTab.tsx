@@ -162,13 +162,21 @@ export function CommunityCalendarTab({ communityId, onStale }: { communityId: st
                         sessions.map(s => (
                             <View key={s.id} className="bg-surface_a10 p-4 rounded-xl mb-2">
                                 <View className="flex-row items-center">
-                                    <View className="flex-1">
+                                    <TouchableOpacity
+                                        className="flex-1"
+                                        activeOpacity={0.7}
+                                        onPress={() => router.push({
+                                            pathname: '/communities/[id]/session',
+                                            params: { id: communityId, sid: s.id, title: s.title || 'Planned session', when: formatSessionWhen(s) },
+                                        })}
+                                    >
                                         <Text className="text-white font-semibold">
                                             {s.is_own ? 'You' : s.username}
                                             {s.title ? ` · ${s.title}` : ''}
+                                            {'  ›'}
                                         </Text>
                                         <Text className="text-surface_a50 text-sm mt-0.5">{formatSessionWhen(s)}</Text>
-                                    </View>
+                                    </TouchableOpacity>
                                     {s.checked_in && (
                                         <View className="flex-row items-center">
                                             <AntDesign name="check-circle" size={14} color="#4ade80" />
