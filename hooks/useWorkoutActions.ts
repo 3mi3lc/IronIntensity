@@ -253,6 +253,11 @@ export function useWorkoutActions({
         async (name = workoutNameInput, date = workoutDate) => {
             if (!workout || !user) return false;
 
+            // Whether this workout was already completed before this save. When
+            // true, this is an edit, so we must not celebrate or emit a second
+            // feed/leaderboard activity for the same workout.
+            const wasCompleted = !!workout.completed_at;
+
             try {
                 const success = await handleFinishWorkout(name, date);
 
@@ -278,34 +283,38 @@ export function useWorkoutActions({
                             }, index * 3500);
                         });
 
-                        // Variable reward for the finish moment. Runs after
-                        // achievements so it can defer to them when a badge unlocks.
-                        await maybeShowFinishReward({
-                            userId: user.id,
-                            workoutId: workout.id,
-                            workoutDate: date,
-                            newStreak,
-                            newBadgeCount: newlyUnlocked.length,
-                        });
+                        // Celebration and feed/leaderboard activity only fire on
+                        // the FIRST completion, never on an edit of an already
+                        // completed workout (which would duplicate it).
+                        if (!wasCompleted) {
+                            // Variable reward for the finish moment. Runs after
+                            // achievements so it can defer to them when a badge unlocks.
+                            await maybeShowFinishReward({
+                                userId: user.id,
+                                workoutId: workout.id,
+                                workoutDate: date,
+                                newStreak,
+                                newBadgeCount: newlyUnlocked.length,
+                            });
 
-                        // Queue community feed events for this finish (emitted on
-                        // next sync). Best-effort; never blocks the finish flow.
-                        await queueFinishActivity({
-                            userId: user.id,
-                            workoutId: workout.id,
-                            workoutName: name.trim() || 'Completed Workout',
-                            currentStreak: newStreak,
-                            newBadges: newlyUnlocked.map(a => ({
-                                id: a.id,
-                                title: a.title,
-                                icon: a.icon,
-                            })),
-                        });
+                            // Queue community feed events for this finish (emitted
+                            // on next sync). Best-effort; never blocks the flow.
+                            await queueFinishActivity({
+                                userId: user.id,
+                                workoutId: workout.id,
+                                workoutName: name.trim() || 'Completed Workout',
+                                currentStreak: newStreak,
+                                newBadges: newlyUnlocked.map(a => ({
+                                    id: a.id,
+                                    title: a.title,
+                                    icon: a.icon,
+                                })),
+                            });
+                        }
 
-                        // Push now (when online) so the workout lands in
-                        // community feeds/leaderboards immediately, instead of
-                        // waiting for the next app-open or manual sync. Runs after
-                        // the activity is queued. Fire-and-forget; an offline
+                        // Push now (when online) so the workout (or its edits)
+                        // sync immediately instead of waiting for the next
+                        // app-open or manual sync. Fire-and-forget; an offline
                         // finish still syncs on reconnect.
                         if (!userContext?.isOffline) {
                             pushData().catch(err => logger.error('Post-finish sync failed:', err));
